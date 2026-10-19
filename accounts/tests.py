@@ -1,3 +1,144 @@
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse
+from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
+from django.views import View
 
-# Create your tests here.
+from .decorators import role_required
+from .mixins import RoleRequiredMixin
+from .models import User
+
+UserModel = get_user_model()
+
+
+def _make_user(username, role, is_superuser=False):
+    user = UserModel.objects.create_user(username=username, password="pass12345")
+    user.role = role
+    user.is_superuser = is_superuser
+    user.is_staff = is_superuser
+    user.save()
+    return user
+
+
+class LoginRedirectTests(TestCase):
+    def test_manager_redirected_to_app(self):
+        _make_user("manager1", User.Role.MANAGER)
+        response = self.client.post(
+            reverse("accounts:login"), {"username": "manager1", "password": "pass12345"}
+        )
+        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+
+    def test_superviseur_redirected_to_app(self):
+        _make_user("sup1", User.Role.SUPERVISEUR)
+        response = self.client.post(
+            reverse("accounts:login"), {"username": "sup1", "password": "pass12345"}
+        )
+        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+
+    def test_client_redirected_to_portail(self):
+        _make_user("client1", User.Role.CLIENT)
+        response = self.client.post(
+            reverse("accounts:login"), {"username": "client1", "password": "pass12345"}
+        )
+        self.assertRedirects(response, "/portail/", fetch_redirect_response=False)
+
+    def test_superuser_without_role_redirected_to_app(self):
+        UserModel.objects.create_superuser(username="admin1", password="pass12345", email="")
+        response = self.client.post(
+            reverse("accounts:login"), {"username": "admin1", "password": "pass12345"}
+        )
+        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+
+    def test_logout_redirects_to_login(self):
+        _make_user("manager2", User.Role.MANAGER)
+        self.client.login(username="manager2", password="pass12345")
+        response = self.client.post(reverse("accounts:logout"))
+        self.assertRedirects(response, reverse("accounts:login"))
+
+
+@role_required(User.Role.MANAGER)
+def manager_only_view(request):
+    return HttpResponse("ok")
+
+
+class ManagerOnlyView(RoleRequiredMixin, View):
+    allowed_roles = (User.Role.MANAGER,)
+
+    def get(self, request):
+        return HttpResponse("ok")
+
+
+class RoleRequiredDecoratorTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_anonymous_is_redirected_to_login(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        request = self.factory.get("/fake/")
+        request.user = AnonymousUser()
+        response = manager_only_view(request)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/comptes/connexion/", response.url)
+
+    def test_wrong_role_raises_permission_denied(self):
+        user = _make_user("sup2", User.Role.SUPERVISEUR)
+        request = self.factory.get("/fake/")
+        request.user = user
+        with self.assertRaises(PermissionDenied):
+            manager_only_view(request)
+
+    def test_correct_role_is_allowed(self):
+        user = _make_user("manager3", User.Role.MANAGER)
+        request = self.factory.get("/fake/")
+        request.user = user
+        response = manager_only_view(request)
+        self.assertEqual(response.status_code, 200)
+
+    def test_superuser_bypasses_role_check(self):
+        user = _make_user("admin2", User.Role.CLIENT, is_superuser=True)
+        request = self.factory.get("/fake/")
+        request.user = user
+        response = manager_only_view(request)
+        self.assertEqual(response.status_code, 200)
+
+
+class RoleRequiredMixinTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = ManagerOnlyView.as_view()
+
+    def test_anonymous_is_redirected_to_login(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        request = self.factory.get("/fake/")
+        request.user = AnonymousUser()
+        response = self.view(request)
+        self.assertEqual(response.status_code, 302)
+
+    def test_wrong_role_raises_permission_denied(self):
+        user = _make_user("client2", User.Role.CLIENT)
+        request = self.factory.get("/fake/")
+        request.user = user
+        with self.assertRaises(PermissionDenied):
+            self.view(request)
+
+    def test_correct_role_is_allowed(self):
+        user = _make_user("manager4", User.Role.MANAGER)
+        request = self.factory.get("/fake/")
+        request.user = user
+        response = self.view(request)
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(ROOT_URLCONF="accounts.urls_fixtures")
+class ForbiddenPageTests(TestCase):
+    def test_permission_denied_renders_custom_403(self):
+        _make_user("client3", User.Role.CLIENT)
+        self.client.login(username="client3", password="pass12345")
+
+        response = self.client.get("/fake-manager-only/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "Accès refusé", status_code=403)

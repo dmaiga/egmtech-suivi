@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+    <h1 class="text-xl font-semibold text-gray-900 mb-6">Connexion</h1>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <p class="text-sm text-red-600">{{ form.non_field_errors }}</p>
+        {% endif %}
+        <div>
+            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">Identifiant</label>
+            {{ form.username }}
+        </div>
+        <div>
+            <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">Mot de passe</label>
+            {{ form.password }}
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 text-white rounded-md py-2 font-medium hover:bg-indigo-700">
+            Se connecter
+        </button>
+    </form>
+</div>
+{% endblock %}

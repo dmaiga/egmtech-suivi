@@ -74,6 +74,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'egmtech_suivi_terrain.wsgi.application'
 
+AUTH_USER_MODEL = 'accounts.User'
+
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = '/app/'
+LOGOUT_REDIRECT_URL = 'accounts:login'
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
