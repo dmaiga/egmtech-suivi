@@ -9,6 +9,8 @@ from accounts.mixins import RoleRequiredMixin
 from accounts.models import User
 from core.services import log
 
+from forms_cms.models import FormTemplate
+
 from .forms import ClientForm, ClientUserCreationForm, SiteForm
 from .models import Client, Site
 
@@ -43,6 +45,24 @@ class ClientDetailView(ManagerRequiredMixin, DetailView):
         context["site_form"] = SiteForm()
         context["client_users"] = self.object.users.filter(role=User.Role.CLIENT)
         context["user_form"] = ClientUserCreationForm()
+
+        sites = list(context["sites"])
+        attached_forms = self.object.attached_forms.select_related("template").prefetch_related("expected_visits")
+        attached_forms_data = []
+        for attached_form in attached_forms:
+            previsions = {ev.site_id: ev.nombre_prevu for ev in attached_form.expected_visits.all()}
+            attached_forms_data.append(
+                {
+                    "form": attached_form,
+                    "sites": [(site, previsions.get(site.pk, 0)) for site in sites],
+                }
+            )
+        context["attached_forms_data"] = attached_forms_data
+
+        attached_template_ids = attached_forms.values_list("template_id", flat=True)
+        context["available_templates"] = FormTemplate.objects.filter(actif=True).exclude(
+            pk__in=attached_template_ids
+        )
         return context
 
 

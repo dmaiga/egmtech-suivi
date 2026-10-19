@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Formulaires{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl w-full space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-semibold text-gray-900">Formulaires</h1>
+        <a href="{% url 'forms_cms:import' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+            Importer un formulaire
+        </a>
+    </div>
+
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-200">
+                    <th class="py-2">Nom</th>
+                    <th>Description</th>
+                    <th>Statut</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for template in templates %}
+                <tr class="border-b border-gray-100">
+                    <td class="py-2">{{ template.nom }}</td>
+                    <td>{{ template.description }}</td>
+                    <td>
+                        {% if template.actif %}
+                        <span class="text-green-600">Actif</span>
+                        {% else %}
+                        <span class="text-gray-400">Inactif</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'forms_cms:template-toggle' template.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-indigo-600 hover:underline">
+                                {% if template.actif %}Désactiver{% else %}Réactiver{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="py-2 text-gray-500">Aucun formulaire.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

@@ -74,5 +74,69 @@
             </button>
         </form>
     </section>
+
+    {% if perms.forms_cms.manage_forms %}
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Formulaires attachés</h2>
+            <a href="{% url 'forms_cms:list' %}" class="text-sm text-indigo-600 hover:underline">Gérer les formulaires</a>
+        </div>
+
+        {% for item in attached_forms_data %}
+        <div class="border border-gray-200 rounded-md p-4 mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-medium">
+                    {{ item.form.nom }}
+                    {% if not item.form.actif %}<span class="text-gray-400 text-xs">(désactivé)</span>{% endif %}
+                </span>
+                <form method="post" action="{% url 'forms_cms:attached-toggle' client.pk item.form.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-sm text-indigo-600 hover:underline">
+                        {% if item.form.actif %}Désactiver{% else %}Réactiver{% endif %}
+                    </button>
+                </form>
+            </div>
+            <form method="post" action="{% url 'forms_cms:expected-update' client.pk item.form.pk %}" class="space-y-2">
+                {% csrf_token %}
+                {% for site, nombre_prevu in item.sites %}
+                <div class="flex items-center justify-between text-sm">
+                    <label for="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}">{{ site.nom }}</label>
+                    <input
+                        type="number" min="0"
+                        id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
+                        name="nombre_prevu_{{ site.pk }}"
+                        value="{{ nombre_prevu }}"
+                        class="w-20 border border-gray-300 rounded-md px-2 py-1"
+                    >
+                </div>
+                {% empty %}
+                <p class="text-gray-500">Aucun site pour ce client.</p>
+                {% endfor %}
+                {% if item.sites %}
+                <button type="submit" class="mt-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-indigo-700">
+                    Enregistrer les prévisions
+                </button>
+                {% endif %}
+            </form>
+        </div>
+        {% empty %}
+        <p class="text-gray-500 mb-4">Aucun formulaire attaché.</p>
+        {% endfor %}
+
+        <form method="post" action="{% url 'forms_cms:client-attach' client.pk %}" class="flex items-center gap-3">
+            {% csrf_token %}
+            <select name="template_id" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                {% for template in available_templates %}
+                <option value="{{ template.pk }}">{{ template.nom }}</option>
+                {% empty %}
+                <option value="" disabled>Aucun formulaire disponible</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+                Attacher
+            </button>
+        </form>
+    </section>
+    {% endif %}
 </div>
 {% endblock %}
