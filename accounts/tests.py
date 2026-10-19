@@ -17,6 +17,10 @@ def _make_user(username, role, is_superuser=False):
     user.role = role
     user.is_superuser = is_superuser
     user.is_staff = is_superuser
+    if role == User.Role.CLIENT:
+        from clients.models import Client
+
+        user.client = Client.objects.create(nom=f"Client de {username}")
     user.save()
     return user
 

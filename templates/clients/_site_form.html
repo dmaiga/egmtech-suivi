@@ -1,0 +1,23 @@
+<div id="site-form-container">
+    <form hx-post="{% url 'clients:site-create' client.pk %}" hx-target="#site-form-container" hx-swap="outerHTML"
+          class="flex flex-wrap gap-2 items-end">
+        {% csrf_token %}
+        {{ site_form.code }}
+        {{ site_form.nom }}
+        {{ site_form.ville }}
+        {{ site_form.quartier }}
+        {{ site_form.latitude }}
+        {{ site_form.longitude }}
+        {{ site_form.responsable_local }}
+        <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+            Ajouter un site
+        </button>
+    </form>
+    {% if site_form.errors %}
+    <ul class="text-red-600 text-xs mt-2">
+        {% for field in site_form %}{% for error in field.errors %}
+        <li>{{ field.label }} : {{ error }}</li>
+        {% endfor %}{% endfor %}
+    </ul>
+    {% endif %}
+</div>

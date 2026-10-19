@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Nouveau client{% endblock %}
+
+{% block content %}
+<div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
+    <h1 class="text-xl font-semibold text-gray-900 mb-6">Nouveau client</h1>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="w-full bg-indigo-600 text-white rounded-md py-2 font-medium hover:bg-indigo-700">
+            Créer
+        </button>
+    </form>
+</div>
+{% endblock %}

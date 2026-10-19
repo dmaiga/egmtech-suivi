@@ -1,0 +1,14 @@
+<tr id="site-{{ site.pk }}" {% if oob %}hx-swap-oob="beforeend:#sites-body"{% endif %} class="border-b border-gray-100">
+    <td class="py-2">{{ site.code }}</td>
+    <td>{{ site.nom }}</td>
+    <td>{{ site.ville }}</td>
+    <td>{{ site.quartier }}</td>
+    <td>{{ site.responsable_local }}</td>
+    <td class="text-right whitespace-nowrap">
+        <a href="{% url 'clients:site-update' client.pk site.pk %}" class="text-indigo-600 text-xs hover:underline">Modifier</a>
+        <form method="post" action="{% url 'clients:site-delete' client.pk site.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="text-red-600 text-xs hover:underline ml-2">Supprimer</button>
+        </form>
+    </td>
+</tr>
