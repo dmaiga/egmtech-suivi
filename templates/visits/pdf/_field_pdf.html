@@ -1,0 +1,25 @@
+{% with field=entry.field value=entry.value %}
+<div class="value">
+    <span class="label">{{ field.label }}</span><br>
+    {% if field.type == "multichoice" %}
+        {{ value|join:", "|default:"—" }}
+    {% elif field.type == "checkbox" %}
+        {% if value %}Oui{% else %}Non{% endif %}
+    {% elif field.type == "gps" %}
+        {% if value.lat %}{{ value.lat }}, {{ value.lng }}{% else %}—{% endif %}
+    {% elif field.type == "photo" %}
+        {% if entry.photos %}
+        {% for photo in entry.photos %}
+        <img class="photo" src="{{ photo.image.url }}">
+        <div class="photo-caption">{{ photo.legende }}</div>
+        {% endfor %}
+        {% else %}
+        Aucune photo.
+        {% endif %}
+    {% elif field.type == "signature" %}
+        {% if value %}<img class="signature-img" src="{{ value }}">{% else %}Non renseignée.{% endif %}
+    {% else %}
+        {{ value|default:"—" }}
+    {% endif %}
+</div>
+{% endwith %}

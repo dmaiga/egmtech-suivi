@@ -1,6 +1,10 @@
 import base64
+import os
 import tempfile
+import zipfile
+from io import BytesIO
 
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -357,3 +361,64 @@ class RevueTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.visit.refresh_from_db()
         self.assertEqual(self.visit.statut, Visit.Statut.PUBLIEE)
+
+    def test_publication_et_depublication_ne_touchent_pas_lauteur_de_validation(self):
+        self.client.force_login(self.validateur)
+        self.client.post(reverse("revue:validate", args=[self.visit.pk]))
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.decision_par, self.validateur)
+        valide_le = self.visit.decision_le
+
+        self.client.post(reverse("revue:publish", args=[self.visit.pk]))
+        self.client.post(reverse("revue:unpublish", args=[self.visit.pk]))
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.decision_par, self.validateur)
+        self.assertEqual(self.visit.decision_le, valide_le)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(dir=os.path.join(settings.BASE_DIR, "media")))
+class ManagerPdfExportTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
+        self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
+        self.client_obj, self.site, self.attached = make_client_site_form()
+        self.mission = Mission.objects.create(
+            superviseur=self.sup, site=self.site, attached_form=self.attached, created_by=self.manager
+        )
+        self.visit = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.sup,
+            statut=Visit.Statut.PUBLIEE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+            reponses={"nom_technicien": "Awa"},
+        )
+        self.client.force_login(self.manager)
+
+    def test_pdf_dune_visite_publiee(self):
+        response = self.client.get(reverse("visits:visit-pdf", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_refuse_pour_une_visite_non_publiee(self):
+        self.visit.statut = Visit.Statut.BROUILLON
+        self.visit.save(update_fields=["statut"])
+        response = self.client.get(reverse("visits:visit-pdf", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_export_site(self):
+        response = self.client.get(reverse("visits:site-export", args=[self.client_obj.pk, self.site.pk]))
+        self.assertEqual(response.status_code, 200)
+        archive = zipfile.ZipFile(BytesIO(response.content))
+        self.assertEqual(len(archive.namelist()), 1)
+
+    def test_export_client(self):
+        response = self.client.get(reverse("visits:client-export", args=[self.client_obj.pk]))
+        self.assertEqual(response.status_code, 200)
+        archive = zipfile.ZipFile(BytesIO(response.content))
+        self.assertEqual(len(archive.namelist()), 1)
+
+    def test_superviseur_ne_peut_pas_exporter(self):
+        self.client.force_login(self.sup)
+        response = self.client.get(reverse("visits:client-export", args=[self.client_obj.pk]))
+        self.assertEqual(response.status_code, 403)

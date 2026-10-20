@@ -9,7 +9,12 @@
             <h1 class="text-2xl font-semibold text-gray-900">{{ site.nom }}</h1>
             <p class="text-sm text-gray-500">{{ site.ville }}</p>
         </div>
-        <a href="{% url 'portal:dashboard' %}" class="text-indigo-600 hover:underline text-sm">Retour</a>
+        <div class="text-right">
+            <a href="{% url 'portal:site-export' site.pk %}" class="text-indigo-600 hover:underline text-sm block">
+                Exporter ce site (ZIP)
+            </a>
+            <a href="{% url 'portal:dashboard' %}" class="text-indigo-600 hover:underline text-sm">Retour</a>
+        </div>
     </div>
 
     <section class="bg-white border border-gray-200 rounded-lg p-6">
@@ -32,6 +37,9 @@
                     <td>
                         <a href="{% url 'portal:visit-detail' visit.pk %}" class="text-indigo-600 hover:underline">
                             Voir le détail
+                        </a>
+                        <a href="{% url 'portal:visit-pdf' visit.pk %}" class="text-indigo-600 hover:underline ml-2">
+                            PDF
                         </a>
                     </td>
                 </tr>

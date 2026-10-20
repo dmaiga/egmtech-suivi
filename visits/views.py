@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -17,6 +18,13 @@ from forms_cms.models import AttachedForm
 from .decorators import validate_visits_required
 from .forms import MissionForm
 from .models import Mission, Visit, VisitPhoto
+from .pdf import (
+    build_visits_zip,
+    render_visit_pdf,
+    visit_pdf_filename,
+    zip_filename_for_client,
+    zip_filename_for_site,
+)
 from .schema_utils import (
     SEP,
     build_blank_row,
@@ -357,9 +365,7 @@ def visit_reject(request, pk):
 def visit_publish(request, pk):
     visit = get_object_or_404(Visit, pk=pk, statut__in=[Visit.Statut.VALIDEE, Visit.Statut.DEPUBLIEE])
     visit.statut = Visit.Statut.PUBLIEE
-    visit.decision_par = request.user
-    visit.decision_le = timezone.now()
-    visit.save(update_fields=["statut", "decision_par", "decision_le"])
+    visit.save(update_fields=["statut"])
     log(request.user, "publication_visite", visit, detail={"mission_id": visit.mission_id})
     messages.success(request, "Visite publiée au client.")
     return redirect("revue:list")
@@ -370,9 +376,7 @@ def visit_publish(request, pk):
 def visit_unpublish(request, pk):
     visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
     visit.statut = Visit.Statut.DEPUBLIEE
-    visit.decision_par = request.user
-    visit.decision_le = timezone.now()
-    visit.save(update_fields=["statut", "decision_par", "decision_le"])
+    visit.save(update_fields=["statut"])
     log(request.user, "depublication_visite", visit, detail={"mission_id": visit.mission_id})
     messages.success(request, "Visite dépubliée (toujours en base, masquée côté client).")
     return redirect("revue:list")
@@ -387,3 +391,42 @@ def photo_delete(request, pk):
     visit_pk = photo.visit_id
     photo.delete()
     return redirect("visits:visit-edit", pk=visit_pk)
+
+
+def _pdf_response(content, filename):
+    response = HttpResponse(content, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _zip_response(content, filename):
+    response = HttpResponse(content, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@role_required(User.Role.MANAGER)
+def visit_pdf(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
+    return _pdf_response(render_visit_pdf(visit), visit_pdf_filename(visit))
+
+
+@role_required(User.Role.MANAGER)
+def site_export(request, client_pk, site_pk):
+    site = get_object_or_404(Site, pk=site_pk, client_id=client_pk)
+    visits = Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site=site)
+    log(request.user, "export_pdf_site", site, detail={"client_id": client_pk, "nombre_visites": visits.count()})
+    return _zip_response(build_visits_zip(visits), zip_filename_for_site(site))
+
+
+@role_required(User.Role.MANAGER)
+def client_export(request, client_pk):
+    client_obj = get_object_or_404(Client, pk=client_pk)
+    visits = Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site__client=client_obj)
+    log(
+        request.user,
+        "export_pdf_client",
+        client_obj,
+        detail={"nombre_visites": visits.count()},
+    )
+    return _zip_response(build_visits_zip(visits), zip_filename_for_client(client_obj))

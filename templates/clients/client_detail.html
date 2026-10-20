@@ -11,7 +11,10 @@
                 {% if client.actif %}Actif{% else %}Inactif{% endif %}
             </p>
         </div>
-        <a href="{% url 'clients:list' %}" class="text-indigo-600 hover:underline text-sm">Retour à la liste</a>
+        <div class="text-right">
+            <a href="{% url 'visits:client-export' client.pk %}" class="text-indigo-600 hover:underline text-sm block">Exporter tout (ZIP)</a>
+            <a href="{% url 'clients:list' %}" class="text-indigo-600 hover:underline text-sm">Retour à la liste</a>
+        </div>
     </div>
 
     {% if messages %}

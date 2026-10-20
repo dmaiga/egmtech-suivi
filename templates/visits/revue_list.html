@@ -52,6 +52,7 @@
                     <button type="submit" class="text-sm text-indigo-600 hover:underline">Publier au client</button>
                 </form>
                 {% elif visit.statut == "publiee" %}
+                <a href="{% url 'visits:visit-pdf' visit.pk %}" class="text-sm text-indigo-600 hover:underline">PDF</a>
                 <form method="post" action="{% url 'revue:unpublish' visit.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="text-sm text-gray-600 hover:underline">Dépublier</button>

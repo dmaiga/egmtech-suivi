@@ -1,4 +1,5 @@
 from django.db.models import Count, Max
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from accounts.decorators import role_required
@@ -7,6 +8,13 @@ from clients.models import Site
 from core.services import log
 from forms_cms.models import AttachedForm, ExpectedVisits
 from visits.models import Visit
+from visits.pdf import (
+    build_visits_zip,
+    render_visit_pdf,
+    visit_pdf_filename,
+    zip_filename_for_client,
+    zip_filename_for_site,
+)
 from visits.schema_utils import build_render_model
 
 
@@ -112,3 +120,40 @@ def visit_detail(request, pk):
         "sections": sections,
     }
     return render(request, "portal/visit_detail.html", context)
+
+
+def _pdf_response(content, filename):
+    response = HttpResponse(content, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _zip_response(content, filename):
+    response = HttpResponse(content, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@role_required(User.Role.CLIENT)
+def visit_pdf(request, pk):
+    visit = get_object_or_404(
+        Visit, pk=pk, statut=Visit.Statut.PUBLIEE, mission__site__client=request.user.client
+    )
+    log(request.user, "telechargement_pdf_visite", visit, detail={"mission_id": visit.mission_id})
+    return _pdf_response(render_visit_pdf(visit), visit_pdf_filename(visit))
+
+
+@role_required(User.Role.CLIENT)
+def site_export(request, pk):
+    site = get_object_or_404(Site, pk=pk, client=request.user.client)
+    visits = Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site=site)
+    log(request.user, "export_pdf_site", site, detail={"nombre_visites": visits.count()})
+    return _zip_response(build_visits_zip(visits), zip_filename_for_site(site))
+
+
+@role_required(User.Role.CLIENT)
+def client_export(request):
+    client = request.user.client
+    visits = Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site__client=client)
+    log(request.user, "export_pdf_client", client, detail={"nombre_visites": visits.count()})
+    return _zip_response(build_visits_zip(visits), zip_filename_for_client(client))

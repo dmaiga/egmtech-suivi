@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #111827; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    h2 { font-size: 14px; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 2px; }
+    table.header-table { width: 100%; margin-bottom: 12px; }
+    table.header-table td { vertical-align: top; padding: 2px 8px 2px 0; width: 33%; }
+    .label { color: #6b7280; font-size: 9px; text-transform: uppercase; }
+    .value { font-size: 11px; margin-bottom: 6px; }
+    .row-box { border: 1px solid #d1d5db; padding: 6px; margin-bottom: 6px; }
+    .photo { width: 90px; height: 90px; margin: 4px 4px 0 0; }
+    .photo-caption { font-size: 8px; color: #6b7280; margin-bottom: 4px; }
+    .signature-img { height: 70px; border: 1px solid #d1d5db; }
+    .footer { margin-top: 20px; font-size: 9px; color: #6b7280; border-top: 1px solid #d1d5db; padding-top: 6px; }
+</style>
+</head>
+<body>
+    <h1>{{ mission.attached_form.nom }}</h1>
+    <table class="header-table">
+        <tr>
+            <td><span class="label">Client</span><br>{{ client.nom }}</td>
+            <td><span class="label">Site</span><br>{{ site.nom }}{% if site.ville %} ({{ site.ville }}){% endif %}</td>
+            <td><span class="label">Date de la visite</span><br>{{ visit.date_soumission|date:"d/m/Y H:i" }}</td>
+        </tr>
+        <tr>
+            <td><span class="label">Superviseur</span><br>{{ visit.auteur.username }}</td>
+            <td><span class="label">Statut</span><br>{{ visit.get_statut_display }}</td>
+            <td></td>
+        </tr>
+    </table>
+
+    {% for section in sections %}
+    <h2>{{ section.title }}</h2>
+    {% for entry in section.entries %}
+    {% if entry.kind == "field" %}
+        {% include "visits/pdf/_field_pdf.html" %}
+    {% else %}
+        <div class="value"><span class="label">{{ entry.field.label }}</span></div>
+        {% for row in entry.rows %}
+        <div class="row-box">
+            {% for sub in row.subentries %}
+            {% include "visits/pdf/_field_pdf.html" with entry=sub %}
+            {% endfor %}
+        </div>
+        {% empty %}
+        <p>Aucune ligne.</p>
+        {% endfor %}
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+
+    <h2>Signatures</h2>
+    <table class="header-table">
+        <tr>
+            <td>
+                <span class="label">Superviseur</span><br>
+                {% if visit.signature_superviseur %}
+                <img class="signature-img" src="{{ visit.signature_superviseur.url }}">
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                <span class="label">Responsable de site</span><br>
+                {% if visit.responsable_absent %}
+                Absent — {{ visit.motif_absence_responsable }}
+                {% elif visit.signature_responsable %}
+                <img class="signature-img" src="{{ visit.signature_responsable.url }}">
+                {% else %}—{% endif %}
+            </td>
+            <td></td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        {% if visit.decision_par %}
+        Validé par {{ visit.decision_par.username }} le {{ visit.decision_le|date:"d/m/Y H:i" }}.
+        {% endif %}
+    </div>
+</body>
+</html>

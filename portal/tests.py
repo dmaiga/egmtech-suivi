@@ -1,4 +1,10 @@
-from django.test import TestCase
+import os
+import tempfile
+import zipfile
+from io import BytesIO
+
+from django.conf import settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -24,12 +30,18 @@ def make_client_user(nom="Client A", username="client_a"):
     return client_obj, user
 
 
+_unique_counter = iter(range(1, 100000))
+
+
 def make_mission_and_visit(client_obj, statut, ville="Bamako"):
-    site = Site.objects.create(client=client_obj, code=f"S{client_obj.pk}", nom=f"Site {client_obj.pk}", ville=ville)
+    suffix = next(_unique_counter)
+    site = Site.objects.create(
+        client=client_obj, code=f"S{client_obj.pk}-{suffix}", nom=f"Site {client_obj.pk}-{suffix}", ville=ville
+    )
     template = FormTemplate.objects.create(nom="Rapport", schema=SCHEMA, actif=True)
     attached = AttachedForm.objects.create(client=client_obj, template=template, nom="Rapport", schema=SCHEMA)
-    manager = User.objects.create_user(username=f"mgr{client_obj.pk}", password="x", role=User.Role.MANAGER)
-    sup = User.objects.create_user(username=f"sup{client_obj.pk}", password="x", role=User.Role.SUPERVISEUR)
+    manager = User.objects.create_user(username=f"mgr{suffix}", password="x", role=User.Role.MANAGER)
+    sup = User.objects.create_user(username=f"sup{suffix}", password="x", role=User.Role.SUPERVISEUR)
     mission = Mission.objects.create(superviseur=sup, site=site, attached_form=attached, created_by=manager)
     visit = Visit.objects.create(
         mission=mission,
@@ -144,3 +156,52 @@ class PortalFiltersTests(TestCase):
         for row in response.context["table"]:
             forms = [entry["attached_form"].pk for entry in row["entries"]]
             self.assertEqual(forms, [self.attached1.pk])
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(dir=os.path.join(settings.BASE_DIR, "media")))
+class PortalExportTests(TestCase):
+    def setUp(self):
+        self.client_a, self.user_a = make_client_user("Client A", "client_a")
+        self.client_b, self.user_b = make_client_user("Client B", "client_b")
+        self.site_a, _, _, self.visit_a = make_mission_and_visit(self.client_a, Visit.Statut.PUBLIEE)
+        self.site_b, _, _, self.visit_b = make_mission_and_visit(self.client_b, Visit.Statut.PUBLIEE)
+        # Visite non publiée côté client A : ne doit jamais apparaître dans un export.
+        _, _, _, self.visit_a_brouillon = make_mission_and_visit(self.client_a, Visit.Statut.BROUILLON)
+
+    def test_pdf_dune_visite_publiee(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse("portal:visit-pdf", args=[self.visit_a.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_dune_visite_dun_autre_client_est_introuvable(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse("portal:visit-pdf", args=[self.visit_b.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_export_site_ne_contient_que_les_visites_publiees_du_site(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse("portal:site-export", args=[self.site_a.pk]))
+        self.assertEqual(response.status_code, 200)
+        archive = zipfile.ZipFile(BytesIO(response.content))
+        self.assertEqual(len(archive.namelist()), 1)
+
+    def test_export_site_dun_autre_client_est_introuvable(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse("portal:site-export", args=[self.site_b.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_export_client_ne_contient_que_son_propre_perimetre(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse("portal:client-export"))
+        self.assertEqual(response.status_code, 200)
+        archive = zipfile.ZipFile(BytesIO(response.content))
+        # Une seule visite publiée pour Client A (la visite brouillon est exclue).
+        self.assertEqual(len(archive.namelist()), 1)
+
+        self.client.force_login(self.user_b)
+        response_b = self.client.get(reverse("portal:client-export"))
+        archive_b = zipfile.ZipFile(BytesIO(response_b.content))
+        self.assertEqual(len(archive_b.namelist()), 1)
+        self.assertNotEqual(archive.namelist(), archive_b.namelist())
