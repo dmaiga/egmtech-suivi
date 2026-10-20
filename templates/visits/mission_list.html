@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Missions{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl w-full space-y-6">
+    <h1 class="text-2xl font-semibold text-gray-900">Missions</h1>
+
+    {% if messages %}
+    <ul class="space-y-1">
+        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <table class="w-full text-sm mb-2">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-200">
+                    {% if is_manager_view %}<th class="py-2">Superviseur</th>{% endif %}
+                    <th class="py-2">Client</th>
+                    <th>Site</th>
+                    <th>Formulaire</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mission in missions %}
+                <tr class="border-b border-gray-100">
+                    {% if is_manager_view %}<td class="py-2">{{ mission.superviseur.username }}</td>{% endif %}
+                    <td class="py-2">{{ mission.site.client.nom }}</td>
+                    <td>{{ mission.site.nom }}</td>
+                    <td>{{ mission.attached_form.nom }}</td>
+                    <td>
+                        {% if not is_manager_view %}
+                        <form method="post" action="{% url 'visits:visit-start' mission.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-indigo-600 hover:underline">Commencer / continuer</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="py-2 text-gray-500">Aucune mission.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if is_manager_view %}
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Assigner une nouvelle mission</h2>
+        {% if form.non_field_errors %}
+        <p class="text-sm text-red-600 mb-2">{{ form.non_field_errors }}</p>
+        {% endif %}
+        <form method="post" action="{% url 'visits:mission-create' %}" class="space-y-3 max-w-sm">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Superviseur</label>
+                {{ form.superviseur }}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Client</label>
+                <select hx-get="{% url 'visits:mission-options' %}" hx-target="#mission-options" hx-trigger="change" name="client_id" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    <option value="">—</option>
+                    {% for client in clients %}
+                    <option value="{{ client.pk }}">{{ client.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="mission-options">
+                {% include "visits/_mission_options.html" with sites=form.site.field.queryset.none attached_forms=form.attached_form.field.queryset.none %}
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+                Créer la mission
+            </button>
+        </form>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Visite - {{ mission.attached_form.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl w-full space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900">{{ mission.attached_form.nom }}</h1>
+            <p class="text-sm text-gray-500">{{ mission.site.nom }} — {{ mission.site.client.nom }}</p>
+        </div>
+        <a href="{% url 'visits:mission-list' %}" class="text-indigo-600 hover:underline text-sm">Retour aux missions</a>
+    </div>
+
+    {% if messages %}
+    <ul class="space-y-1">
+        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if errors %}
+    <ul class="bg-red-50 border border-red-200 rounded-md p-4 space-y-1">
+        {% for error in errors %}<li class="text-sm text-red-700">{{ error }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <form id="visit-form" method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
+          data-draft-key="visit-draft-{{ visit.pk }}" data-max-photo-mb="{{ max_photo_size_mb }}">
+        {% csrf_token %}
+        <input type="hidden" name="gps_device_lat" id="gps_device_lat">
+        <input type="hidden" name="gps_device_lng" id="gps_device_lng">
+
+        {% for section in sections %}
+        <section class="bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ section.title }}</h2>
+
+            {% for entry in section.entries %}
+            {% if entry.kind == "field" %}
+            {% include "visits/_field.html" %}
+            {% else %}
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ entry.field.label }}{% if entry.field.required %} *{% endif %}
+                </label>
+                <div id="repeat-rows-{{ entry.field.key }}">
+                    {% for row in entry.rows %}
+                    {% include "visits/_repeat_row.html" with group_key=entry.field.key %}
+                    {% endfor %}
+                </div>
+                <input type="hidden" id="next-index-{{ entry.field.key }}" value="{{ entry.rows|length }}">
+                <button type="button"
+                        hx-get="{% url 'visits:repeat-row-add' visit.pk %}?group={{ entry.field.key }}"
+                        hx-vals='js:{"index": document.getElementById("next-index-{{ entry.field.key }}").value}'
+                        hx-target="#repeat-rows-{{ entry.field.key }}"
+                        hx-swap="beforeend"
+                        hx-on::after-request="document.getElementById('next-index-{{ entry.field.key }}').value = parseInt(document.getElementById('next-index-{{ entry.field.key }}').value) + 1"
+                        class="text-indigo-600 text-sm hover:underline">
+                    Ajouter une ligne
+                </button>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </section>
+        {% endfor %}
+
+        <section class="bg-white border border-gray-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Signatures</h2>
+
+            <div class="mb-4">
+                <p class="text-sm font-medium text-gray-700 mb-1">Signature du superviseur *</p>
+                <canvas class="js-signature-canvas border border-gray-300 rounded-md bg-white" width="320" height="140"
+                        data-target="signature_superviseur_data"></canvas>
+                <input type="hidden" name="signature_superviseur_data" id="signature_superviseur_data">
+                <div>
+                    <button type="button" class="js-signature-clear text-xs text-gray-500 hover:underline" data-target="signature_superviseur_data">
+                        Effacer
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label class="flex items-center gap-2 text-sm mb-2">
+                    <input type="checkbox" name="responsable_absent" id="responsable_absent" {% if visit.responsable_absent %}checked{% endif %}>
+                    Responsable de site absent
+                </label>
+                <div id="responsable-signature-block" {% if visit.responsable_absent %}class="hidden"{% endif %}>
+                    <p class="text-sm font-medium text-gray-700 mb-1">Signature du responsable de site</p>
+                    <canvas class="js-signature-canvas border border-gray-300 rounded-md bg-white" width="320" height="140"
+                            data-target="signature_responsable_data"></canvas>
+                    <input type="hidden" name="signature_responsable_data" id="signature_responsable_data">
+                    <div>
+                        <button type="button" class="js-signature-clear text-xs text-gray-500 hover:underline" data-target="signature_responsable_data">
+                            Effacer
+                        </button>
+                    </div>
+                </div>
+                <div id="responsable-motif-block" {% if not visit.responsable_absent %}class="hidden"{% endif %}>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Motif de l'absence</label>
+                    <input type="text" name="motif_absence_responsable" value="{{ visit.motif_absence_responsable }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+            </div>
+        </section>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" formaction="{% url 'visits:visit-save' visit.pk %}"
+                    class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
+                Enregistrer le brouillon
+            </button>
+            <button type="submit" formaction="{% url 'visits:visit-submit' visit.pk %}"
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+                Soumettre la visite
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:configRequest', function (event) {
+        var name = 'csrftoken';
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var c = cookies[i].trim();
+            if (c.startsWith(name + '=')) {
+                event.detail.headers['X-CSRFToken'] = decodeURIComponent(c.substring(name.length + 1));
+            }
+        }
+    });
+
+    document.getElementById('responsable_absent').addEventListener('change', function () {
+        document.getElementById('responsable-signature-block').classList.toggle('hidden', this.checked);
+        document.getElementById('responsable-motif-block').classList.toggle('hidden', !this.checked);
+    });
+</script>
+<script src="{% static 'visits/geolocation.js' %}"></script>
+<script src="{% static 'visits/signature-pad.js' %}"></script>
+<script src="{% static 'visits/photo-compress.js' %}"></script>
+<script src="{% static 'visits/autosave.js' %}"></script>
+{% endblock %}

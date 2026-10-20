@@ -1,0 +1,15 @@
+{% if row %}
+<div class="repeat-row border border-gray-200 rounded-md p-3 mb-2" id="row-{{ group_key }}-{{ row.index }}">
+    {% for sub in row.subentries %}
+    {% include "visits/_field.html" with entry=sub %}
+    {% endfor %}
+    <input type="hidden" name="{{ group_key }}__indices" value="{{ row.index }}">
+    <button type="button"
+            hx-post="{% url 'visits:repeat-row-remove' %}"
+            hx-target="closest .repeat-row"
+            hx-swap="outerHTML"
+            class="text-red-600 text-xs hover:underline">
+        Retirer la ligne
+    </button>
+</div>
+{% endif %}

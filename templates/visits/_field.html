@@ -1,0 +1,80 @@
+{% with field=entry.field name=entry.name value=entry.value %}
+<div class="mb-3">
+    <label class="block text-sm font-medium text-gray-700 mb-1">
+        {{ field.label }}{% if field.required %} *{% endif %}
+    </label>
+
+    {% if field.type == "text" %}
+    <input type="text" name="{{ name }}" value="{{ value|default:'' }}"
+           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+
+    {% elif field.type == "number" %}
+    <input type="number" name="{{ name }}" value="{{ value|default:'' }}"
+           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+
+    {% elif field.type == "date" %}
+    <input type="date" name="{{ name }}" value="{{ value|default:'' }}"
+           class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+
+    {% elif field.type == "choice" %}
+    <select name="{{ name }}" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+        <option value="">—</option>
+        {% for opt in field.options %}
+        <option value="{{ opt }}" {% if opt == value %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+    </select>
+
+    {% elif field.type == "multichoice" %}
+    <div class="space-y-1">
+        {% for opt in field.options %}
+        <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="{{ name }}" value="{{ opt }}" {% if opt in value %}checked{% endif %}>
+            {{ opt }}
+        </label>
+        {% endfor %}
+    </div>
+
+    {% elif field.type == "checkbox" %}
+    <input type="checkbox" name="{{ name }}" {% if value %}checked{% endif %}>
+
+    {% elif field.type == "gps" %}
+    <div class="flex items-center gap-2">
+        <input type="text" readonly id="{{ name }}__display" class="border border-gray-300 rounded-md px-3 py-2 text-sm w-48 bg-gray-50"
+               value="{% if value.lat %}{{ value.lat }}, {{ value.lng }}{% endif %}">
+        <input type="hidden" name="{{ name }}__lat" id="{{ name }}__lat" value="{{ value.lat|default:'' }}">
+        <input type="hidden" name="{{ name }}__lng" id="{{ name }}__lng" value="{{ value.lng|default:'' }}">
+        <button type="button" class="js-capture-gps text-indigo-600 text-sm hover:underline"
+                data-lat="{{ name }}__lat" data-lng="{{ name }}__lng" data-display="{{ name }}__display">
+            Capter la position
+        </button>
+    </div>
+
+    {% elif field.type == "photo" %}
+    <input type="file" name="{{ name }}" multiple accept="image/*"
+           class="js-photo-compress block text-sm" data-max-photos="{{ field.max_photos }}">
+    {% if entry.photos %}
+    <ul class="mt-2 flex flex-wrap gap-2">
+        {% for photo in entry.photos %}
+        <li class="text-xs text-gray-500 text-center">
+            <img src="{{ photo.image.url }}" alt="{{ photo.legende }}" class="h-16 w-16 object-cover rounded-md border border-gray-200 mb-1">
+            <form method="post" action="{% url 'visits:photo-delete' photo.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="text-red-600 hover:underline">Retirer</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% elif field.type == "signature" %}
+    <canvas class="js-signature-canvas border border-gray-300 rounded-md bg-white" width="320" height="140"
+            data-target="{{ name }}__data"></canvas>
+    <input type="hidden" name="{{ name }}" id="{{ name }}__data" value="{{ value|default:'' }}">
+    <div>
+        <button type="button" class="js-signature-clear text-xs text-gray-500 hover:underline" data-target="{{ name }}__data">
+            Effacer
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endwith %}

@@ -143,6 +143,9 @@ STORAGES = {
     },
 }
 
+# Taille maximale (en octets) d'une photo uploadée lors d'une visite, rejetée au-delà côté serveur.
+VISITS_MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
