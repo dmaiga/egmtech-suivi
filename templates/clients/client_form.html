@@ -3,14 +3,67 @@
 {% block title %}Nouveau client{% endblock %}
 
 {% block content %}
-<div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
-    <h1 class="text-xl font-semibold text-gray-900 mb-6">Nouveau client</h1>
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="w-full bg-indigo-600 text-white rounded-md py-2 font-medium hover:bg-indigo-700">
-            Créer
-        </button>
-    </form>
+<div class="max-w-lg w-full mx-auto">
+    <!-- Bouton retour -->
+    <div class="mb-4">
+        <a href="{% url 'clients:list' %}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-indigo-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Retour à la liste des clients
+        </a>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 sm:p-8">
+        <div class="mb-6 pb-4 border-b border-gray-100">
+            <h1 class="text-xl font-bold text-gray-900 tracking-tight">Nouveau client</h1>
+            <p class="text-xs text-gray-500 mt-1">Créez la fiche d'une entreprise ou organisation pour lui assigner des sites et des formulaires de visite.</p>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label for="{{ form.nom.id_for_label }}" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Nom du client ou entreprise <span class="text-red-500">*</span>
+                </label>
+                {{ form.nom }}
+                {% if form.nom.help_text %}
+                <p class="text-xs text-gray-400 mt-1">{{ form.nom.help_text }}</p>
+                {% endif %}
+                {% if form.nom.errors %}
+                <p class="text-xs text-red-600 mt-1.5 font-medium">{{ form.nom.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="pt-2 border-t border-gray-100">
+                <label class="relative flex items-start gap-3 cursor-pointer select-none">
+                    <div class="flex items-center h-5">
+                        {{ form.actif }}
+                    </div>
+                    <div class="text-xs">
+                        <span class="font-bold text-gray-900 block">Compte client actif</span>
+                        <span class="text-gray-500">Un client actif peut faire l'objet de visites et de rapports terrain.</span>
+                    </div>
+                </label>
+                {% if form.actif.errors %}
+                <p class="text-xs text-red-600 mt-1.5 font-medium">{{ form.actif.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                <a href="{% url 'clients:list' %}" class="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-xs hover:bg-gray-50 transition">
+                    Annuler
+                </a>
+                <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">
+                    Créer le client
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

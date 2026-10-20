@@ -10,6 +10,9 @@ testables indépendamment de la vue. Convention de nommage des champs POST :
   jamais de type "repeat").
 """
 
+import re
+from django.utils.text import slugify
+
 FIELD_TYPE_LABELS = {
     "text": "Texte",
     "number": "Nombre",
@@ -60,22 +63,62 @@ def _parse_simple_field(data, prefix):
     return field
 
 
+def generate_key_from_label(label, existing_keys=None, fallback_prefix="champ"):
+    """Génère un identifiant technique 'key' valide et unique à partir du libellé."""
+    if existing_keys is None:
+        existing_keys = set()
+
+    slug = slugify(label or "", allow_unicode=False).replace("-", "_")
+    slug = re.sub(r"[^a-z0-9_]", "", slug).strip("_")
+    if not slug:
+        slug = fallback_prefix
+
+    slug = slug[:40].rstrip("_") or fallback_prefix
+    candidate = slug
+    counter = 2
+    while candidate in existing_keys:
+        candidate = f"{slug}_{counter}"
+        counter += 1
+
+    existing_keys.add(candidate)
+    return candidate
+
+
 def parse_builder_form(post_data):
-    """Reconstruit l'état complet du formulaire (nom, description, schéma) depuis un POST."""
+    """Reconstruit l'état complet du formulaire (nom, description, schéma) depuis un POST.
+    Si la clé d'un champ est vide ou omise par l'utilisateur, elle est générée automatiquement
+    depuis son libellé en backend."""
 
     section_count = _get_int(post_data, "section_count", 0)
     sections = []
+    seen_keys = set()
     for i in range(section_count):
         title = post_data.get(f"section__{i}__title", "").strip()
         field_count = _get_int(post_data, f"field_count__{i}", 0)
         fields = []
         for j in range(field_count):
             field = _parse_simple_field(post_data, f"field__{i}__{j}")
+            if not field["key"] and field["label"]:
+                field["key"] = generate_key_from_label(
+                    field["label"], seen_keys, fallback_prefix=f"champ_{i + 1}_{j + 1}"
+                )
+            if field["key"]:
+                seen_keys.add(field["key"])
+
             if field["type"] == "repeat":
                 sub_count = _get_int(post_data, f"sub_count__{i}__{j}", 0)
-                field["fields"] = [
-                    _parse_simple_field(post_data, f"subfield__{i}__{j}__{k}") for k in range(sub_count)
-                ]
+                sub_fields = []
+                sub_seen_keys = set()
+                for k in range(sub_count):
+                    sub = _parse_simple_field(post_data, f"subfield__{i}__{j}__{k}")
+                    if not sub["key"] and sub["label"]:
+                        sub["key"] = generate_key_from_label(
+                            sub["label"], sub_seen_keys, fallback_prefix=f"sous_champ_{k + 1}"
+                        )
+                    if sub["key"]:
+                        sub_seen_keys.add(sub["key"])
+                    sub_fields.append(sub)
+                field["fields"] = sub_fields
             fields.append(field)
         sections.append({"title": title, "fields": fields})
 

@@ -33,6 +33,68 @@
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* Styles universels de formulaire pour contrer le reset Tailwind Preflight */
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="date"],
+        input[type="url"],
+        input[type="tel"],
+        select,
+        textarea {
+            border: 1px solid #d1d5db;
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            color: #111827;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            outline: none;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        input[type="url"]:focus,
+        input[type="tel"]:focus,
+        select:focus,
+        textarea:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        /* Amélioration de l'affichage par défaut de Django {{ form.as_p }} */
+        form p {
+            margin-bottom: 1rem;
+        }
+        form p > label {
+            display: block;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.375rem;
+        }
+        form p > input[type="text"],
+        form p > input[type="email"],
+        form p > input[type="password"],
+        form p > input[type="number"],
+        form p > select,
+        form p > textarea {
+            width: 100%;
+        }
+        form p > label:has(input[type="checkbox"]) {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
         /* Indicateur de chargement HTMX */
         .htmx-indicator {
             opacity: 0;

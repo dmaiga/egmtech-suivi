@@ -279,6 +279,28 @@ class BuilderFunctionsTests(TestCase):
             field["fields"], [{"key": "marque", "label": "Marque", "type": "text", "required": True}]
         )
 
+    def test_parse_builder_form_auto_generates_key_from_label_when_omitted(self):
+        post = {
+            "nom": "Formulaire sans clés manuelles",
+            "section_count": "1",
+            "section__0__title": "Mesures",
+            "field_count__0": "3",
+            "field__0__0__key": "",
+            "field__0__0__label": "Tension d'alimentation (V)",
+            "field__0__0__type": "number",
+            "field__0__1__key": "",
+            "field__0__1__label": "Tension d'alimentation (V)",
+            "field__0__1__type": "number",
+            "field__0__2__key": "",
+            "field__0__2__label": "État du coffret",
+            "field__0__2__type": "text",
+        }
+        parsed = parse_builder_form(post)
+        fields = parsed["schema"]["sections"][0]["fields"]
+        self.assertEqual(fields[0]["key"], "tension_dalimentation_v")
+        self.assertEqual(fields[1]["key"], "tension_dalimentation_v_2")
+        self.assertEqual(fields[2]["key"], "etat_du_coffret")
+
     def test_add_section(self):
         schema = {"sections": []}
         apply_action(schema, "add_section")

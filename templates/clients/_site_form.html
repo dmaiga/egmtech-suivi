@@ -1,23 +1,91 @@
-<div id="site-form-container">
+<div id="site-form-container" class="bg-slate-50/70 border border-gray-200 rounded-xl p-4 sm:p-5">
     <form hx-post="{% url 'clients:site-create' client.pk %}" hx-target="#site-form-container" hx-swap="outerHTML"
-          class="flex flex-wrap gap-2 items-end">
+          class="space-y-4">
         {% csrf_token %}
-        {{ site_form.code }}
-        {{ site_form.nom }}
-        {{ site_form.ville }}
-        {{ site_form.quartier }}
-        {{ site_form.latitude }}
-        {{ site_form.longitude }}
-        {{ site_form.responsable_local }}
-        <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-            Ajouter un site
-        </button>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div>
+                <label for="{{ site_form.code.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Code site <span class="text-red-500">*</span>
+                </label>
+                {{ site_form.code }}
+                {% if site_form.code.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.code.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ site_form.nom.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Nom du site <span class="text-red-500">*</span>
+                </label>
+                {{ site_form.nom }}
+                {% if site_form.nom.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.nom.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ site_form.ville.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Ville <span class="text-red-500">*</span>
+                </label>
+                {{ site_form.ville }}
+                {% if site_form.ville.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.ville.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ site_form.quartier.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Quartier / Adresse
+                </label>
+                {{ site_form.quartier }}
+                {% if site_form.quartier.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.quartier.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ site_form.latitude.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Latitude (GPS)
+                </label>
+                {{ site_form.latitude }}
+                {% if site_form.latitude.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.latitude.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ site_form.longitude.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Longitude (GPS)
+                </label>
+                {{ site_form.longitude }}
+                {% if site_form.longitude.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.longitude.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="sm:col-span-2">
+                <label for="{{ site_form.responsable_local.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
+                    Responsable local
+                </label>
+                {{ site_form.responsable_local }}
+                {% if site_form.responsable_local.errors %}
+                <p class="text-[11px] text-red-600 mt-1 font-medium">{{ site_form.responsable_local.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+            <span class="text-[11px] text-gray-500"><span class="text-red-500">*</span> Champs obligatoires</span>
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-xs transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Ajouter ce site
+            </button>
+        </div>
     </form>
-    {% if site_form.errors %}
-    <ul class="text-red-600 text-xs mt-2">
-        {% for field in site_form %}{% for error in field.errors %}
-        <li>{{ field.label }} : {{ error }}</li>
-        {% endfor %}{% endfor %}
-    </ul>
+    {% if site_form.non_field_errors %}
+    <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 mt-3">
+        {{ site_form.non_field_errors }}
+    </div>
     {% endif %}
 </div>
