@@ -205,3 +205,117 @@ class PortalExportTests(TestCase):
         archive_b = zipfile.ZipFile(BytesIO(response_b.content))
         self.assertEqual(len(archive_b.namelist()), 1)
         self.assertNotEqual(archive.namelist(), archive_b.namelist())
+
+
+class PortalSobrietyAndVocabularyTests(TestCase):
+    def setUp(self):
+        self.client_obj, self.user = make_client_user("Banque Atlantique", "user_ba")
+        self.site, self.attached, self.mission, self.visit_publiee = make_mission_and_visit(
+            self.client_obj, Visit.Statut.PUBLIEE, ville="Bamako"
+        )
+        self.visit_publiee.commentaire_rejet = "CONFIDENTIEL: motif de rejet interne rejet_visite"
+        self.visit_publiee.save()
+
+        # Visite brouillon sur le même site
+        self.visit_brouillon = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.mission.superviseur,
+            statut=Visit.Statut.BROUILLON,
+            date_debut=timezone.now(),
+            reponses={"nom": "SecretBrouillon"},
+        )
+        # Visite à corriger sur le même site
+        self.visit_a_corriger = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.mission.superviseur,
+            statut=Visit.Statut.A_CORRIGER,
+            date_debut=timezone.now(),
+            commentaire_rejet="SECRET_REJET_INTERNE_NE_PAS_DIFFUSER",
+            reponses={"nom": "SecretACorriger"},
+        )
+
+        ActivityLog.objects.create(
+            user=self.mission.created_by,
+            action="rejet_visite",
+            object_type="Visit",
+            object_id=str(self.visit_publiee.pk),
+            detail={"commentaire": "HISTORIQUE_INTERNE_ACTION_LOG"},
+        )
+
+    def test_dashboard_sans_vocabulaire_interne_ni_visites_non_publiees(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("portal:dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+        # Les 3 chiffres clés et la barre de progression sont présents
+        self.assertContains(response, "Sites sous contrat")
+        self.assertContains(response, "Visites réalisées")
+        self.assertContains(response, "Visites planifiées")
+        self.assertContains(response, "Progression globale des interventions")
+        self.assertContains(response, "Exporter tout (ZIP)")
+
+        # Les visites non publiées ne doivent pas apparaître dans le HTML
+        self.assertNotContains(response, "SecretBrouillon")
+        self.assertNotContains(response, "SecretACorriger")
+        self.assertNotContains(response, "brouillon")
+        self.assertNotContains(response, "a_corriger")
+        self.assertNotContains(response, "SECRET_REJET_INTERNE_NE_PAS_DIFFUSER")
+        self.assertNotContains(response, "CONFIDENTIEL: motif de rejet")
+
+    def test_site_detail_chronologie_sans_vocabulaire_interne_avec_rappel_a_faire(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("portal:site-detail", args=[self.site.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Fiche site et export ZIP
+        self.assertContains(response, self.site.nom)
+        self.assertContains(response, "Exporter ce site (ZIP)")
+
+        # Rappel de ce qui reste à faire
+        self.assertContains(response, "Rappel des interventions prévues")
+
+        # Chronologie des visites publiées
+        self.assertContains(response, "Chronologie des interventions publiées")
+        self.assertContains(response, "Voir le détail")
+        self.assertContains(response, "PDF")
+
+        # Les visites non publiées et le vocabulaire interne sont absents
+        self.assertNotContains(response, "SecretBrouillon")
+        self.assertNotContains(response, "SecretACorriger")
+        self.assertNotContains(response, "SECRET_REJET_INTERNE_NE_PAS_DIFFUSER")
+        self.assertNotContains(response, "CONFIDENTIEL: motif de rejet")
+        self.assertNotContains(response, "rejet_visite")
+
+    def test_visit_detail_sans_historique_interne_avec_bouton_pdf(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("portal:visit-detail", args=[self.visit_publiee.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Le détail métier s'affiche avec le bouton de téléchargement PDF
+        self.assertContains(response, "Awa")
+        self.assertContains(response, "Télécharger le PDF")
+
+        # Aucun historique interne ni motif de rejet ne doit fuiter
+        self.assertNotContains(response, "Historique interne")
+        self.assertNotContains(response, "Dernier motif de rejet")
+        self.assertNotContains(response, "CONFIDENTIEL: motif de rejet interne")
+        self.assertNotContains(response, "HISTORIQUE_INTERNE_ACTION_LOG")
+        self.assertNotContains(response, "rejet_visite")
+
+    def test_recherche_par_nom_et_code_site(self):
+        site2 = Site.objects.create(
+            client=self.client_obj, code="SG-SPECIAL-CODE", nom="Agence Spéciale", ville="Sikasso"
+        )
+        self.client.force_login(self.user)
+
+        # Recherche par code
+        response_code = self.client.get(reverse("portal:dashboard"), {"q": "SPECIAL-CODE"})
+        self.assertEqual(response_code.status_code, 200)
+        self.assertContains(response_code, "Agence Spéciale")
+        self.assertNotContains(response_code, self.site.nom)
+
+        # Recherche par nom
+        response_nom = self.client.get(reverse("portal:dashboard"), {"q": "Spéciale"})
+        self.assertEqual(response_nom.status_code, 200)
+        self.assertContains(response_nom, "Agence Spéciale")
+        self.assertNotContains(response_nom, self.site.nom)

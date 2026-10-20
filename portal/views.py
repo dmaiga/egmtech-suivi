@@ -1,4 +1,4 @@
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
@@ -24,10 +24,13 @@ def dashboard(request):
 
     ville = request.GET.get("ville", "")
     form_id = request.GET.get("formulaire", "")
+    q = request.GET.get("q", "").strip()
 
     sites = Site.objects.filter(client=client).order_by("nom")
     forms = AttachedForm.objects.filter(client=client).order_by("nom")
 
+    if q:
+        sites = sites.filter(Q(nom__icontains=q) | Q(code__icontains=q))
     if ville:
         sites = sites.filter(ville=ville)
     if form_id:
@@ -51,17 +54,45 @@ def dashboard(request):
     forms_list = list(forms)
 
     table = []
+    total_faites = 0
+    total_prevues = 0
+
     for site in sites_list:
         entries = []
         for attached_form in forms_list:
             key = (site.pk, attached_form.pk)
             stats = stats_map.get(key)
+            prevu = expected_map.get(key, 0)
+            fait = stats["fait"] if stats else 0
+            dernier_passage = stats["dernier_passage"] if stats else None
+
+            total_faites += fait
+            total_prevues += prevu
+
+            if prevu > 0:
+                pourcentage = min(100, int(round((fait / prevu) * 100)))
+            else:
+                pourcentage = 100 if fait > 0 else 0
+
+            if fait >= prevu and prevu > 0:
+                statut_key = "complet"
+                statut_label = "Complet"
+            elif fait > 0:
+                statut_key = "en_cours"
+                statut_label = "En cours"
+            else:
+                statut_key = "non_visite"
+                statut_label = "Pas encore visité"
+
             entries.append(
                 {
                     "attached_form": attached_form,
-                    "prevu": expected_map.get(key, 0),
-                    "fait": stats["fait"] if stats else 0,
-                    "dernier_passage": stats["dernier_passage"] if stats else None,
+                    "prevu": prevu,
+                    "fait": fait,
+                    "pourcentage": pourcentage,
+                    "statut": statut_key,
+                    "statut_label": statut_label,
+                    "dernier_passage": dernier_passage,
                 }
             )
         table.append({"site": site, "entries": entries})
@@ -75,12 +106,23 @@ def dashboard(request):
     )
     all_forms = AttachedForm.objects.filter(client=client).order_by("nom")
 
+    progression_globale = (
+        min(100, int(round((total_faites / total_prevues) * 100)))
+        if total_prevues > 0
+        else (100 if total_faites > 0 else 0)
+    )
+
     context = {
         "table": table,
         "villes": villes,
         "all_forms": all_forms,
         "selected_ville": ville,
         "selected_formulaire": form_id,
+        "search_query": q,
+        "total_sites": len(sites_list),
+        "total_visites_faites": total_faites,
+        "total_visites_prevues": total_prevues,
+        "progression_globale": progression_globale,
     }
     return render(request, "portal/dashboard.html", context)
 
@@ -93,7 +135,58 @@ def site_detail(request, pk):
         .select_related("mission", "mission__attached_form", "auteur")
         .order_by("-date_soumission")
     )
-    return render(request, "portal/site_detail.html", {"site": site, "visits": visits})
+
+    attached_forms = AttachedForm.objects.filter(client=site.client, actif=True).order_by("nom")
+    expected_map = {
+        ev.attached_form_id: ev.nombre_prevu
+        for ev in ExpectedVisits.objects.filter(site=site)
+    }
+    stats_map = {
+        row["mission__attached_form_id"]: row["total"]
+        for row in Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site=site)
+        .values("mission__attached_form_id")
+        .annotate(total=Count("id"))
+    }
+
+    previsions = []
+    total_reste = 0
+    for af in attached_forms:
+        prevu = expected_map.get(af.pk, 0)
+        fait = stats_map.get(af.pk, 0)
+        reste = max(0, prevu - fait)
+        total_reste += reste
+        if prevu > 0:
+            pourcentage = min(100, int(round(fait / prevu * 100)))
+        else:
+            pourcentage = 100 if fait > 0 else 0
+
+        if fait >= prevu and prevu > 0:
+            statut_key = "complet"
+            statut_label = "Complet"
+        elif fait > 0:
+            statut_key = "en_cours"
+            statut_label = "En cours"
+        else:
+            statut_key = "non_visite"
+            statut_label = "Pas encore visité"
+
+        previsions.append({
+            "attached_form": af,
+            "prevu": prevu,
+            "fait": fait,
+            "reste": reste,
+            "pourcentage": pourcentage,
+            "statut": statut_key,
+            "statut_label": statut_label,
+        })
+
+    context = {
+        "site": site,
+        "visits": visits,
+        "previsions": previsions,
+        "total_reste": total_reste,
+    }
+    return render(request, "portal/site_detail.html", context)
 
 
 @role_required(User.Role.CLIENT)

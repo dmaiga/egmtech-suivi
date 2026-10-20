@@ -1,53 +1,202 @@
 {% extends "base.html" %}
 
-{% block title %}{{ site.nom }}{% endblock %}
+{% block title %}{{ site.nom }} — Fiche site{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl w-full space-y-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-8">
+    <!-- Fil d'Ariane & Navigation -->
+    <nav class="flex text-xs text-gray-500" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-2">
+            <li>
+                <a href="{% url 'portal:dashboard' %}" class="hover:text-indigo-600 font-medium transition flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Avancement des sites
+                </a>
+            </li>
+            <li>
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                </svg>
+            </li>
+            <li class="text-gray-900 font-semibold">{{ site.nom }}</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête de la fiche site -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold text-gray-900">{{ site.nom }}</h1>
-            <p class="text-sm text-gray-500">{{ site.ville }}</p>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                    {{ site.code }}
+                </span>
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                    {{ site.client.nom }}
+                </span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight mt-1.5">{{ site.nom }}</h1>
+            <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-2">
+                {% if site.ville %}
+                <span class="flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    {{ site.ville }}{% if site.quartier %}, {{ site.quartier }}{% endif %}
+                </span>
+                {% endif %}
+                {% if site.responsable_local %}
+                <span class="text-gray-300">•</span>
+                <span>Responsable local : <strong class="text-gray-700">{{ site.responsable_local }}</strong></span>
+                {% endif %}
+            </div>
         </div>
-        <div class="text-right">
-            <a href="{% url 'portal:site-export' site.pk %}" class="text-indigo-600 hover:underline text-sm block">
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'portal:site-export' site.pk %}"
+               class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition shadow-indigo-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
                 Exporter ce site (ZIP)
             </a>
-            <a href="{% url 'portal:dashboard' %}" class="text-indigo-600 hover:underline text-sm">Retour</a>
         </div>
     </div>
 
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Historique des visites</h2>
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-200">
-                    <th class="py-2">Date</th>
-                    <th>Formulaire</th>
-                    <th>Superviseur</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for visit in visits %}
-                <tr class="border-b border-gray-100">
-                    <td class="py-2">{{ visit.date_soumission }}</td>
-                    <td>{{ visit.mission.attached_form.nom }}</td>
-                    <td>{{ visit.auteur.username }}</td>
-                    <td>
-                        <a href="{% url 'portal:visit-detail' visit.pk %}" class="text-indigo-600 hover:underline">
-                            Voir le détail
-                        </a>
-                        <a href="{% url 'portal:visit-pdf' visit.pk %}" class="text-indigo-600 hover:underline ml-2">
-                            PDF
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="4" class="py-2 text-gray-500">Aucune visite publiée pour ce site.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- 1. Rappel de ce qui reste à faire -->
+    <section class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div>
+                <h2 class="text-base font-bold text-gray-900 tracking-tight">Rappel des interventions prévues</h2>
+                <p class="text-xs text-gray-500 mt-0.5">État des visites réalisées et interventions restantes sur ce site.</p>
+            </div>
+            {% if total_reste == 0 and previsions %}
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                Toutes les visites sont effectuées
+            </span>
+            {% endif %}
+        </div>
+
+        {% if total_reste == 0 and previsions %}
+        <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 text-sm text-emerald-900 flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                &check;
+            </div>
+            <div>
+                <strong class="font-bold block">Toutes les visites prévues sont à jour.</strong>
+                <p class="text-xs text-emerald-800 mt-0.5">Les rapports associés ont été certifiés et sont disponibles au téléchargement ci-dessous.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+            {% for item in previsions %}
+            <div class="bg-gray-50/80 border border-gray-200 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-semibold text-gray-500 uppercase">Formulaire</span>
+                        {% if item.statut == "complet" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                            Complet
+                        </span>
+                        {% elif item.statut == "en_cours" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">
+                            En cours
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-200 text-gray-700">
+                            Pas encore visité
+                        </span>
+                        {% endif %}
+                    </div>
+                    <h3 class="text-sm font-bold text-gray-900">{{ item.attached_form.nom }}</h3>
+                </div>
+
+                <div class="space-y-1.5 pt-2 border-t border-gray-200/60 text-xs">
+                    <div class="flex items-center justify-between font-semibold text-gray-700">
+                        <span>Réalisé : {{ item.fait }} / {{ item.prevu }}</span>
+                        <span>{{ item.pourcentage }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div class="{% if item.statut == 'complet' %}bg-emerald-500{% elif item.statut == 'en_cours' %}bg-blue-600{% else %}bg-gray-400{% endif %} h-2 rounded-full" style="width: {{ item.pourcentage }}%;"></div>
+                    </div>
+                    <div class="pt-1 text-[11px] font-medium text-gray-500">
+                        {% if item.reste > 0 %}
+                        <span class="text-amber-700 font-semibold">{{ item.reste }} intervention{{ item.reste|pluralize }} restante{{ item.reste|pluralize }}</span>
+                        {% else %}
+                        <span class="text-emerald-700 font-semibold">Objectif atteint</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-xs text-gray-400 italic">Aucune prévision configurée pour ce site.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- 2. Chronologie verticale des visites publiées -->
+    <section class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-6">
+        <div class="border-b border-gray-100 pb-3">
+            <h2 class="text-base font-bold text-gray-900 tracking-tight">Chronologie des interventions publiées</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Historique certifié des visites réalisées sur ce site.</p>
+        </div>
+
+        {% if visits %}
+        <div class="relative border-l-2 border-indigo-200 ml-4 pl-6 space-y-6 pb-2">
+            {% for visit in visits %}
+            <div class="relative group">
+                <!-- Puce de la chronologie -->
+                <span class="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-indigo-600 ring-4 ring-indigo-50 group-hover:scale-110 transition"></span>
+
+                <!-- Carte d'intervention -->
+                <div class="bg-gray-50/70 border border-gray-200 rounded-xl p-4 sm:p-5 hover:bg-white hover:shadow-sm transition space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200/60 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-gray-900">
+                                {{ visit.date_soumission|date:"d F Y à H:i" }}
+                            </span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                &check; Publiée
+                            </span>
+                        </div>
+                        <span class="text-xs text-gray-500">
+                            Superviseur : <strong class="text-gray-800">{{ visit.auteur.get_full_name|default:visit.auteur.username }}</strong>
+                        </span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <span class="text-xs text-gray-400 font-semibold uppercase">Compte-rendu</span>
+                            <h3 class="text-base font-bold text-gray-900">{{ visit.mission.attached_form.nom }}</h3>
+                            {% if visit.photos.count %}
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ visit.photos.count }} photo{{ visit.photos.count|pluralize }} jointe{{ visit.photos.count|pluralize }}
+                            </p>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1 sm:pt-0">
+                            <a href="{% url 'portal:visit-detail' visit.pk %}"
+                               class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                Voir le détail
+                            </a>
+                            <a href="{% url 'portal:visit-pdf' visit.pk %}"
+                               class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg transition shadow-2xs">
+                                <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-10 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 text-gray-400 space-y-1">
+            <svg class="mx-auto w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p class="text-sm font-medium text-gray-600">Aucune visite publiée pour ce site pour l'instant.</p>
+            <p class="text-xs text-gray-400">Les comptes-rendus certifiés apparaîtront ici dès leur publication.</p>
+        </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}
