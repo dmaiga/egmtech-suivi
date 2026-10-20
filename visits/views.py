@@ -14,6 +14,7 @@ from clients.models import Client, Site
 from core.services import log
 from forms_cms.models import AttachedForm
 
+from .decorators import validate_visits_required
 from .forms import MissionForm
 from .models import Mission, Visit, VisitPhoto
 from .schema_utils import (
@@ -121,6 +122,7 @@ def _visit_edit_context(visit, errors=None):
         "sections": sections,
         "max_photo_size_mb": settings.VISITS_MAX_PHOTO_SIZE_BYTES // (1024 * 1024),
         "errors": errors or [],
+        "locked": not visit.peut_etre_modifiee(),
     }
 
 
@@ -296,6 +298,84 @@ def repeat_row_add(request, pk):
 @require_POST
 def repeat_row_remove(request):
     return render(request, "visits/_empty.html")
+
+
+@validate_visits_required
+def revue_list(request):
+    visits = Visit.objects.filter(
+        statut__in=[
+            Visit.Statut.SOUMISE,
+            Visit.Statut.VALIDEE,
+            Visit.Statut.PUBLIEE,
+            Visit.Statut.DEPUBLIEE,
+        ]
+    ).select_related("mission", "mission__site", "mission__site__client", "mission__attached_form", "auteur")
+    return render(request, "visits/revue_list.html", {"visits": visits})
+
+
+@validate_visits_required
+@require_POST
+def visit_validate(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.SOUMISE)
+    if visit.auteur_id == request.user.id:
+        raise PermissionDenied("Un validateur ne peut pas valider sa propre visite.")
+
+    visit.statut = Visit.Statut.VALIDEE
+    visit.decision_par = request.user
+    visit.decision_le = timezone.now()
+    visit.commentaire_rejet = ""
+    visit.save(update_fields=["statut", "decision_par", "decision_le", "commentaire_rejet"])
+    log(request.user, "validation_visite", visit, detail={"mission_id": visit.mission_id})
+    messages.success(request, "Visite validée.")
+    return redirect("revue:list")
+
+
+@validate_visits_required
+@require_POST
+def visit_reject(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.SOUMISE)
+    if visit.auteur_id == request.user.id:
+        raise PermissionDenied("Un validateur ne peut pas rejeter sa propre visite.")
+
+    commentaire = request.POST.get("commentaire", "").strip()
+    if not commentaire:
+        messages.error(request, "Un commentaire est obligatoire pour rejeter une visite.")
+        return redirect("revue:list")
+
+    visit.statut = Visit.Statut.A_CORRIGER
+    visit.decision_par = request.user
+    visit.decision_le = timezone.now()
+    visit.commentaire_rejet = commentaire
+    visit.save(update_fields=["statut", "decision_par", "decision_le", "commentaire_rejet"])
+    log(request.user, "rejet_visite", visit, detail={"mission_id": visit.mission_id, "commentaire": commentaire})
+    messages.success(request, "Visite renvoyée pour correction.")
+    return redirect("revue:list")
+
+
+@validate_visits_required
+@require_POST
+def visit_publish(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, statut__in=[Visit.Statut.VALIDEE, Visit.Statut.DEPUBLIEE])
+    visit.statut = Visit.Statut.PUBLIEE
+    visit.decision_par = request.user
+    visit.decision_le = timezone.now()
+    visit.save(update_fields=["statut", "decision_par", "decision_le"])
+    log(request.user, "publication_visite", visit, detail={"mission_id": visit.mission_id})
+    messages.success(request, "Visite publiée au client.")
+    return redirect("revue:list")
+
+
+@validate_visits_required
+@require_POST
+def visit_unpublish(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
+    visit.statut = Visit.Statut.DEPUBLIEE
+    visit.decision_par = request.user
+    visit.decision_le = timezone.now()
+    visit.save(update_fields=["statut", "decision_par", "decision_le"])
+    log(request.user, "depublication_visite", visit, detail={"mission_id": visit.mission_id})
+    messages.success(request, "Visite dépubliée (toujours en base, masquée côté client).")
+    return redirect("revue:list")
 
 
 @role_required(User.Role.SUPERVISEUR)

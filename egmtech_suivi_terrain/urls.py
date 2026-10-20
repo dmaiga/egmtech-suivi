@@ -23,4 +23,5 @@ urlpatterns = [
     path('app/clients/', include('clients.urls')),
     path('app/formulaires/', include('forms_cms.urls')),
     path('app/missions/', include('visits.urls')),
+    path('app/revue/', include('visits.urls_revue')),
 ]

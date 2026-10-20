@@ -62,8 +62,22 @@ class Visit(models.Model):
     responsable_absent = models.BooleanField(default=False)
     motif_absence_responsable = models.CharField(max_length=255, blank=True)
 
+    commentaire_rejet = models.TextField(blank=True)
+    decision_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decisions_visites",
+        help_text="Auteur de la dernière décision de revue (validation, rejet, publication...).",
+    )
+    decision_le = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-date_debut"]
+        permissions = [
+            ("validate_visits", "Peut valider les visites"),
+        ]
 
     def __str__(self):
         return f"Visite {self.pk} - {self.mission} ({self.get_statut_display()})"

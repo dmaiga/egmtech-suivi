@@ -4,7 +4,12 @@
 
 {% block content %}
 <div class="max-w-4xl w-full space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">Missions</h1>
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-semibold text-gray-900">Missions</h1>
+        {% if perms.visits.validate_visits %}
+        <a href="{% url 'revue:list' %}" class="text-sm text-indigo-600 hover:underline">Revue des visites</a>
+        {% endif %}
+    </div>
 
     {% if messages %}
     <ul class="space-y-1">

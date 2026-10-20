@@ -25,6 +25,17 @@
     </ul>
     {% endif %}
 
+    {% if locked %}
+    <p class="bg-gray-50 border border-gray-200 rounded-md p-4 text-sm text-gray-600">
+        Cette visite est en lecture seule ({{ visit.get_statut_display }}).
+        {% if visit.decision_par %}Décision de {{ visit.decision_par.username }} le {{ visit.decision_le }}.{% endif %}
+    </p>
+    {% elif visit.commentaire_rejet %}
+    <p class="bg-amber-50 border border-amber-200 rounded-md p-4 text-sm text-amber-700">
+        Renvoyée pour correction : {{ visit.commentaire_rejet }}
+    </p>
+    {% endif %}
+
     <form id="visit-form" method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
           data-draft-key="visit-draft-{{ visit.pk }}" data-max-photo-mb="{{ max_photo_size_mb }}">
         {% csrf_token %}
@@ -103,6 +114,7 @@
             </div>
         </section>
 
+        {% if not locked %}
         <div class="flex items-center gap-3">
             <button type="submit" formaction="{% url 'visits:visit-save' visit.pk %}"
                     class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
@@ -113,6 +125,7 @@
                 Soumettre la visite
             </button>
         </div>
+        {% endif %}
     </form>
 </div>
 

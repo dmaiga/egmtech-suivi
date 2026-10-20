@@ -1,12 +1,15 @@
 import base64
 import tempfile
 
+from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import User
 from clients.models import Client, Site
+from core.models import ActivityLog
 from forms_cms.models import AttachedForm, FormTemplate
 
 from .models import Mission, Visit, VisitPhoto
@@ -206,3 +209,151 @@ class PhotoSizeLimitTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(VisitPhoto.objects.count(), 2)
+
+
+class RevueTests(TestCase):
+    def setUp(self):
+        self.permission = Permission.objects.get(codename="validate_visits")
+
+        self.manager_sans_droit = User.objects.create_user(
+            username="manager1", password="x", role=User.Role.MANAGER
+        )
+        self.validateur = User.objects.create_user(username="manager2", password="x", role=User.Role.MANAGER)
+        self.validateur.user_permissions.add(self.permission)
+
+        self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
+        _, self.site, self.attached = make_client_site_form()
+        self.mission = Mission.objects.create(
+            superviseur=self.sup, site=self.site, attached_form=self.attached, created_by=self.validateur
+        )
+        self.visit = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.sup,
+            statut=Visit.Statut.SOUMISE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+            reponses={"nom_technicien": "Awa"},
+        )
+
+    def test_sans_permission_la_revue_est_refusee(self):
+        self.client.force_login(self.manager_sans_droit)
+        response = self.client.get(reverse("revue:list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_avec_permission_la_liste_affiche_la_visite(self):
+        self.client.force_login(self.validateur)
+        response = self.client.get(reverse("revue:list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.visit, response.context["visits"])
+
+    def test_auto_validation_refusee(self):
+        self.sup.user_permissions.add(self.permission)
+        self.client.force_login(self.sup)
+        response = self.client.post(reverse("revue:validate", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.SOUMISE)
+
+    def test_auto_rejet_refuse(self):
+        self.sup.user_permissions.add(self.permission)
+        self.client.force_login(self.sup)
+        response = self.client.post(
+            reverse("revue:reject", args=[self.visit.pk]), {"commentaire": "à revoir"}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.SOUMISE)
+
+    def test_validation_par_un_autre_utilisateur(self):
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:validate", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.VALIDEE)
+        self.assertEqual(self.visit.decision_par, self.validateur)
+        self.assertIsNotNone(self.visit.decision_le)
+        self.assertTrue(ActivityLog.objects.filter(action="validation_visite").exists())
+
+    def test_rejet_sans_commentaire_est_refuse(self):
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:reject", args=[self.visit.pk]), {"commentaire": "  "})
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.SOUMISE)
+        self.assertFalse(ActivityLog.objects.filter(action="rejet_visite").exists())
+
+    def test_rejet_avec_commentaire_renvoie_a_corriger(self):
+        self.client.force_login(self.validateur)
+        response = self.client.post(
+            reverse("revue:reject", args=[self.visit.pk]), {"commentaire": "Photo manquante"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.A_CORRIGER)
+        self.assertEqual(self.visit.commentaire_rejet, "Photo manquante")
+        self.assertTrue(ActivityLog.objects.filter(action="rejet_visite").exists())
+
+    def test_superviseur_peut_reprendre_une_visite_a_corriger(self):
+        self.visit.statut = Visit.Statut.A_CORRIGER
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.sup)
+        self.client.get(reverse("visits:visit-start", args=[self.mission.pk]))
+
+        self.assertEqual(Visit.objects.filter(mission=self.mission).count(), 1)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.reponses, {"nom_technicien": "Awa"})
+
+    def test_impossible_de_valider_une_visite_non_soumise(self):
+        self.visit.statut = Visit.Statut.BROUILLON
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:validate", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_visite_verrouillee_apres_validation(self):
+        self.visit.statut = Visit.Statut.VALIDEE
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.sup)
+        response = self.client.post(
+            reverse("visits:visit-save", args=[self.visit.pk]), {"observations": "modif interdite"}
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("visits:visit-edit", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["locked"])
+
+    def test_publication_depuis_validee(self):
+        self.visit.statut = Visit.Statut.VALIDEE
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:publish", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.PUBLIEE)
+
+    def test_depublication_garde_la_visite_en_base(self):
+        self.visit.statut = Visit.Statut.PUBLIEE
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:unpublish", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.DEPUBLIEE)
+        self.assertTrue(Visit.objects.filter(pk=self.visit.pk).exists())
+        self.assertTrue(ActivityLog.objects.filter(action="depublication_visite").exists())
+
+    def test_republication_depuis_depubliee(self):
+        self.visit.statut = Visit.Statut.DEPUBLIEE
+        self.visit.save(update_fields=["statut"])
+
+        self.client.force_login(self.validateur)
+        response = self.client.post(reverse("revue:publish", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.statut, Visit.Statut.PUBLIEE)
