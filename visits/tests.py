@@ -92,6 +92,11 @@ class MissionCreationTests(TestCase):
         self.client_obj, self.site, self.attached = make_client_site_form()
         self.client.force_login(self.manager)
 
+    def test_get_page_dediee_creation_mission(self):
+        response = self.client.get(reverse("visits:mission-create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "visits/mission_form.html")
+
     def test_creation_mission_valide(self):
         response = self.client.post(
             reverse("visits:mission-create"),

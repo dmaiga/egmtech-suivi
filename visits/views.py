@@ -152,48 +152,52 @@ def mission_list(request):
 
 
 @role_required(User.Role.MANAGER)
-@require_POST
 def mission_create(request):
-    form = MissionForm(request.POST)
-    if form.is_valid():
-        mission = form.save(commit=False)
-        mission.created_by = request.user
-        mission.save()
-        log(
-            request.user,
-            "creation_mission",
-            mission,
-            detail={"superviseur_id": mission.superviseur_id, "site_id": mission.site_id},
-        )
-        messages.success(request, "Mission créée avec succès.")
-        return redirect("visits:mission-list")
+    if request.method == "POST":
+        form = MissionForm(request.POST)
+        if form.is_valid():
+            mission = form.save(commit=False)
+            mission.created_by = request.user
+            mission.save()
+            log(
+                request.user,
+                "creation_mission",
+                mission,
+                detail={"superviseur_id": mission.superviseur_id, "site_id": mission.site_id},
+            )
+            messages.success(request, "Mission créée avec succès.")
+            return redirect("visits:mission-list")
+        status_code = 400
+    else:
+        form = MissionForm()
+        status_code = 200
 
-    missions_qs = Mission.objects.select_related(
-        "superviseur", "site", "site__client", "attached_form"
-    ).prefetch_related(
-        Prefetch("visits", queryset=Visit.objects.order_by("-date_debut", "-id"), to_attr="ordered_visits")
-    )
-    paginator = Paginator(missions_qs, 10)
-    page_obj = paginator.get_page(1)
-    for m in page_obj.object_list:
-        m.latest_visit = m.ordered_visits[0] if getattr(m, "ordered_visits", None) else None
+    selected_client_id = request.POST.get("client_id") if request.method == "POST" else None
+    if selected_client_id:
+        sites = Site.objects.filter(client_id=selected_client_id)
+        attached_forms = AttachedForm.objects.filter(client_id=selected_client_id, actif=True)
+    elif form.is_bound and form.data.get("site"):
+        site_obj = Site.objects.filter(pk=form.data.get("site")).first()
+        if site_obj:
+            selected_client_id = str(site_obj.client_id)
+            sites = Site.objects.filter(client_id=site_obj.client_id)
+            attached_forms = AttachedForm.objects.filter(client_id=site_obj.client_id, actif=True)
+        else:
+            sites = Site.objects.none()
+            attached_forms = AttachedForm.objects.none()
+    else:
+        sites = Site.objects.none()
+        attached_forms = AttachedForm.objects.none()
 
     context = {
-        "missions": page_obj,
-        "page_obj": page_obj,
-        "is_manager_view": True,
         "form": form,
-        "clients": Client.objects.filter(actif=True),
-        "clients_filter": Client.objects.filter(actif=True),
-        "sites_filter": Site.objects.all(),
         "superviseurs": User.objects.filter(role=User.Role.SUPERVISEUR, is_active=True),
-        "statut_choices": Visit.Statut.choices,
-        "filter_superviseur": "",
-        "filter_client": "",
-        "filter_site": "",
-        "filter_statut": "",
+        "clients": Client.objects.filter(actif=True),
+        "selected_client_id": selected_client_id,
+        "sites": sites,
+        "attached_forms": attached_forms,
     }
-    return render(request, "visits/mission_list.html", context, status=400)
+    return render(request, "visits/mission_form.html", context, status=status_code)
 
 
 @role_required(User.Role.MANAGER)

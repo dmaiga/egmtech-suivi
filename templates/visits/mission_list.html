@@ -18,18 +18,24 @@
                 {% endif %}
             </p>
         </div>
-        {% if not is_manager_view %}
-        <div class="flex items-center gap-3">
-            <a href="{% url 'my-visits' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 shadow-xs transition">
-                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Voir mon historique
+        {% if is_manager_view %}
+        <div class="flex items-center gap-2.5 flex-wrap">
+            {% if perms.visits.validate_visits %}
+            <a href="{% url 'revue:list' %}" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-xs hover:bg-gray-50 transition">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Revue des visites
+            </a>
+            {% endif %}
+            <a href="{% url 'visits:mission-create' %}" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                Assigner une mission
             </a>
         </div>
-        {% elif perms.visits.validate_visits %}
+        {% else %}
         <div class="flex items-center gap-3">
-            <a href="{% url 'revue:list' %}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Revue des visites
+            <a href="{% url 'my-visits' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 shadow-xs transition">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Voir mon historique
             </a>
         </div>
         {% endif %}
@@ -251,70 +257,6 @@
             </div>
         </div>
         {% endif %}
-    </section>
-
-    <!-- Formulaire d'assignation d'une mission (manager) -->
-    <section class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <div class="border-b border-gray-100 pb-4 mb-5">
-            <h2 class="text-lg font-bold text-gray-900">Assigner une nouvelle mission</h2>
-            <p class="text-xs text-gray-500 mt-0.5">Choisissez le superviseur, le client puis sélectionnez le site et le formulaire cible.</p>
-        </div>
-
-        {% if form.errors %}
-        <div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
-            {% for error in form.non_field_errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-            {% for field in form %}
-                {% for error in field.errors %}
-                <p>{{ field.label }} : {{ error }}</p>
-                {% endfor %}
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <form method="post" action="{% url 'visits:mission-create' %}" class="space-y-4 max-w-xl">
-            {% csrf_token %}
-            <div>
-                <label for="id_superviseur" class="block text-sm font-medium text-gray-700 mb-1">
-                    Superviseur <span class="text-red-500">*</span>
-                </label>
-                <select id="id_superviseur" name="superviseur" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
-                    <option value="">Sélectionner un superviseur...</option>
-                    {% for sup in superviseurs %}
-                    <option value="{{ sup.pk }}">{{ sup.get_full_name|default:sup.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label for="id_client_select" class="block text-sm font-medium text-gray-700 mb-1">
-                    Client <span class="text-red-500">*</span>
-                </label>
-                <select id="id_client_select"
-                        name="client_id"
-                        required
-                        hx-get="{% url 'visits:mission-options' %}"
-                        hx-target="#mission-options"
-                        hx-trigger="change"
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
-                    <option value="">Sélectionner un client...</option>
-                    {% for c in clients %}
-                    <option value="{{ c.pk }}">{{ c.nom }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div id="mission-options">
-                {% include "visits/_mission_options.html" with sites=form.site.field.queryset.none attached_forms=form.attached_form.field.queryset.none %}
-            </div>
-
-            <div class="pt-2">
-                <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition">
-                    Créer la mission
-                </button>
-            </div>
-        </form>
     </section>
 
     {% else %}
