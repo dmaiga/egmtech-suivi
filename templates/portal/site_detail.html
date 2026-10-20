@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ site.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl w-full space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900">{{ site.nom }}</h1>
+            <p class="text-sm text-gray-500">{{ site.ville }}</p>
+        </div>
+        <a href="{% url 'portal:dashboard' %}" class="text-indigo-600 hover:underline text-sm">Retour</a>
+    </div>
+
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Historique des visites</h2>
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-200">
+                    <th class="py-2">Date</th>
+                    <th>Formulaire</th>
+                    <th>Superviseur</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for visit in visits %}
+                <tr class="border-b border-gray-100">
+                    <td class="py-2">{{ visit.date_soumission }}</td>
+                    <td>{{ visit.mission.attached_form.nom }}</td>
+                    <td>{{ visit.auteur.username }}</td>
+                    <td>
+                        <a href="{% url 'portal:visit-detail' visit.pk %}" class="text-indigo-600 hover:underline">
+                            Voir le détail
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="py-2 text-gray-500">Aucune visite publiée pour ce site.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

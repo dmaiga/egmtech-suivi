@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Mon suivi terrain{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl w-full space-y-6">
+    <h1 class="text-2xl font-semibold text-gray-900">Mon suivi terrain</h1>
+
+    <form method="get" class="flex items-center gap-3 text-sm">
+        <select name="ville" class="border border-gray-300 rounded-md px-3 py-2" onchange="this.form.submit()">
+            <option value="">Toutes les villes</option>
+            {% for ville in villes %}
+            <option value="{{ ville }}" {% if ville == selected_ville %}selected{% endif %}>{{ ville }}</option>
+            {% endfor %}
+        </select>
+        <select name="formulaire" class="border border-gray-300 rounded-md px-3 py-2" onchange="this.form.submit()">
+            <option value="">Tous les formulaires</option>
+            {% for form in all_forms %}
+            <option value="{{ form.pk }}" {% if form.pk|stringformat:"s" == selected_formulaire %}selected{% endif %}>
+                {{ form.nom }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% for row in table %}
+    <section class="bg-white border border-gray-200 rounded-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">{{ row.site.nom }}</h2>
+            <a href="{% url 'portal:site-detail' row.site.pk %}" class="text-sm text-indigo-600 hover:underline">
+                Voir l'historique
+            </a>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">{{ row.site.ville }}</p>
+
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-200">
+                    <th class="py-2">Formulaire</th>
+                    <th>Prévu</th>
+                    <th>Fait</th>
+                    <th>Dernier passage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in row.entries %}
+                <tr class="border-b border-gray-100">
+                    <td class="py-2">{{ entry.attached_form.nom }}</td>
+                    <td>{{ entry.prevu }}</td>
+                    <td>{{ entry.fait }}</td>
+                    <td>{{ entry.dernier_passage|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="py-2 text-gray-500">Aucun formulaire.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% empty %}
+    <p class="text-gray-500">Aucun site.</p>
+    {% endfor %}
+</div>
+{% endblock %}

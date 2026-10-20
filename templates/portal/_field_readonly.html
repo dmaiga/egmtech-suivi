@@ -1,0 +1,41 @@
+{% with field=entry.field value=entry.value %}
+<div class="mb-3">
+    <p class="text-sm font-medium text-gray-700">{{ field.label }}</p>
+
+    {% if field.type == "multichoice" %}
+    <p class="text-sm text-gray-900">{{ value|join:", "|default:"—" }}</p>
+
+    {% elif field.type == "checkbox" %}
+    <p class="text-sm text-gray-900">{% if value %}Oui{% else %}Non{% endif %}</p>
+
+    {% elif field.type == "gps" %}
+    <p class="text-sm text-gray-900">
+        {% if value.lat %}{{ value.lat }}, {{ value.lng }}{% else %}—{% endif %}
+    </p>
+
+    {% elif field.type == "photo" %}
+    {% if entry.photos %}
+    <div class="flex flex-wrap gap-3 mt-1">
+        {% for photo in entry.photos %}
+        <figure class="text-center">
+            <img src="{{ photo.image.url }}" alt="{{ photo.legende }}" class="h-24 w-24 object-cover rounded-md border border-gray-200">
+            <figcaption class="text-xs text-gray-500 mt-1">{{ photo.legende }}</figcaption>
+        </figure>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400">Aucune photo.</p>
+    {% endif %}
+
+    {% elif field.type == "signature" %}
+    {% if value %}
+    <img src="{{ value }}" alt="Signature" class="h-20 border border-gray-200 rounded-md bg-white">
+    {% else %}
+    <p class="text-sm text-gray-400">Non renseignée.</p>
+    {% endif %}
+
+    {% else %}
+    <p class="text-sm text-gray-900">{{ value|default:"—" }}</p>
+    {% endif %}
+</div>
+{% endwith %}
