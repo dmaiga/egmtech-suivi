@@ -7,6 +7,7 @@ from django.urls import reverse
 from accounts.models import User
 from clients.models import Client, Site
 
+from .builder import apply_action, parse_builder_form
 from .models import AttachedForm, FormTemplate
 from .schema import validate_schema
 from .services import attach_template_to_client, set_expected_visits, toggle_attached_form
@@ -209,3 +210,240 @@ class ManageFormsPermissionTests(TestCase):
     def test_anonyme_redirige_vers_connexion(self):
         response = self.client.get(reverse("forms_cms:list"))
         self.assertEqual(response.status_code, 302)
+
+
+class BuilderFunctionsTests(TestCase):
+    """L'éditeur (sans glisser-déposer) : reconstruction du POST et actions de mutation."""
+
+    def test_parse_builder_form_reconstruit_le_schema(self):
+        post = {
+            "nom": "Mon formulaire",
+            "description": "Une description",
+            "template_pk": "",
+            "section_count": "1",
+            "section__0__title": "Identification",
+            "field_count__0": "2",
+            "field__0__0__key": "nom",
+            "field__0__0__label": "Nom",
+            "field__0__0__type": "text",
+            "field__0__0__required": "on",
+            "field__0__1__key": "etat",
+            "field__0__1__label": "État",
+            "field__0__1__type": "choice",
+            "field__0__1__options": "Bon\nMauvais\n",
+        }
+        parsed = parse_builder_form(post)
+        self.assertEqual(parsed["nom"], "Mon formulaire")
+        self.assertEqual(
+            parsed["schema"],
+            {
+                "sections": [
+                    {
+                        "title": "Identification",
+                        "fields": [
+                            {"key": "nom", "label": "Nom", "type": "text", "required": True},
+                            {
+                                "key": "etat",
+                                "label": "État",
+                                "type": "choice",
+                                "required": False,
+                                "options": ["Bon", "Mauvais"],
+                            },
+                        ],
+                    }
+                ]
+            },
+        )
+
+    def test_parse_builder_form_groupe_repetable(self):
+        post = {
+            "nom": "F",
+            "description": "",
+            "template_pk": "",
+            "section_count": "1",
+            "section__0__title": "Caméras",
+            "field_count__0": "1",
+            "field__0__0__key": "cameras",
+            "field__0__0__label": "Caméras",
+            "field__0__0__type": "repeat",
+            "sub_count__0__0": "1",
+            "subfield__0__0__0__key": "marque",
+            "subfield__0__0__0__label": "Marque",
+            "subfield__0__0__0__type": "text",
+            "subfield__0__0__0__required": "on",
+        }
+        parsed = parse_builder_form(post)
+        field = parsed["schema"]["sections"][0]["fields"][0]
+        self.assertEqual(field["type"], "repeat")
+        self.assertEqual(
+            field["fields"], [{"key": "marque", "label": "Marque", "type": "text", "required": True}]
+        )
+
+    def test_add_section(self):
+        schema = {"sections": []}
+        apply_action(schema, "add_section")
+        self.assertEqual(len(schema["sections"]), 1)
+        self.assertEqual(schema["sections"][0], {"title": "", "fields": []})
+
+    def test_remove_section(self):
+        schema = {"sections": [{"title": "A", "fields": []}, {"title": "B", "fields": []}]}
+        apply_action(schema, "remove_section:0")
+        self.assertEqual(schema["sections"], [{"title": "B", "fields": []}])
+
+    def test_move_section_up(self):
+        schema = {"sections": [{"title": "A", "fields": []}, {"title": "B", "fields": []}]}
+        apply_action(schema, "move_section:1:up")
+        self.assertEqual([s["title"] for s in schema["sections"]], ["B", "A"])
+
+    def test_move_section_hors_limites_ne_fait_rien(self):
+        schema = {"sections": [{"title": "A", "fields": []}]}
+        apply_action(schema, "move_section:0:up")
+        self.assertEqual([s["title"] for s in schema["sections"]], ["A"])
+
+    def test_add_field_lit_le_type_depuis_le_post(self):
+        schema = {"sections": [{"title": "S", "fields": []}]}
+        apply_action(schema, "add_field:0", {"new_field_type__0": "number"})
+        self.assertEqual(schema["sections"][0]["fields"][0]["type"], "number")
+
+    def test_remove_field(self):
+        schema = {
+            "sections": [
+                {
+                    "title": "S",
+                    "fields": [
+                        {"key": "a", "label": "A", "type": "text", "required": False},
+                        {"key": "b", "label": "B", "type": "text", "required": False},
+                    ],
+                }
+            ]
+        }
+        apply_action(schema, "remove_field:0:0")
+        self.assertEqual([f["key"] for f in schema["sections"][0]["fields"]], ["b"])
+
+    def test_move_field_down(self):
+        schema = {
+            "sections": [
+                {
+                    "title": "S",
+                    "fields": [
+                        {"key": "a", "label": "A", "type": "text", "required": False},
+                        {"key": "b", "label": "B", "type": "text", "required": False},
+                    ],
+                }
+            ]
+        }
+        apply_action(schema, "move_field:0:0:down")
+        self.assertEqual([f["key"] for f in schema["sections"][0]["fields"]], ["b", "a"])
+
+    def test_add_subfield_et_remove_subfield(self):
+        schema = {
+            "sections": [
+                {
+                    "title": "S",
+                    "fields": [{"key": "cameras", "label": "Caméras", "type": "repeat", "required": False, "fields": []}],
+                }
+            ]
+        }
+        apply_action(schema, "add_subfield:0:0", {"new_subfield_type__0__0": "photo"})
+        self.assertEqual(len(schema["sections"][0]["fields"][0]["fields"]), 1)
+        self.assertEqual(schema["sections"][0]["fields"][0]["fields"][0]["type"], "photo")
+
+        apply_action(schema, "remove_subfield:0:0:0")
+        self.assertEqual(schema["sections"][0]["fields"][0]["fields"], [])
+
+
+class FormBuilderViewTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
+        self.manager.user_permissions.add(Permission.objects.get(codename="manage_forms"))
+        self.client.force_login(self.manager)
+
+    def _base_post(self, **overrides):
+        data = {
+            "template_pk": "",
+            "nom": "Rapport",
+            "description": "",
+            "section_count": "1",
+            "section__0__title": "Identification",
+            "field_count__0": "1",
+            "field__0__0__key": "nom",
+            "field__0__0__label": "Nom",
+            "field__0__0__type": "text",
+            "field__0__0__required": "on",
+            "new_field_type__0": "text",
+        }
+        data.update(overrides)
+        return data
+
+    def test_sans_permission_lediteur_est_refuse(self):
+        manager_sans_droit = User.objects.create_user(username="sans_droit", password="x", role=User.Role.MANAGER)
+        self.client.force_login(manager_sans_droit)
+        response = self.client.get(reverse("forms_cms:builder-new"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_enregistrer_produit_un_schema_valide(self):
+        response = self.client.post(
+            reverse("forms_cms:builder-new"), self._base_post(action="save"), follow=True
+        )
+        self.assertEqual(response.status_code, 200)
+        template = FormTemplate.objects.get(nom="Rapport")
+        self.assertEqual(validate_schema(template.schema), [])
+        self.assertEqual(
+            template.schema,
+            {
+                "sections": [
+                    {
+                        "title": "Identification",
+                        "fields": [{"key": "nom", "label": "Nom", "type": "text", "required": True}],
+                    }
+                ]
+            },
+        )
+
+    def test_enregistrer_sans_nom_est_refuse(self):
+        response = self.client.post(reverse("forms_cms:builder-new"), self._base_post(nom="", action="save"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(FormTemplate.objects.filter(nom="").exists())
+
+    def test_enregistrer_un_schema_invalide_est_refuse(self):
+        # Un champ "choice" sans options n'est pas un schéma valide.
+        response = self.client.post(
+            reverse("forms_cms:builder-new"),
+            self._base_post(**{"field__0__0__type": "choice", "action": "save"}),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(FormTemplate.objects.filter(nom="Rapport").exists())
+
+    def test_apercu_naffecte_rien_en_base(self):
+        self.client.post(reverse("forms_cms:builder-new"), self._base_post(action="preview"))
+        self.assertFalse(FormTemplate.objects.filter(nom="Rapport").exists())
+
+    def test_modification_dun_formulaire_naffecte_jamais_les_copies_attachees(self):
+        template = FormTemplate.objects.create(
+            nom="Rapport",
+            schema={
+                "sections": [
+                    {"title": "Identification", "fields": [{"key": "nom", "label": "Nom", "type": "text", "required": True}]}
+                ]
+            },
+            actif=True,
+        )
+        client_obj = Client.objects.create(nom="Client A")
+        attached = attach_template_to_client(self.manager, client_obj, template)
+        schema_au_moment_de_lattachement = copy.deepcopy(attached.schema)
+
+        response = self.client.post(
+            reverse("forms_cms:builder-edit", args=[template.pk]),
+            self._base_post(
+                template_pk=str(template.pk),
+                **{"field__0__0__label": "Nom complet", "action": "save"},
+            ),
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+        template.refresh_from_db()
+        attached.refresh_from_db()
+        self.assertEqual(template.schema["sections"][0]["fields"][0]["label"], "Nom complet")
+        self.assertEqual(attached.schema, schema_au_moment_de_lattachement)
+        self.assertNotEqual(attached.schema, template.schema)
