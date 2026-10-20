@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
-from django.db.models import Exists, OuterRef, Prefetch
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -81,6 +81,23 @@ def mission_list(request):
         missions_qs = missions_qs.annotate(has_a_corriger=has_a_corriger).order_by(
             "-has_a_corriger", "-created_at"
         )
+        tri = "-created_at"
+    else:
+        tri = request.GET.get("tri", "-created_at")
+        tri_map = {
+            "-created_at": ["-created_at"],
+            "created_at": ["created_at"],
+            "superviseur": ["superviseur__last_name", "superviseur__first_name", "superviseur__username"],
+            "-superviseur": ["-superviseur__last_name", "-superviseur__first_name", "-superviseur__username"],
+            "client": ["site__client__nom", "site__nom"],
+            "-client": ["-site__client__nom", "-site__nom"],
+            "site": ["site__nom"],
+            "-site": ["-site__nom"],
+            "formulaire": ["attached_form__nom"],
+            "-formulaire": ["-attached_form__nom"],
+        }
+        order_fields = tri_map.get(tri, ["-created_at"])
+        missions_qs = missions_qs.order_by(*order_fields)
 
     missions_qs = missions_qs.distinct().prefetch_related(
         Prefetch(
@@ -101,6 +118,7 @@ def mission_list(request):
         "missions": page_obj,
         "page_obj": page_obj,
         "is_manager_view": is_manager,
+        "current_tri": tri,
         "filter_superviseur": superviseur_id or "",
         "filter_client": client_id or "",
         "filter_site": site_id or "",
@@ -412,8 +430,121 @@ def repeat_row_remove(request):
     return render(request, "visits/_empty.html")
 
 
+@role_required(User.Role.SUPERVISEUR)
+def my_visits(request):
+    base_qs = Visit.objects.filter(auteur=request.user).select_related(
+        "mission",
+        "mission__site",
+        "mission__site__client",
+        "mission__attached_form",
+        "auteur",
+        "decision_par",
+    )
+
+    # Compteurs en tête cliquables (brouillons, à corriger, soumises, validées)
+    counts = {
+        "brouillon": base_qs.filter(statut=Visit.Statut.BROUILLON).count(),
+        "a_corriger": base_qs.filter(statut=Visit.Statut.A_CORRIGER).count(),
+        "soumise": base_qs.filter(statut=Visit.Statut.SOUMISE).count(),
+        "validee": base_qs.filter(statut=Visit.Statut.VALIDEE).count(),
+        "total": base_qs.count(),
+    }
+
+    # Données pour les listes déroulantes de filtres
+    clients_filter = Client.objects.filter(
+        sites__missions__visits__auteur=request.user
+    ).distinct().order_by("nom")
+
+    sites_filter = Site.objects.filter(
+        missions__visits__auteur=request.user
+    ).distinct().select_related("client").order_by("nom")
+
+    visits_qs = base_qs.order_by("-date_debut", "-id")
+
+    statut = request.GET.get("statut", "").strip()
+    client_id = request.GET.get("client", "").strip()
+    site_id = request.GET.get("site", "").strip()
+    date_min = request.GET.get("date_min", "").strip()
+    date_max = request.GET.get("date_max", "").strip()
+    search_q = request.GET.get("q", "").strip()
+
+    if statut:
+        visits_qs = visits_qs.filter(statut=statut)
+    if client_id:
+        visits_qs = visits_qs.filter(mission__site__client_id=client_id)
+    if site_id:
+        visits_qs = visits_qs.filter(mission__site_id=site_id)
+    if date_min:
+        try:
+            visits_qs = visits_qs.filter(date_debut__date__gte=date_min)
+        except Exception:
+            pass
+    if date_max:
+        try:
+            visits_qs = visits_qs.filter(date_debut__date__lte=date_max)
+        except Exception:
+            pass
+    if search_q:
+        visits_qs = visits_qs.filter(
+            Q(mission__site__nom__icontains=search_q) | Q(mission__site__code__icontains=search_q)
+        )
+
+    paginator = Paginator(visits_qs, 10)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    statut_choices = [
+        (Visit.Statut.BROUILLON, "Brouillon"),
+        (Visit.Statut.A_CORRIGER, "À corriger"),
+        (Visit.Statut.SOUMISE, "Soumise"),
+        (Visit.Statut.VALIDEE, "Validée"),
+        (Visit.Statut.PUBLIEE, "Publiée"),
+        (Visit.Statut.DEPUBLIEE, "Retirée"),
+    ]
+
+    context = {
+        "visits": page_obj,
+        "page_obj": page_obj,
+        "counts": counts,
+        "clients_filter": clients_filter,
+        "sites_filter": sites_filter,
+        "statut_choices": statut_choices,
+        "filter_statut": statut,
+        "filter_client": client_id,
+        "filter_site": site_id,
+        "filter_date_min": date_min,
+        "filter_date_max": date_max,
+        "search_q": search_q,
+    }
+    return render(request, "visits/my_visits.html", context)
+
+
+@role_required(User.Role.SUPERVISEUR)
+def my_visit_detail(request, pk):
+    visit = get_object_or_404(
+        Visit.objects.select_related(
+            "mission",
+            "mission__site",
+            "mission__site__client",
+            "mission__attached_form",
+            "auteur",
+            "decision_par",
+        ),
+        pk=pk,
+        auteur=request.user,
+    )
+
+    # Les brouillons et les visites à corriger ouvrent directement l'écran de saisie ("Reprendre")
+    if visit.peut_etre_modifiee():
+        return redirect("visits:visit-edit", pk=visit.pk)
+
+    context = get_visit_detail_context(visit, user=request.user)
+    return render(request, "visits/my_visit_detail.html", context)
+
+
 @validate_visits_required
 def revue_list(request):
+    tri = request.GET.get("tri", "-date")
     visits = (
         Visit.objects.filter(
             statut__in=[
@@ -431,8 +562,18 @@ def revue_list(request):
             "auteur",
             "decision_par",
         )
-        .order_by("-date_debut")
     )
+
+    if tri == "date":
+        visits = visits.order_by("date_debut")
+    elif tri == "client":
+        visits = visits.order_by("mission__site__client__nom", "-date_debut")
+    elif tri == "-client":
+        visits = visits.order_by("-mission__site__client__nom", "-date_debut")
+    elif tri == "statut":
+        visits = visits.order_by("statut", "-date_debut")
+    else:
+        visits = visits.order_by("-date_debut")
 
     selected_visit = None
     detail_context = {}
@@ -450,6 +591,7 @@ def revue_list(request):
     context = {
         "visits": visits,
         "selected_visit": selected_visit,
+        "current_tri": tri,
         **detail_context,
     }
     return render(request, "visits/revue_list.html", context)
@@ -559,9 +701,17 @@ def _zip_response(content, filename):
     return response
 
 
-@role_required(User.Role.MANAGER)
+@role_required(User.Role.MANAGER, User.Role.SUPERVISEUR)
 def visit_pdf(request, pk):
-    visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
+    if request.user.role == User.Role.SUPERVISEUR:
+        visit = get_object_or_404(
+            Visit,
+            pk=pk,
+            auteur=request.user,
+            statut__in=[Visit.Statut.VALIDEE, Visit.Statut.PUBLIEE],
+        )
+    else:
+        visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
     return _pdf_response(render_visit_pdf(visit), visit_pdf_filename(visit))
 
 

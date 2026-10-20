@@ -17,15 +17,19 @@
         </div>
     </div>
 
-    {% if messages %}
-    <div class="space-y-2">
-        {% for message in messages %}
-        <div class="p-4 rounded-xl border text-sm flex items-center gap-2 {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
-            <span>{{ message }}</span>
-        </div>
-        {% endfor %}
+    <!-- Barre de tri rapide -->
+    <div class="flex items-center gap-2 text-xs">
+        <span class="font-semibold text-gray-500 uppercase tracking-wider">Trier par :</span>
+        <a href="?tri=-date" class="px-2.5 py-1 rounded-md font-medium transition {% if current_tri == '-date' %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+            Plus récents
+        </a>
+        <a href="?tri=client" class="px-2.5 py-1 rounded-md font-medium transition {% if current_tri == 'client' %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+            Client (A-Z)
+        </a>
+        <a href="?tri=statut" class="px-2.5 py-1 rounded-md font-medium transition {% if current_tri == 'statut' %}bg-indigo-100 text-indigo-700 font-semibold{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+            Statut
+        </a>
     </div>
-    {% endif %}
 
     {% if visits %}
     <!-- Disposition Responsive : 2 colonnes sur grand écran, liste simple sur mobile -->

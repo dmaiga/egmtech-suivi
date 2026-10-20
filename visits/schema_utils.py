@@ -308,15 +308,21 @@ def get_visit_detail_context(visit, user=None, is_portal=False, show_revue_actio
 
     can_download_pdf = False
     pdf_url = ""
-    if visit.statut == "publiee":
-        can_download_pdf = True
-        try:
-            if is_portal:
+    if is_portal:
+        if visit.statut == "publiee":
+            can_download_pdf = True
+            try:
                 pdf_url = reverse("portal:visit-pdf", args=[visit.pk])
-            else:
+            except Exception:
+                pdf_url = ""
+    else:
+        # Pour managers et superviseurs : PDF disponible dès que la visite est validée ou publiée
+        if visit.statut in ("validee", "publiee"):
+            can_download_pdf = True
+            try:
                 pdf_url = reverse("visits:visit-pdf", args=[visit.pk])
-        except Exception:
-            pdf_url = ""
+            except Exception:
+                pdf_url = ""
 
     return {
         "visit": visit,

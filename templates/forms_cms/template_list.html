@@ -23,14 +23,36 @@
     </div>
 
     <!-- Tableau des formulaires -->
-    <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm table-responsive-wrapper">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <th class="py-3 px-4">Nom du modèle</th>
+                        <th class="py-3 px-4">
+                            <a href="?tri={% if current_tri == 'nom' %}-nom{% else %}nom{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                                Nom du modèle
+                                {% if current_tri == 'nom' %}
+                                <span class="text-indigo-600 font-bold">▲</span>
+                                {% elif current_tri == '-nom' %}
+                                <span class="text-indigo-600 font-bold">▼</span>
+                                {% else %}
+                                <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                                {% endif %}
+                            </a>
+                        </th>
                         <th class="py-3 px-4">Description</th>
-                        <th class="py-3 px-4">Statut</th>
+                        <th class="py-3 px-4">
+                            <a href="?tri={% if current_tri == 'statut' %}-statut{% else %}statut{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                                Statut
+                                {% if current_tri == 'statut' %}
+                                <span class="text-indigo-600 font-bold">▲</span>
+                                {% elif current_tri == '-statut' %}
+                                <span class="text-indigo-600 font-bold">▼</span>
+                                {% else %}
+                                <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                                {% endif %}
+                            </a>
+                        </th>
                         <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                 </thead>
@@ -85,6 +107,27 @@
                 </tbody>
             </table>
         </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="px-6 py-3.5 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+            <div>
+                Page <span class="font-semibold text-gray-900">{{ page_obj.number }}</span> sur <span class="font-semibold text-gray-900">{{ page_obj.paginator.num_pages }}</span>
+                ({{ page_obj.paginator.count }} modèle{{ page_obj.paginator.count|pluralize }})
+            </div>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_tri %}&tri={{ current_tri }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    &larr; Précédent
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_tri %}&tri={{ current_tri }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    Suivant &rarr;
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

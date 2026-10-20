@@ -228,3 +228,120 @@ class TemplateIntegrationAndLogoutTests(TestCase):
         self.assertTrue(len(messages_list) > 0)
         self.assertIn("déconnecté", messages_list[0].message.lower())
         self.assertContains(response, "déconnecté")
+
+
+class SeedAccountsNavigationAndLayoutTests(TestCase):
+    """Vérifie par le client de test, pour chaque compte du seed, que chaque
+    page répond, étend bien base.html, contient le lien de déconnexion et
+    n'affiche aucune entrée de menu interdite."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        call_command("seed_demo")
+
+    def _verify_account_pages(self, username, allowed_pages, forbidden_menu_labels, forbidden_urls=None):
+        client = TestClient()
+        logged_in = client.login(username=username, password="demo1234")
+        self.assertTrue(logged_in, f"Impossible de connecter {username}")
+
+        for url in allowed_pages:
+            with self.subTest(username=username, url=url):
+                response = client.get(url)
+                self.assertEqual(
+                    response.status_code, 200,
+                    f"La page {url} pour {username} a retourné {response.status_code}"
+                )
+                html = response.content.decode("utf-8")
+                # Vérifier extension de base.html
+                self.assertIn("<html", html)
+                self.assertIn("Suivi Terrain", html)
+
+                # Vérifier présence de la déconnexion en POST
+                self.assertIn(reverse("accounts:logout"), html)
+                self.assertIn("Se déconnecter", html)
+
+                # Vérifier exclusion stricte des éléments de menu interdits
+                nav_items = response.context.get("nav_items", [])
+                rendered_labels = [item["label"] for item in nav_items]
+                for forbidden in forbidden_menu_labels:
+                    self.assertNotIn(
+                        forbidden, rendered_labels,
+                        f"Menu interdit '{forbidden}' présent dans la navigation pour {username} sur {url}"
+                    )
+
+        # Vérifier que les URL interdites renvoient 403 ou redirection
+        if forbidden_urls:
+            for bad_url in forbidden_urls:
+                with self.subTest(username=username, bad_url=bad_url):
+                    bad_res = client.get(bad_url)
+                    self.assertIn(
+                        bad_res.status_code, [302, 403, 404],
+                        f"{username} a pu accéder à l'URL interdite {bad_url} (HTTP {bad_res.status_code})"
+                    )
+
+    def test_admin_account_navigation_and_pages(self):
+        pages = [
+            reverse("app-home"),
+            reverse("clients:list"),
+            reverse("forms_cms:list"),
+            reverse("visits:mission-list"),
+            reverse("revue:list"),
+        ]
+        forbidden = ["Mes missions", "Mes visites", "Avancement"]
+        self._verify_account_pages("admin", pages, forbidden)
+
+    def test_manager1_account_navigation_and_pages(self):
+        # manager1 : toutes permissions (manage_forms, validate_visits)
+        pages = [
+            reverse("app-home"),
+            reverse("clients:list"),
+            reverse("forms_cms:list"),
+            reverse("visits:mission-list"),
+            reverse("revue:list"),
+        ]
+        forbidden = ["Mes missions", "Mes visites", "Avancement"]
+        forbidden_urls = [reverse("my-visits")]
+        self._verify_account_pages("manager1", pages, forbidden, forbidden_urls)
+
+    def test_manager2_account_navigation_and_pages(self):
+        # manager2 : validate_visits uniquement, pas manage_forms
+        pages = [
+            reverse("app-home"),
+            reverse("clients:list"),
+            reverse("visits:mission-list"),
+            reverse("revue:list"),
+        ]
+        forbidden_menu = ["Formulaires", "Mes missions", "Mes visites", "Avancement"]
+        forbidden_urls = [reverse("forms_cms:list"), reverse("my-visits")]
+        self._verify_account_pages("manager2", pages, forbidden_menu, forbidden_urls)
+
+    def test_superviseurs_navigation_and_pages(self):
+        for sup in ["sup1", "sup2", "sup3", "sup4"]:
+            with self.subTest(supervisor=sup):
+                pages = [reverse("visits:mission-list"), reverse("my-visits")]
+                forbidden_menu = ["Accueil", "Revue", "Clients", "Formulaires", "Avancement"]
+                forbidden_urls = [
+                    reverse("app-home"),
+                    reverse("clients:list"),
+                    reverse("forms_cms:list"),
+                    reverse("revue:list"),
+                    reverse("portal:dashboard"),
+                ]
+                self._verify_account_pages(sup, pages, forbidden_menu, forbidden_urls)
+
+    def test_clients_navigation_and_pages(self):
+        for cli in ["client_bnda", "client_exemple"]:
+            with self.subTest(client=cli):
+                pages = [reverse("portal:dashboard")]
+                forbidden_menu = ["Accueil", "Revue", "Missions", "Mes missions", "Mes visites", "Clients", "Formulaires"]
+                forbidden_urls = [
+                    reverse("app-home"),
+                    reverse("clients:list"),
+                    reverse("forms_cms:list"),
+                    reverse("visits:mission-list"),
+                    reverse("revue:list"),
+                    reverse("my-visits"),
+                ]
+                self._verify_account_pages(cli, pages, forbidden_menu, forbidden_urls)
+

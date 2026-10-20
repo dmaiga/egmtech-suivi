@@ -988,3 +988,207 @@ class SupervisorScreensTests(TestCase):
         self.assertContains(conf_response, "Contrôle Technique")
         self.assertContains(conf_response, "Agence Centrale")
         self.assertContains(conf_response, "Retour à mes missions")
+
+
+class SupervisorMyVisitsTests(TestCase):
+    def setUp(self):
+        self.sup1 = User.objects.create_user(username="sup_mv1", password="pass", role=User.Role.SUPERVISEUR)
+        self.sup2 = User.objects.create_user(username="sup_mv2", password="pass", role=User.Role.SUPERVISEUR)
+        self.manager = User.objects.create_user(username="mgr_mv", password="pass", role=User.Role.MANAGER)
+
+        self.client_a = Client.objects.create(nom="Client Alpha")
+        self.client_b = Client.objects.create(nom="Client Beta")
+
+        self.site_bko = Site.objects.create(client=self.client_a, code="BKO-01", nom="Agence Fleuve", ville="Bamako")
+        self.site_kys = Site.objects.create(client=self.client_a, code="KYS-01", nom="Agence Rail", ville="Kayes")
+        self.site_beta = Site.objects.create(client=self.client_b, code="BET-01", nom="Agence Beta", ville="Sikasso")
+
+        self.template = FormTemplate.objects.create(nom="Fiche Terrain", schema=SIMPLE_SCHEMA, actif=True)
+        self.attached_a = AttachedForm.objects.create(
+            client=self.client_a, template=self.template, nom="Fiche Terrain", schema=self.template.schema, actif=True
+        )
+        self.attached_b = AttachedForm.objects.create(
+            client=self.client_b, template=self.template, nom="Fiche Terrain", schema=self.template.schema, actif=True
+        )
+
+        self.mission1 = Mission.objects.create(created_by=self.manager, superviseur=self.sup1, site=self.site_bko, attached_form=self.attached_a)
+        self.mission2 = Mission.objects.create(created_by=self.manager, superviseur=self.sup1, site=self.site_kys, attached_form=self.attached_a)
+        self.mission3 = Mission.objects.create(created_by=self.manager, superviseur=self.sup1, site=self.site_bko, attached_form=self.attached_a)
+        self.mission4 = Mission.objects.create(created_by=self.manager, superviseur=self.sup1, site=self.site_kys, attached_form=self.attached_a)
+        self.mission5 = Mission.objects.create(created_by=self.manager, superviseur=self.sup1, site=self.site_bko, attached_form=self.attached_a)
+
+        self.mission_autre = Mission.objects.create(created_by=self.manager, superviseur=self.sup2, site=self.site_beta, attached_form=self.attached_b)
+
+        now = timezone.now()
+        self.v_brouillon = Visit.objects.create(
+            mission=self.mission1, auteur=self.sup1, statut=Visit.Statut.BROUILLON, date_debut=now - timezone.timedelta(days=1)
+        )
+        self.v_a_corriger = Visit.objects.create(
+            mission=self.mission2,
+            auteur=self.sup1,
+            statut=Visit.Statut.A_CORRIGER,
+            commentaire_rejet="Photo floue, merci de refaire le cliché.",
+            decision_par=self.manager,
+            decision_le=now - timezone.timedelta(days=2),
+            date_debut=now - timezone.timedelta(days=2),
+        )
+        self.v_soumise = Visit.objects.create(
+            mission=self.mission3, auteur=self.sup1, statut=Visit.Statut.SOUMISE, date_debut=now - timezone.timedelta(days=3)
+        )
+        self.v_validee = Visit.objects.create(
+            mission=self.mission4, auteur=self.sup1, statut=Visit.Statut.VALIDEE, date_debut=now - timezone.timedelta(days=4)
+        )
+        self.v_depubliee = Visit.objects.create(
+            mission=self.mission5, auteur=self.sup1, statut=Visit.Statut.DEPUBLIEE, date_debut=now - timezone.timedelta(days=5)
+        )
+
+        self.v_autre = Visit.objects.create(
+            mission=self.mission_autre, auteur=self.sup2, statut=Visit.Statut.PUBLIEE, date_debut=now - timezone.timedelta(days=1)
+        )
+
+    def test_liste_limitee_a_ses_propres_visites(self):
+        self.client.force_login(self.sup1)
+        response = self.client.get(reverse("my-visits"))
+        self.assertEqual(response.status_code, 200)
+
+        # Vérifier présence de toutes les visites de sup1
+        visits_in_ctx = list(response.context["visits"])
+        self.assertIn(self.v_brouillon, visits_in_ctx)
+        self.assertIn(self.v_a_corriger, visits_in_ctx)
+        self.assertIn(self.v_soumise, visits_in_ctx)
+        self.assertIn(self.v_validee, visits_in_ctx)
+        self.assertIn(self.v_depubliee, visits_in_ctx)
+
+        # Vérifier absence absolue des visites de sup2
+        self.assertNotIn(self.v_autre, visits_in_ctx)
+        self.assertNotContains(response, "Agence Beta")
+        self.assertNotContains(response, "BET-01")
+
+    def test_compteurs_cliquables(self):
+        self.client.force_login(self.sup1)
+        response = self.client.get(reverse("my-visits"))
+        self.assertEqual(response.status_code, 200)
+
+        counts = response.context["counts"]
+        self.assertEqual(counts["brouillon"], 1)
+        self.assertEqual(counts["a_corriger"], 1)
+        self.assertEqual(counts["soumise"], 1)
+        self.assertEqual(counts["validee"], 1)
+        self.assertEqual(counts["total"], 5)
+
+    def test_filtres_statut_site_periode_et_recherche(self):
+        self.client.force_login(self.sup1)
+
+        # 1. Filtre par statut
+        res_statut = self.client.get(reverse("my-visits"), {"statut": "brouillon"})
+        self.assertEqual(res_statut.status_code, 200)
+        self.assertEqual(list(res_statut.context["visits"]), [self.v_brouillon])
+
+        # 2. Recherche textuelle par code de site
+        res_code = self.client.get(reverse("my-visits"), {"q": "KYS-01"})
+        self.assertEqual(res_code.status_code, 200)
+        visits_kys = list(res_code.context["visits"])
+        self.assertIn(self.v_a_corriger, visits_kys)
+        self.assertIn(self.v_validee, visits_kys)
+        self.assertNotIn(self.v_brouillon, visits_kys)
+
+        # 3. Recherche textuelle par nom de site
+        res_nom = self.client.get(reverse("my-visits"), {"q": "Fleuve"})
+        self.assertEqual(res_nom.status_code, 200)
+        visits_fleuve = list(res_nom.context["visits"])
+        self.assertIn(self.v_brouillon, visits_fleuve)
+        self.assertNotIn(self.v_a_corriger, visits_fleuve)
+
+        # 4. Filtre par date
+        yesterday_str = (timezone.now() - timezone.timedelta(days=1)).strftime("%Y-%m-%d")
+        res_date = self.client.get(reverse("my-visits"), {"date_min": yesterday_str})
+        self.assertEqual(res_date.status_code, 200)
+        self.assertEqual(list(res_date.context["visits"]), [self.v_brouillon])
+
+    def test_brouillon_et_a_corriger_repris_en_saisie(self):
+        self.client.force_login(self.sup1)
+
+        # Un clic sur le détail d'un brouillon redirige vers l'écran de saisie
+        res_brouillon = self.client.get(reverse("my-visit-detail", args=[self.v_brouillon.pk]))
+        self.assertRedirects(res_brouillon, reverse("visits:visit-edit", args=[self.v_brouillon.pk]))
+
+        # Un clic sur le détail d'une visite à corriger redirige vers l'écran de saisie
+        res_corriger = self.client.get(reverse("my-visit-detail", args=[self.v_a_corriger.pk]))
+        self.assertRedirects(res_corriger, reverse("visits:visit-edit", args=[self.v_a_corriger.pk]))
+
+        # Dans la liste, le motif de rejet est affiché pour la visite à corriger
+        res_list = self.client.get(reverse("my-visits"))
+        self.assertContains(res_list, "Photo floue, merci de refaire le cliché.")
+
+    def test_visite_soumise_non_modifiable_et_lecture_seule(self):
+        self.client.force_login(self.sup1)
+
+        # Une visite soumise s'ouvre en lecture seule
+        res_detail = self.client.get(reverse("my-visit-detail", args=[self.v_soumise.pk]))
+        self.assertEqual(res_detail.status_code, 200)
+        self.assertContains(res_detail, "Rapport de visite")
+        self.assertContains(res_detail, "Agence Fleuve")
+
+        # Toute tentative de modification en POST est interdite (403)
+        res_save = self.client.post(reverse("visits:visit-save", args=[self.v_soumise.pk]), {"observations": "tentative"})
+        self.assertEqual(res_save.status_code, 403)
+
+        res_submit = self.client.post(reverse("visits:visit-submit", args=[self.v_soumise.pk]), {"observations": "tentative"})
+        self.assertEqual(res_submit.status_code, 403)
+
+    def test_acces_visite_autre_superviseur_refuse_404(self):
+        self.client.force_login(self.sup1)
+
+        # Accès direct au détail d'une visite d'un autre superviseur -> 404
+        res_detail = self.client.get(reverse("my-visit-detail", args=[self.v_autre.pk]))
+        self.assertEqual(res_detail.status_code, 404)
+
+        # Accès direct à l'édition d'une visite d'un autre superviseur -> 404
+        res_edit = self.client.get(reverse("visits:visit-edit", args=[self.v_autre.pk]))
+        self.assertEqual(res_edit.status_code, 404)
+
+        # Téléchargement PDF de la visite d'un autre superviseur -> 404
+        res_pdf = self.client.get(reverse("visits:visit-pdf", args=[self.v_autre.pk]))
+        self.assertEqual(res_pdf.status_code, 404)
+
+    def test_pdf_disponible_uniquement_si_validee_ou_publiee(self):
+        self.client.force_login(self.sup1)
+
+        # Visite brouillon -> PDF 404
+        res_brouillon_pdf = self.client.get(reverse("visits:visit-pdf", args=[self.v_brouillon.pk]))
+        self.assertEqual(res_brouillon_pdf.status_code, 404)
+
+        # Visite soumise -> PDF 404
+        res_soumise_pdf = self.client.get(reverse("visits:visit-pdf", args=[self.v_soumise.pk]))
+        self.assertEqual(res_soumise_pdf.status_code, 404)
+
+        # Visite validée -> PDF 200
+        res_validee_pdf = self.client.get(reverse("visits:visit-pdf", args=[self.v_validee.pk]))
+        self.assertEqual(res_validee_pdf.status_code, 200)
+        self.assertTrue(res_validee_pdf.content.startswith(b"%PDF"))
+
+    def test_vocabulaire_retiree_pour_visite_depubliee(self):
+        self.client.force_login(self.sup1)
+
+        # Dans la liste de mes visites
+        res_list = self.client.get(reverse("my-visits"))
+        self.assertContains(res_list, "Retirée")
+        self.assertNotContains(res_list, "Dépubliée")
+
+        # Dans le détail de la visite
+        res_detail = self.client.get(reverse("my-visit-detail", args=[self.v_depubliee.pk]))
+        self.assertContains(res_detail, "Retirée")
+        self.assertNotContains(res_detail, "Dépubliée")
+
+    def test_mes_missions_liens_historique_et_visite(self):
+        self.client.force_login(self.sup1)
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertEqual(response.status_code, 200)
+
+        # Lien "Voir mon historique" présent
+        self.assertContains(response, "Voir mon historique")
+        self.assertContains(response, reverse("my-visits"))
+
+        # Lien vers la visite pour les missions exécutées
+        self.assertContains(response, reverse("my-visit-detail", args=[self.v_soumise.pk]))
+

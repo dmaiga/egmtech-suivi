@@ -21,6 +21,23 @@ class FormTemplateListView(ManageFormsRequiredMixin, ListView):
     model = FormTemplate
     template_name = "forms_cms/template_list.html"
     context_object_name = "templates"
+    paginate_by = 10
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        tri = self.request.GET.get("tri", "nom")
+        if tri == "-nom":
+            return qs.order_by("-nom")
+        elif tri == "statut":
+            return qs.order_by("-actif", "nom")
+        elif tri == "-statut":
+            return qs.order_by("actif", "nom")
+        return qs.order_by("nom")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["current_tri"] = self.request.GET.get("tri", "nom")
+        return context
 
 
 class FormTemplateImportView(ManageFormsRequiredMixin, CreateView):

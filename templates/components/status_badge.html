@@ -35,7 +35,7 @@ Usage :
 {% elif s == "depubliee" %}
 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-300">
     <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-    <span>{{ l|default:"Dépubliée" }}</span>
+    <span>{% if request.user.role == "superviseur" %}Retirée{% else %}{{ l|default:"Dépubliée" }}{% endif %}</span>
 </span>
 {% else %}
 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
@@ -74,7 +74,7 @@ Usage :
 {% elif s == "depubliee" %}
 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-300">
     <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-    <span>{{ l|default:"Dépubliée" }}</span>
+    <span>{% if request.user.role == "superviseur" %}Retirée{% else %}{{ l|default:"Dépubliée" }}{% endif %}</span>
 </span>
 {% else %}
 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">

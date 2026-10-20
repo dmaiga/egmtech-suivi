@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Mes visites — EGM Suivi Terrain{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- En-tête avec navigation rapide vers Mes missions -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Mes visites</h1>
+            <p class="text-sm text-gray-500 mt-1">Consultez l'historique de vos visites terrain, leur validation et vos rapports certifiés.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'visits:mission-list' %}" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-lg shadow-sm transition">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Mes missions
+            </a>
+        </div>
+    </div>
+
+    <!-- Compteurs en tête cliquables qui appliquent le filtre de statut -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+        <!-- Toutes les visites -->
+        <a href="{% url 'my-visits' %}"
+           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if not filter_statut %}bg-indigo-50/70 border-indigo-300 ring-2 ring-indigo-200{% else %}bg-white border-gray-200 hover:border-indigo-200 hover:bg-gray-50/50{% endif %}">
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Toutes</span>
+            <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-gray-900">{{ counts.total }}</span>
+                <span class="text-xs text-gray-400">visites</span>
+            </div>
+        </a>
+
+        <!-- Brouillons -->
+        <a href="{% url 'my-visits' %}?statut=brouillon{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
+           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'brouillon' %}bg-gray-100 border-gray-400 ring-2 ring-gray-200{% else %}bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50{% endif %}">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Brouillons</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-gray-800">{{ counts.brouillon }}</span>
+                <span class="text-xs text-gray-400">à finir</span>
+            </div>
+        </a>
+
+        <!-- À corriger (mis en évidence) -->
+        <a href="{% url 'my-visits' %}?statut=a_corriger{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
+           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'a_corriger' %}bg-rose-50 border-rose-300 ring-2 ring-rose-200{% else %}bg-white border-gray-200 hover:border-rose-200 hover:bg-rose-50/30{% endif %}">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-rose-700">À corriger</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-rose-600">{{ counts.a_corriger }}</span>
+                <span class="text-xs text-rose-500 font-medium">urgentes</span>
+            </div>
+        </a>
+
+        <!-- Soumises -->
+        <a href="{% url 'my-visits' %}?statut=soumise{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
+           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'soumise' %}bg-amber-50 border-amber-300 ring-2 ring-amber-200{% else %}bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/30{% endif %}">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">Soumises</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-amber-600">{{ counts.soumise }}</span>
+                <span class="text-xs text-amber-500">en revue</span>
+            </div>
+        </a>
+
+        <!-- Validées -->
+        <a href="{% url 'my-visits' %}?statut=validee{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
+           class="col-span-2 sm:col-span-4 lg:col-span-1 p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'validee' %}bg-blue-50 border-blue-300 ring-2 ring-blue-200{% else %}bg-white border-gray-200 hover:border-blue-200 hover:bg-blue-50/30{% endif %}">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-blue-700">Validées</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-blue-600">{{ counts.validee }}</span>
+                <span class="text-xs text-blue-500">certifiées</span>
+            </div>
+        </a>
+    </section>
+
+    <!-- Barre de filtres et recherche -->
+    <section class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+        <form method="get" action="{% url 'my-visits' %}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+            <!-- Recherche site (nom ou code) -->
+            <div class="lg:col-span-2">
+                <label for="filter-q" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Recherche site</label>
+                <div class="relative">
+                    <input type="text"
+                           id="filter-q"
+                           name="q"
+                           value="{{ search_q }}"
+                           placeholder="Nom ou code de site..."
+                           class="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Filtre Statut -->
+            <div>
+                <label for="filter-statut" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Statut</label>
+                <select id="filter-statut" name="statut" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les statuts</option>
+                    {% for code, label in statut_choices %}
+                    <option value="{{ code }}" {% if filter_statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filtre Client -->
+            <div>
+                <label for="filter-client" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Client</label>
+                <select id="filter-client" name="client" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les clients</option>
+                    {% for client in clients_filter %}
+                    <option value="{{ client.pk }}" {% if filter_client == client.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ client.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Période : Début -->
+            <div>
+                <label for="filter-date-min" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Date min</label>
+                <input type="date"
+                       id="filter-date-min"
+                       name="date_min"
+                       value="{{ filter_date_min }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <!-- Période : Fin & Bouton submit -->
+            <div>
+                <label for="filter-date-max" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Date max</label>
+                <div class="flex items-center gap-2">
+                    <input type="date"
+                           id="filter-date-max"
+                           name="date_max"
+                           value="{{ filter_date_max }}"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm transition shadow-sm">
+                        Filtrer
+                    </button>
+                    {% if filter_statut or filter_client or filter_site or filter_date_min or filter_date_max or search_q %}
+                    <a href="{% url 'my-visits' %}" class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 font-medium hover:underline whitespace-nowrap" title="Réinitialiser les filtres">
+                        Effacer
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- LISTE DES VISITES : CARTES SUR MOBILE / TABLEAU SUR DESKTOP -->
+
+    <!-- 1. Version Tableau sur ordinateur (hidden sm:block) -->
+    <div class="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm table-responsive-wrapper">
+        <table class="w-full text-left border-collapse text-sm">
+            <thead>
+                <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th class="py-3.5 px-4">Date</th>
+                    <th class="py-3.5 px-4">Site</th>
+                    <th class="py-3.5 px-4">Client</th>
+                    <th class="py-3.5 px-4">Formulaire</th>
+                    <th class="py-3.5 px-4">Statut</th>
+                    <th class="py-3.5 px-4 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-gray-700">
+                {% for visit in visits %}
+                <tr class="hover:bg-gray-50/70 transition">
+                    <!-- Date -->
+                    <td class="py-3.5 px-4 whitespace-nowrap text-xs text-gray-600">
+                        <div class="font-medium text-gray-900">{{ visit.date_debut|date:"d/m/Y"|default:"—" }}</div>
+                        <div class="text-gray-400">{{ visit.date_debut|date:"H:i" }}</div>
+                    </td>
+
+                    <!-- Site (Nom, Code, Ville) -->
+                    <td class="py-3.5 px-4">
+                        <div class="font-semibold text-gray-900">{{ visit.mission.site.nom }}</div>
+                        <div class="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                            <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-[11px] text-gray-600">{{ visit.mission.site.code }}</span>
+                            {% if visit.mission.site.ville %}
+                            <span>• {{ visit.mission.site.ville }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Client -->
+                    <td class="py-3.5 px-4 font-medium text-gray-900 whitespace-nowrap">
+                        {{ visit.mission.site.client.nom }}
+                    </td>
+
+                    <!-- Formulaire -->
+                    <td class="py-3.5 px-4 text-xs text-gray-600">
+                        <span class="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 px-2 py-1 rounded-md">
+                            {{ visit.mission.attached_form.nom }}
+                        </span>
+                    </td>
+
+                    <!-- Statut & motif de rejet éventuel -->
+                    <td class="py-3.5 px-4">
+                        <div class="space-y-1">
+                            {% include "components/status_badge.html" with visit=visit %}
+                            {% if visit.statut == "a_corriger" and visit.commentaire_rejet %}
+                            <p class="text-xs text-red-600 font-medium bg-red-50 border border-red-200 px-2 py-1 rounded max-w-xs truncate" title="{{ visit.commentaire_rejet }}">
+                                Rejet : {{ visit.commentaire_rejet }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Action -->
+                    <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                        {% if visit.peut_etre_modifiee %}
+                        <a href="{% url 'visits:visit-edit' visit.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Reprendre
+                        </a>
+                        {% else %}
+                        <a href="{% url 'my-visit-detail' visit.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                            Consulter
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-12 px-4 text-center text-gray-400">
+                        {% include "components/empty_state.html" with title="Aucune visite trouvée" message="Aucune visite ne correspond aux critères de filtre sélectionnés." action_url="/app/mes-visites/" action_label="Réinitialiser les filtres" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 2. Version Cartes sur mobile (md:hidden) -->
+    <div class="block md:hidden space-y-3">
+        {% for visit in visits %}
+        <div class="bg-white border {% if visit.statut == 'a_corriger' %}border-rose-300 ring-1 ring-rose-200{% else %}border-gray-200{% endif %} rounded-2xl p-4 shadow-sm space-y-3">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ visit.mission.site.client.nom }}</span>
+                    <h3 class="text-base font-bold text-gray-900">{{ visit.mission.site.nom }}</h3>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-[10px] text-gray-600">{{ visit.mission.site.code }}</span>
+                        {% if visit.mission.site.ville %}
+                        <span>• {{ visit.mission.site.ville }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% include "components/status_badge.html" with visit=visit %}
+            </div>
+
+            <!-- Motif de rejet si à corriger -->
+            {% if visit.statut == "a_corriger" and visit.commentaire_rejet %}
+            <div class="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                <span class="font-bold block">Motif de rejet :</span>
+                <p class="mt-0.5">{{ visit.commentaire_rejet }}</p>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
+                <span class="font-medium text-gray-700">{{ visit.mission.attached_form.nom }}</span>
+                <time>{{ visit.date_debut|date:"d/m/Y à H:i"|default:"—" }}</time>
+            </div>
+
+            <!-- Bouton d'action -->
+            <div class="pt-1">
+                {% if visit.peut_etre_modifiee %}
+                <a href="{% url 'visits:visit-edit' visit.pk %}" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    Reprendre la saisie
+                </a>
+                {% else %}
+                <a href="{% url 'my-visit-detail' visit.pk %}" class="w-full py-2 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700 font-medium text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+                    Consulter le rapport
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-8 text-center bg-white border border-gray-200 rounded-2xl">
+            {% include "components/empty_state.html" with title="Aucune visite trouvée" message="Aucune visite ne correspond aux filtres sélectionnés." action_url="/app/mes-visites/" action_label="Réinitialiser les filtres" %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-6 py-4 bg-white border border-gray-200 rounded-xl shadow-xs flex items-center justify-between text-xs text-gray-600">
+        <div>
+            Page <span class="font-semibold text-gray-900">{{ page_obj.number }}</span> sur <span class="font-semibold text-gray-900">{{ page_obj.paginator.num_pages }}</span>
+            ({{ page_obj.paginator.count }} visite{{ page_obj.paginator.count|pluralize }})
+        </div>
+        <div class="flex items-center gap-2">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if filter_statut %}&statut={{ filter_statut }}{% endif %}{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_date_min %}&date_min={{ filter_date_min }}{% endif %}{% if filter_date_max %}&date_max={{ filter_date_max }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                &larr; Précédent
+            </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if filter_statut %}&statut={{ filter_statut }}{% endif %}{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_date_min %}&date_min={{ filter_date_min }}{% endif %}{% if filter_date_max %}&date_max={{ filter_date_max }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                Suivant &rarr;
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,83 +1,151 @@
-# Script de démonstration
+# Script de démonstration — EGM Suivi Terrain
 
-## Préparer l'environnement
+Ce document présente l'ensemble des fonctionnalités de la plateforme EGM Suivi Terrain à travers un déroulé pas à pas complet, fluide et réaliste.
 
-```
+---
+
+## 1. Préparer l'environnement
+
+```bash
 python manage.py seed_demo --reset
 python manage.py runserver
 ```
 
-Connexion : `/comptes/connexion/` — redirige automatiquement vers `/app/` (managers,
-superviseurs) ou `/portail/` (clients).
+Point d'entrée : **`/comptes/connexion/`**  
+La plateforme redirige automatiquement l'utilisateur connecté vers son espace dédié selon son rôle :
+- Managers & Administrateurs : `/app/` (Tableau de bord)
+- Superviseurs : `/app/missions/` (Mes missions mobile-first)
+- Clients : `/portail/` (Avancement des sites)
 
-## Comptes de démonstration
+---
 
-Mot de passe commun : `demo1234`
+## 2. Comptes de démonstration
 
-| Compte           | Rôle                | Détails                                      |
-|------------------|---------------------|-----------------------------------------------|
-| `admin`          | Administrateur      | Superuser, accès Django admin (`/admin/`)     |
-| `manager1`       | Manager             | Permissions : gérer les formulaires + valider les visites |
-| `manager2`       | Manager             | Permission : valider les visites uniquement   |
-| `sup1`           | Superviseur         | Issa Konaté                                    |
-| `sup2`           | Superviseur         | Fatoumata Traoré                               |
-| `sup3`           | Superviseur         | Moussa Diarra                                  |
-| `sup4`           | Superviseur         | Aminata Coulibaly                              |
-| `client_bnda`    | Client (lecture seule) | Rattaché au client BNDA (8 sites)          |
-| `client_exemple` | Client (lecture seule) | Rattaché au client Banque Exemple (3 sites)|
+Mot de passe commun : **`demo1234`**
 
-Après un `seed_demo --reset`, le jeu de données contient toujours une mission encore
-**en brouillon** : "Rapport d'installation" sur le site **Agence Kayes** du client **BNDA**,
-assignée à **sup2**. C'est elle qui sert de fil rouge à la démo ci-dessous.
+| Compte | Rôle | Droits & Accès | Espace par défaut |
+|---|---|---|---|
+| `admin` | Administrateur | Superuser, Django admin (`/admin/`), tous les droits | `/app/` |
+| `manager1` | Manager complet | Gestion des formulaires (`manage_forms`) + Validation (`validate_visits`) | `/app/` |
+| `manager2` | Manager revue | Validation des visites (`validate_visits`) uniquement (pas de gestion formulaires) | `/app/` |
+| `sup1` | Superviseur | Issa Konaté — Missions de terrain | `/app/missions/` |
+| `sup2` | Superviseur | Fatoumata Traoré — Fil rouge de la démo | `/app/missions/` |
+| `sup3` | Superviseur | Moussa Diarra — Missions de terrain | `/app/missions/` |
+| `sup4` | Superviseur | Aminata Coulibaly — Missions de terrain | `/app/missions/` |
+| `client_bnda` | Client | BNDA (8 sites sous contrat, Bamako, Kayes, Sikasso...) | `/portail/` |
+| `client_exemple` | Client | Banque Exemple (3 sites sous contrat) | `/portail/` |
 
-## Déroulé (8 à 10 minutes)
+---
 
-1. **(0:00–1:00) Connexion `sup2`** — écran *Mes missions* (`/app/missions/`).
-   Repérer la mission "Rapport d'installation" sur "Agence Kayes" (encore sans visite
-   en cours) et cliquer sur **Commencer** pour ouvrir l'écran de saisie de la visite.
+## 3. Déroulé conseillé de la démonstration (10 à 12 minutes)
 
-2. **(1:00–3:00) Écran *Visite*** (`/app/missions/visites/<id>/`, compte `sup2`).
-   Remplir les champs obligatoires (nom du technicien, date d'intervention, position
-   GPS), prendre une photo pour chacun des 4 champs photo obligatoires (façade,
-   installation, compteur, câblage), dessiner la signature du formulaire puis la
-   signature du superviseur en bas de page, et cliquer **Soumettre**. Le statut passe
-   à *Soumise* et la visite quitte la liste des missions de sup2.
+### Étape 1 : Espace Manager — Synthèse & Gestion des Formulaires (`manager1`)
+*Objectif : Présenter la gouvernance centrale, les métriques clés et le catalogue de formulaires.*
 
-3. **(3:00–4:00) Déconnexion, connexion `manager2`** — écran *Revue des visites*
-   (`/app/revue/`). Repérer la visite soumise par sup2 sur Agence Kayes, cliquer
-   **Rejeter**, saisir un motif réaliste (ex. « Photo du compteur illisible, merci de
-   reprendre la photo. ») et valider. Le statut passe à *À corriger*.
+1. **Connexion avec `manager1`** :
+   - Arrivée directe sur le **Tableau de bord manager** (`/app/`).
+   - Découverte des 4 indicateurs de synthèse : Visites à revoir, Visites à corriger, Missions en cours, Visites publiées ce mois-ci.
+   - Section des 5 dernières visites soumises avec lien direct d'accès à la revue.
+2. **Menu Formulaires** (`/app/formulaires/`) :
+   - Souligner que cet onglet n'est visible que par les utilisateurs disposant de la permission `manage_forms`.
+   - Explorer le catalogue de formulaires : tri par nom ou statut, pagination.
+   - Cliquer sur **Aperçu** sur le formulaire *Audit technique* pour visualiser le schéma dynamique.
+   - Montrer la confirmation sécurisée sur le bouton **Désactiver / Réactiver**.
 
-4. **(4:00–5:00) Reconnexion `sup2`** — écran *Mes missions* puis *Visite* : le motif
-   de rejet s'affiche en haut de la fiche. Corriger l'observation, reprendre la photo
-   du compteur si on veut rejouer la correction à l'identique, puis cliquer à nouveau
-   **Soumettre**. Le statut repasse à *Soumise*.
+---
 
-5. **(5:00–6:00) Reconnexion `manager2`** — écran *Revue des visites* : cliquer
-   **Valider** (statut *Validée*), puis **Publier** (statut *Publiée*). La visite
-   devient visible côté client.
+### Étape 2 : Espace Manager — Clients & Missions dépendantes (`manager1`)
+*Objectif : Montrer la configuration multi-clients, l'avancement global et l'assignation interactive HTMX.*
 
-6. **(6:00–7:30) Connexion `client_bnda`** — écran *Tableau de bord* (`/portail/`).
-   Montrer la ligne "Agence Kayes" / "Rapport d'installation" qui passe à 1/1 réalisé.
-   Ouvrir la fiche du site, puis le détail de la visite publiée, et télécharger son
-   PDF (bouton **Télécharger le PDF**).
+1. **Menu Clients** (`/app/clients/`) :
+   - Tableau avec tri par colonnes (Client, Statut, Sites, Avancement global).
+   - Cliquer sur le client **BNDA** pour ouvrir la fiche détaillée à 3 onglets :
+     - **Sites** : Liste des 8 sites avec code, ville, quartier et coordonnées GPS.
+     - **Formulaires rattachés** : Matrice des prévisions par site (modifiables directement en HTMX).
+     - **Accès client** : Liste des comptes actifs avec possibilité d'en créer ou de révoquer un accès avec confirmation.
+2. **Menu Missions** (`/app/missions/`) :
+   - Tableau complet filtrable (Superviseur, Client, Site, Statut) avec tri sur colonnes.
+   - En bas, tester le bloc **Assigner une nouvelle mission** :
+     - Choisir le client BNDA : HTMX recharge instantanément les sites de la BNDA et ses formulaires autorisés.
+     - Sélectionner un site, le formulaire et le superviseur `sup2`.
 
-7. **(7:30–8:30) Reconnexion `manager2`** — écran *Revue des visites* : cliquer
-   **Dépublier** sur cette même visite. Reconnexion `client_bnda` : la visite a
-   disparu du portail (le compteur du site revient à 0/1), preuve que la
-   dépublication masque immédiatement la donnée côté client sans la supprimer.
+---
 
-8. **(8:30–9:30) Connexion `manager1`** — écran *Fiche client* (`/app/clients/`,
-   cliquer sur "BNDA"). Dans la liste des comptes clients, cliquer **Révoquer** sur
-   `client_bnda`. Tenter ensuite de se reconnecter avec `client_bnda` sur
-   `/comptes/connexion/` : le formulaire refuse la connexion (compte désactivé).
+### Étape 3 : Expérience Superviseur Mobile-First (`sup2`)
+*Objectif : Démontrer l'ergonomie mobile, la saisie guidée, les photos et la signature électronique.*
 
-## Revenir à l'état initial
+1. **Connexion avec `sup2`** (simuler un écran téléphone via l'inspecteur du navigateur) :
+   - Redirection automatique sur **Mes missions** (`/app/missions/`).
+   - Si une mission est à corriger, elle apparaît en tête de liste avec son motif de rejet dans un bandeau d'alerte rouge bien visible.
+   - Repérer la mission non commencée sur **Agence Kayes** et cliquer sur **Commencer**.
+2. **Écran de saisie mobile** (`/app/missions/visites/<id>/`) :
+   - **Barre de progression** dynamique en tête indiquant les sections complétées.
+   - **Sections repliables en accordéon** pour ne pas surcharger l'écran.
+   - **Champs adaptés** : claviers numériques automatiques pour les nombres, cases à cocher lisibles.
+   - **Photos de terrain** : bouton tactile "Prendre une photo", compression automatique, miniature immédiate et compteur "2 sur 4".
+   - **Tableau répétable** : cartes de caméras avec ajout et suppression dynamique de lignes.
+   - **Signature électronique** : zone tactile plein format avec bouton d'effacement pour signature du technicien et du responsable.
+   - Cliquer sur **Soumettre** : si des champs obligatoires manquent, un résumé clair s'affiche et scroll directement au premier champ en erreur.
+   - Une fois complet, soumettre : redirection vers l'**écran de confirmation de soumission** dédié (`/confirmation/`).
 
-```
+---
+
+### Étape 4 : Revue Manager en vue scindée (`manager2`)
+*Objectif : Valider le flux de contrôle qualité sans rechargement de page.*
+
+1. **Connexion avec `manager2`** :
+   - Constater dans la barre latérale que le menu *Formulaires* est masqué (droits restreints).
+   - Ouvrir **Revue des visites** (`/app/revue/`).
+2. **Expérience de revue sur ordinateur** :
+   - Colonne de gauche : liste des visites avec tri rapide (Plus récents, Client, Statut).
+   - Colonne de droite : chargement asynchrone HTMX de la visite sélectionnée au clic.
+   - Vérifier le composant universel :
+     - Alerte discrète si l'écart GPS avec le site dépasse 500 m.
+     - Visionneuse photos intégrée (lightbox avec zoom et navigation au clavier).
+     - Rendu des signatures et bloc d'audit interne ActivityLog.
+3. **Cycle Rejet & Validation** :
+   - Cliquer sur **Rejeter** : saisie obligatoire du motif (ex. : « *Photo du compteur floue, merci de reprendre le cliché.* »). Statut -> *À corriger*.
+   - *(Optionnel)* Reconnexion rapide de `sup2` pour montrer le motif en bandeau, puis re-soumission.
+   - Cliquer sur **Valider** : statut passe à *Validée*.
+   - Cliquer sur **Publier** : statut passe à *Publiée*. La visite est désormais certifiée et visible pour le client.
+
+---
+
+### Étape 5 : Portail Client sobre & rassurant (`client_bnda`)
+*Objectif : Vérifier le cloisonnement strict, l'absence totale de vocabulaire interne et les exports.*
+
+1. **Connexion avec `client_bnda`** :
+   - Redirection automatique sur `/portail/`.
+   - **Synthèse en haut** : 3 chiffres clés (Sites sous contrat, Visites réalisées, Visites planifiées) et barre de progression globale.
+   - **Filtres** : filtrer par ville (ex. Kayes) ou par type de formulaire, recherche textuelle.
+   - Chaque site affiche ses formulaires avec barres de progression et pastilles de couleur (*Complet*, *En cours*, *Pas encore visité*).
+2. **Fiche d'un site** (`/portail/sites/<id>/`) :
+   - Chronologie verticale épurée des visites publiées et checklist des interventions restant à planifier.
+3. **Détail d'une visite client** (`/portail/visites/<id>/`) :
+   - Gabarit universel en lecture seule : **aucun statut interne**, aucun commentaire de rejet ni historique d'audit interne.
+   - Bouton **Télécharger le PDF** pour obtenir le rapport officiel mis en page.
+4. **Exports groupés** :
+   - Bouton **Exporter le site (ZIP)** sur la fiche du site.
+   - Bouton **Exporter tout (ZIP)** en tête du portail client.
+
+---
+
+### Étape 6 : Sécurité & Révocation instantanée
+*Objectif : Montrer la dépublication en direct et la gestion des comptes clients.*
+
+1. **Dépublication** :
+   - Depuis `manager2` sur `/app/revue/`, cliquer sur **Dépublier** sur la visite.
+   - Côté `client_bnda`, rafraîchir : la visite disparaît immédiatement des compteurs et de la chronologie.
+2. **Révocation d'un accès client** :
+   - Avec `manager1` sur `/app/clients/` (BNDA, onglet Accès client), cliquer sur **Révoquer** pour `client_bnda`.
+   - Tenter de se reconnecter avec `client_bnda` : accès refusé immédiatement.
+
+---
+
+## 4. Revenir à l'état initial
+
+Pour réinitialiser la base à son état de départ propre à tout moment :
+
+```bash
 python manage.py seed_demo --reset
 ```
-
-Cette commande efface entièrement les comptes, clients, sites et visites de
-démonstration (y compris toutes les actions effectuées pendant la démo : visite
-publiée/dépubliée, compte client révoqué) et recrée le même jeu de données initial.

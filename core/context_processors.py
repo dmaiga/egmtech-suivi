@@ -109,10 +109,11 @@ def navigation(request):
                 ),
                 "icon": "briefcase",
             })
+            my_visits_url = _safe_reverse("my-visits") or _safe_reverse("visits:my-visits") or "/app/mes-visites/"
             items.append({
                 "label": "Mes visites",
-                "url": f"{missions_url}#visites",
-                "is_active": current_path.startswith("/app/missions/visites/"),
+                "url": my_visits_url,
+                "is_active": current_path.startswith("/app/mes-visites/"),
                 "icon": "clipboard-list",
             })
 

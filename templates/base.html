@@ -19,10 +19,36 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+
+        /* Indicateur de chargement HTMX */
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in-out;
+            pointer-events: none;
+        }
+        .htmx-request .htmx-indicator,
+        .htmx-request.htmx-indicator,
+        body.htmx-request #htmx-indicator-bar {
+            opacity: 1 !important;
+        }
+
+        /* Boutons désactivés lors d'un envoi */
+        button[disabled], input[type="submit"][disabled] {
+            cursor: not-allowed !important;
+            opacity: 0.65 !important;
+        }
+
+        /* Tableaux : défilement horizontal fluide sur mobile */
+        .table-responsive-wrapper {
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-screen text-gray-900 bg-gray-50 flex flex-col">
+
+<!-- Indicateur global de progression HTMX -->
+<div id="htmx-indicator-bar" class="fixed top-0 left-0 right-0 h-1 bg-indigo-600 z-50 transition-opacity duration-200 pointer-events-none opacity-0"></div>
 
 {% if request.user.is_authenticated %}
     <!-- ====================================================================== -->
@@ -223,9 +249,9 @@
     {% endif %}
 
     <!-- Messages Django (Succès, Erreur, Info, Warning) -->
-    {% if messages %}
-    <div class="px-4 sm:px-6 lg:px-8 pt-6">
-        <div class="{% if request.user.is_authenticated %}max-w-7xl{% else %}max-w-md{% endif %} mx-auto space-y-2">
+    <div id="django-messages-container" class="px-4 sm:px-6 lg:px-8 pt-4 empty:hidden">
+        <div id="django-messages-list" class="{% if request.user.is_authenticated %}max-w-7xl{% else %}max-w-md{% endif %} mx-auto space-y-2">
+            {% if messages %}
             {% for message in messages %}
             <div class="p-4 rounded-xl border text-sm flex items-start justify-between shadow-xs {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-800{% elif message.tags == 'info' %}bg-blue-50 border-blue-200 text-blue-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
                 <div class="flex items-center gap-3">
@@ -238,9 +264,9 @@
                 </div>
             </div>
             {% endfor %}
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Zone de Contenu Principal (Unique définition de block content) -->
     <main class="flex-1 p-4 sm:p-6 lg:p-8 {% if not request.user.is_authenticated %}flex items-center justify-center{% endif %}">
@@ -256,7 +282,7 @@
     {% endif %}
 </div>
 
-<!-- Script pour le menu repliable mobile -->
+<!-- Script pour le menu repliable mobile & retours d'état -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('mobile-menu-toggle');
@@ -285,6 +311,51 @@ document.addEventListener('DOMContentLoaded', function() {
     if (toggleBtn) toggleBtn.addEventListener('click', openMobileMenu);
     if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
     if (backdrop) backdrop.addEventListener('click', closeMobileMenu);
+
+    // Retours d'état HTMX : barre de progression, boutons désactivés, erreurs polies
+    const htmxBar = document.getElementById('htmx-indicator-bar');
+    const messagesList = document.getElementById('django-messages-list');
+
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        if (htmxBar) htmxBar.classList.remove('opacity-0');
+        const elt = evt.detail.elt;
+        if (elt && (elt.tagName === 'BUTTON' || (elt.tagName === 'INPUT' && elt.type === 'submit'))) {
+            elt.setAttribute('data-htmx-submitting', 'true');
+            elt.disabled = true;
+        }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (htmxBar) htmxBar.classList.add('opacity-0');
+        const elt = evt.detail.elt;
+        if (elt && elt.getAttribute('data-htmx-submitting') === 'true') {
+            elt.removeAttribute('data-htmx-submitting');
+            elt.disabled = false;
+        }
+    });
+
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        if (htmxBar) htmxBar.classList.add('opacity-0');
+        if (messagesList) {
+            const errDiv = document.createElement('div');
+            errDiv.className = 'p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm flex items-center gap-3 shadow-xs';
+            errDiv.innerHTML = '<svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg><span class="font-medium">Une erreur est survenue lors de la communication avec le serveur. Veuillez réessayer ultérieurement.</span>';
+            messagesList.prepend(errDiv);
+        }
+    });
+
+    // Désactivation automatique des boutons de soumission pour éviter les doubles clics
+    document.addEventListener('submit', function(e) {
+        if (e.defaultPrevented) return;
+        const form = e.target;
+        if (form.checkValidity && !form.checkValidity()) return;
+        const submitButtons = form.querySelectorAll('button[type="submit"]:not([data-no-disable]), input[type="submit"]:not([data-no-disable])');
+        setTimeout(() => {
+            submitButtons.forEach(btn => {
+                btn.disabled = true;
+            });
+        }, 0);
+    });
 });
 </script>
 

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Erreur inattendue (500){% endblock %}
+
+{% block content %}
+<div class="max-w-md w-full bg-white border border-gray-200 rounded-2xl shadow-sm p-8 text-center mx-auto my-8">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-50 text-amber-600 mb-4">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+    </div>
+    <span class="inline-block text-xs font-semibold tracking-wide uppercase px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Erreur serveur</span>
+    <h1 class="mt-3 text-2xl font-bold text-gray-900">Une erreur inattendue est survenue</h1>
+    <p class="mt-2 text-sm text-gray-600">L'opération n'a pas pu aboutir. Veuillez réessayer dans quelques instants ou contacter le support si le problème persiste.</p>
+    <div class="mt-6">
+        <a href="{% url 'accounts:login' %}" class="inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition">
+            Retour à l'accueil
+        </a>
+    </div>
+</div>
+{% endblock %}

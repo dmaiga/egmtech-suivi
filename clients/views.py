@@ -25,9 +25,27 @@ class ClientListView(ManagerRequiredMixin, ListView):
     model = Client
     template_name = "clients/client_list.html"
     context_object_name = "clients"
+    paginate_by = 10
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        tri = self.request.GET.get("tri", "nom")
+        if tri == "-nom":
+            return qs.order_by("-nom")
+        elif tri == "statut":
+            return qs.order_by("-actif", "nom")
+        elif tri == "-statut":
+            return qs.order_by("actif", "nom")
+        elif tri == "sites":
+            return qs.annotate(num_sites=Count("sites")).order_by("-num_sites", "nom")
+        elif tri == "-sites":
+            return qs.annotate(num_sites=Count("sites")).order_by("num_sites", "nom")
+        return qs.order_by("nom")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        tri = self.request.GET.get("tri", "nom")
+        context["current_tri"] = tri
         prevu_map = {
             row["site__client_id"]: row["total_prevu"]
             for row in ExpectedVisits.objects.values("site__client_id").annotate(total_prevu=Sum("nombre_prevu"))

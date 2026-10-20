@@ -12,31 +12,54 @@
             <p class="text-sm text-gray-500 mt-1">Gestion des comptes clients, sites et suivi de l'avancement global.</p>
         </div>
         <div>
-            <a href="{% url 'clients:create' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+            <a href="{% url 'clients:create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-sm transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Nouveau client
             </a>
         </div>
     </div>
 
-    {% if messages %}
-    <div class="space-y-2">
-        {% for message in messages %}
-        <div class="p-4 rounded-xl border text-sm flex items-center gap-2 {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
-            <span>{{ message }}</span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Tableau responsive des clients avec avancement global -->
-    <div class="w-full overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <!-- Tableau responsive des clients avec avancement global et tri -->
+    <div class="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm table-responsive-wrapper">
         <table class="min-w-full divide-y divide-gray-200 text-sm">
             <thead class="bg-gray-50/75">
                 <tr>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sites</th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <a href="?tri={% if current_tri == 'nom' %}-nom{% else %}nom{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                            Client
+                            {% if current_tri == 'nom' %}
+                            <span class="text-indigo-600 font-bold">▲</span>
+                            {% elif current_tri == '-nom' %}
+                            <span class="text-indigo-600 font-bold">▼</span>
+                            {% else %}
+                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <a href="?tri={% if current_tri == 'statut' %}-statut{% else %}statut{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                            Statut
+                            {% if current_tri == 'statut' %}
+                            <span class="text-indigo-600 font-bold">▲</span>
+                            {% elif current_tri == '-statut' %}
+                            <span class="text-indigo-600 font-bold">▼</span>
+                            {% else %}
+                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <a href="?tri={% if current_tri == 'sites' %}-sites{% else %}sites{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                            Sites
+                            {% if current_tri == 'sites' %}
+                            <span class="text-indigo-600 font-bold">▲</span>
+                            {% elif current_tri == '-sites' %}
+                            <span class="text-indigo-600 font-bold">▼</span>
+                            {% else %}
+                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                            {% endif %}
+                        </a>
+                    </th>
                     <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">Avancement global</th>
                     <th scope="col" class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -92,6 +115,27 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if page_obj.has_other_pages %}
+        <div class="px-6 py-3.5 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+            <div>
+                Page <span class="font-semibold text-gray-900">{{ page_obj.number }}</span> sur <span class="font-semibold text-gray-900">{{ page_obj.paginator.num_pages }}</span>
+                ({{ page_obj.paginator.count }} client{{ page_obj.paginator.count|pluralize }})
+            </div>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_tri %}&tri={{ current_tri }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    &larr; Précédent
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_tri %}&tri={{ current_tri }}{% endif %}" class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    Suivant &rarr;
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
 </div>

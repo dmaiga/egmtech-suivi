@@ -394,7 +394,7 @@ Utilisé par :
                             {% elif log.action == "validation_visite" %}Visite validée par le manager
                             {% elif log.action == "rejet_visite" %}Visite renvoyée pour correction
                             {% elif log.action == "publication_visite" %}Visite publiée au client
-                            {% elif log.action == "depublication_visite" %}Visite dépubliée
+                            {% elif log.action == "depublication_visite" %}{% if request.user.role == "superviseur" %}Visite retirée{% else %}Visite dépubliée{% endif %}
                             {% else %}{{ log.action }}
                             {% endif %}
                         </span>
@@ -404,9 +404,11 @@ Utilisé par :
                         Effectué par <span class="font-medium text-gray-800">{{ log.user.username|default:"Système" }}</span>
                     </p>
                     {% if log.detail.commentaire %}
-                    <div class="mt-2 p-2.5 rounded bg-red-50 border border-red-200 text-xs text-red-800 font-medium">
-                        Commentaire : {{ log.detail.commentaire }}
-                    </div>
+                        {% if request.user.role != "superviseur" or log.action != "depublication_visite" %}
+                        <div class="mt-2 p-2.5 rounded bg-red-50 border border-red-200 text-xs text-red-800 font-medium">
+                            Commentaire : {{ log.detail.commentaire }}
+                        </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </li>
