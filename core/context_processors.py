@@ -120,21 +120,20 @@ def navigation(request):
     # Navigation Client
     elif user.role == User.Role.CLIENT:
         dashboard_url = _safe_reverse("portal:dashboard")
+        visits_url = _safe_reverse("portal:visit-list")
         if dashboard_url:
             items.append({
                 "label": "Avancement",
                 "url": dashboard_url,
-                "is_active": current_path == dashboard_url,
+                "is_active": (current_path == dashboard_url or current_path.startswith("/portail/sites/")),
                 "icon": "chart-bar",
             })
+        if visits_url:
             items.append({
                 "label": "Visites",
-                "url": f"{dashboard_url}#visites",
-                "is_active": (
-                    current_path.startswith("/portail/visites/")
-                    or current_path.startswith("/portail/sites/")
-                ),
-                "icon": "document-check",
+                "url": visits_url,
+                "is_active": current_path.startswith("/portail/visites/"),
+                "icon": "clipboard-check",
             })
 
     return {

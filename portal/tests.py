@@ -319,3 +319,68 @@ class PortalSobrietyAndVocabularyTests(TestCase):
         self.assertEqual(response_nom.status_code, 200)
         self.assertContains(response_nom, "Agence Spéciale")
         self.assertNotContains(response_nom, self.site.nom)
+
+    def test_visit_list_affiche_uniquement_les_visites_publiees_du_client(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("portal:visit-list"))
+        self.assertEqual(response.status_code, 200)
+
+        # La visite publiée du client est visible
+        self.assertContains(response, self.site.nom)
+        self.assertContains(response, self.attached.nom)
+        self.assertContains(response, "Publiée")
+        self.assertContains(response, "Exporter tout (ZIP)")
+
+        # Les visites non publiées sont exclues
+        self.assertNotContains(response, "SecretBrouillon")
+        self.assertNotContains(response, "SecretACorriger")
+        self.assertNotContains(response, "brouillon")
+        self.assertNotContains(response, "a_corriger")
+
+        # La visite d'un autre client est strictement exclue
+        other_client = Client.objects.create(nom="Autre Client Inc")
+        other_site = Site.objects.create(client=other_client, nom="Site Etranger", code="SE-01")
+        other_mission = Mission.objects.create(
+            site=other_site,
+            superviseur=self.mission.superviseur,
+            attached_form=self.attached,
+            created_by=self.mission.created_by,
+        )
+        other_visit = Visit.objects.create(mission=other_mission, auteur=self.mission.superviseur, statut=Visit.Statut.PUBLIEE)
+
+        resp2 = self.client.get(reverse("portal:visit-list"))
+        self.assertNotContains(resp2, "Site Etranger")
+
+    def test_visit_list_filtres_et_recherche(self):
+        self.client.force_login(self.user)
+
+        # Recherche par code
+        res_code = self.client.get(reverse("portal:visit-list"), {"q": self.site.code})
+        self.assertEqual(res_code.status_code, 200)
+        self.assertContains(res_code, self.site.nom)
+
+        # Recherche introuvable
+        res_none = self.client.get(reverse("portal:visit-list"), {"q": "CODE-INEXISTANT-XYZ"})
+        self.assertEqual(res_none.status_code, 200)
+        self.assertContains(res_none, "Aucun rapport de visite trouvé")
+
+        # Filtre par site
+        res_site = self.client.get(reverse("portal:visit-list"), {"site": self.site.pk})
+        self.assertEqual(res_site.status_code, 200)
+        self.assertContains(res_site, self.site.nom)
+
+    def test_visit_list_sans_vocabulaire_interne(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("portal:visit-list"))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertNotContains(response, "CONFIDENTIEL: motif de rejet")
+        self.assertNotContains(response, "SECRET_REJET_INTERNE_NE_PAS_DIFFUSER")
+        self.assertNotContains(response, "HISTORIQUE_INTERNE_ACTION_LOG")
+        self.assertNotContains(response, "rejet_visite")
+
+    def test_visit_list_interdite_aux_superviseurs(self):
+        self.client.force_login(self.mission.superviseur)
+        response = self.client.get(reverse("portal:visit-list"))
+        # Les non-clients doivent être redirigés ou interdits (role_required)
+        self.assertIn(response.status_code, [302, 403])

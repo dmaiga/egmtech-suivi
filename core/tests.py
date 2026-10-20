@@ -288,7 +288,7 @@ class SeedAccountsNavigationAndLayoutTests(TestCase):
             reverse("visits:mission-list"),
             reverse("revue:list"),
         ]
-        forbidden = ["Mes missions", "Mes visites", "Avancement"]
+        forbidden = ["Mes missions", "Mes visites", "Avancement", "Visites"]
         self._verify_account_pages("admin", pages, forbidden)
 
     def test_manager1_account_navigation_and_pages(self):
@@ -300,8 +300,8 @@ class SeedAccountsNavigationAndLayoutTests(TestCase):
             reverse("visits:mission-list"),
             reverse("revue:list"),
         ]
-        forbidden = ["Mes missions", "Mes visites", "Avancement"]
-        forbidden_urls = [reverse("my-visits")]
+        forbidden = ["Mes missions", "Mes visites", "Avancement", "Visites"]
+        forbidden_urls = [reverse("my-visits"), reverse("portal:visit-list")]
         self._verify_account_pages("manager1", pages, forbidden, forbidden_urls)
 
     def test_manager2_account_navigation_and_pages(self):
@@ -312,28 +312,29 @@ class SeedAccountsNavigationAndLayoutTests(TestCase):
             reverse("visits:mission-list"),
             reverse("revue:list"),
         ]
-        forbidden_menu = ["Formulaires", "Mes missions", "Mes visites", "Avancement"]
-        forbidden_urls = [reverse("forms_cms:list"), reverse("my-visits")]
+        forbidden_menu = ["Formulaires", "Mes missions", "Mes visites", "Avancement", "Visites"]
+        forbidden_urls = [reverse("forms_cms:list"), reverse("my-visits"), reverse("portal:visit-list")]
         self._verify_account_pages("manager2", pages, forbidden_menu, forbidden_urls)
 
     def test_superviseurs_navigation_and_pages(self):
         for sup in ["sup1", "sup2", "sup3", "sup4"]:
             with self.subTest(supervisor=sup):
                 pages = [reverse("visits:mission-list"), reverse("my-visits")]
-                forbidden_menu = ["Accueil", "Revue", "Clients", "Formulaires", "Avancement"]
+                forbidden_menu = ["Accueil", "Revue", "Clients", "Formulaires", "Avancement", "Visites"]
                 forbidden_urls = [
                     reverse("app-home"),
                     reverse("clients:list"),
                     reverse("forms_cms:list"),
                     reverse("revue:list"),
                     reverse("portal:dashboard"),
+                    reverse("portal:visit-list"),
                 ]
                 self._verify_account_pages(sup, pages, forbidden_menu, forbidden_urls)
 
     def test_clients_navigation_and_pages(self):
         for cli in ["client_bnda", "client_exemple"]:
             with self.subTest(client=cli):
-                pages = [reverse("portal:dashboard")]
+                pages = [reverse("portal:dashboard"), reverse("portal:visit-list")]
                 forbidden_menu = ["Accueil", "Revue", "Missions", "Mes missions", "Mes visites", "Clients", "Formulaires"]
                 forbidden_urls = [
                     reverse("app-home"),

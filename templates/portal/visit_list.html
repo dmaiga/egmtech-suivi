@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Visites — Rapports certifiés{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- En-tête sobre et rassurant -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Rapports de visite certifiés</h1>
+            <p class="text-sm text-gray-600 mt-1">
+                Consultez et téléchargez les comptes-rendus d'intervention validés pour vos sites.
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'portal:client-export' %}"
+               class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition shadow-indigo-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Exporter tout (ZIP)
+            </a>
+        </div>
+    </div>
+
+    <!-- Synthèse compacte : 3 chiffres clés -->
+    <section class="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="grid grid-cols-3 gap-2 sm:gap-6">
+            <div class="p-2.5 sm:p-4 bg-emerald-50/70 rounded-xl border border-emerald-100 flex flex-col justify-between">
+                <span class="text-[11px] sm:text-xs font-semibold text-emerald-800 uppercase tracking-wider leading-tight truncate">Rapports certifiés</span>
+                <div class="mt-1 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+                    <span class="text-xl sm:text-3xl font-extrabold text-emerald-700">{{ total_visites }}</span>
+                    <span class="text-[10px] sm:text-xs text-emerald-600 truncate">visite{{ total_visites|pluralize }}</span>
+                </div>
+            </div>
+
+            <div class="p-2.5 sm:p-4 bg-gray-50/80 rounded-xl border border-gray-100 flex flex-col justify-between">
+                <span class="text-[11px] sm:text-xs font-semibold text-gray-600 uppercase tracking-wider leading-tight truncate">Sites couverts</span>
+                <div class="mt-1 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+                    <span class="text-xl sm:text-3xl font-extrabold text-gray-900">{{ sites_couverts }}</span>
+                    <span class="text-[10px] sm:text-xs text-gray-500 truncate">site{{ sites_couverts|pluralize }}</span>
+                </div>
+            </div>
+
+            <div class="p-2.5 sm:p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 flex flex-col justify-between">
+                <span class="text-[11px] sm:text-xs font-semibold text-indigo-800 uppercase tracking-wider leading-tight truncate">Types de rapport</span>
+                <div class="mt-1 sm:mt-2 flex items-baseline gap-1 sm:gap-2">
+                    <span class="text-xl sm:text-3xl font-extrabold text-indigo-700">{{ forms_realises }}</span>
+                    <span class="text-[10px] sm:text-xs text-indigo-600 truncate">modèle{{ forms_realises|pluralize }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Barre de filtres et recherche -->
+    <section class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+        <form method="get" action="{% url 'portal:visit-list' %}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+            <!-- Recherche site (nom ou code) -->
+            <div class="lg:col-span-2">
+                <label for="filter-q" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Recherche site</label>
+                <div class="relative">
+                    <input type="text"
+                           id="filter-q"
+                           name="q"
+                           value="{{ search_q }}"
+                           placeholder="Nom ou code de site..."
+                           class="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Filtre Site -->
+            <div>
+                <label for="filter-site" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Site</label>
+                <select id="filter-site" name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les sites</option>
+                    {% for site in sites_filter %}
+                    <option value="{{ site.pk }}" {% if filter_site == site.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ site.nom }}{% if site.ville %} ({{ site.ville }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filtre Formulaire -->
+            <div>
+                <label for="filter-formulaire" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Formulaire</label>
+                <select id="filter-formulaire" name="formulaire" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les formulaires</option>
+                    {% for f in forms_filter %}
+                    <option value="{{ f.pk }}" {% if filter_formulaire == f.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ f.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Période : Date début -->
+            <div>
+                <label for="filter-date-min" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Depuis le</label>
+                <input type="date"
+                       id="filter-date-min"
+                       name="date_min"
+                       value="{{ filter_date_min }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="flex items-center gap-2">
+                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                    Filtrer
+                </button>
+                {% if filter_site or filter_formulaire or filter_ville or filter_date_min or filter_date_max or search_q %}
+                <a href="{% url 'portal:visit-list' %}" class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 font-medium hover:underline whitespace-nowrap" title="Réinitialiser les filtres">
+                    Effacer
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+
+    <!-- LISTE DES VISITES : TABLEAU DESKTOP & CARTES MOBILE -->
+    <div class="w-full rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <!-- 1. Version Tableau sur ordinateur (hidden md:block) -->
+        <div class="hidden md:block overflow-x-auto table-responsive-wrapper">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <th class="py-3.5 px-5">Date d'intervention</th>
+                        <th class="py-3.5 px-5">Site & Ville</th>
+                        <th class="py-3.5 px-5">Type de rapport</th>
+                        <th class="py-3.5 px-5">Superviseur</th>
+                        <th class="py-3.5 px-5">Statut</th>
+                        <th class="py-3.5 px-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-gray-700">
+                    {% for visit in visits %}
+                    <tr class="hover:bg-gray-50/70 transition">
+                        <!-- Date -->
+                        <td class="py-3.5 px-5 whitespace-nowrap text-xs text-gray-600">
+                            <div class="font-medium text-gray-900">{{ visit.date_soumission|date:"d F Y" }}</div>
+                            <div class="text-gray-400">à {{ visit.date_soumission|date:"H:i" }}</div>
+                        </td>
+
+                        <!-- Site (Nom, Code, Ville) -->
+                        <td class="py-3.5 px-5">
+                            <a href="{% url 'portal:site-detail' visit.mission.site.pk %}" class="font-semibold text-gray-900 hover:text-indigo-600 transition block">
+                                {{ visit.mission.site.nom }}
+                            </a>
+                            <div class="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-[11px] text-gray-600">{{ visit.mission.site.code }}</span>
+                                {% if visit.mission.site.ville %}
+                                <span>• {{ visit.mission.site.ville }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Formulaire -->
+                        <td class="py-3.5 px-5 text-xs text-gray-800 font-medium">
+                            {{ visit.mission.attached_form.nom }}
+                            {% if visit.photos.count %}
+                            <span class="text-[11px] text-gray-400 block mt-0.5">
+                                {{ visit.photos.count }} photo{{ visit.photos.count|pluralize }} certifiée{{ visit.photos.count|pluralize }}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Superviseur -->
+                        <td class="py-3.5 px-5 text-xs text-gray-600 whitespace-nowrap">
+                            {{ visit.auteur.get_full_name|default:visit.auteur.username }}
+                        </td>
+
+                        <!-- Statut -->
+                        <td class="py-3.5 px-5 whitespace-nowrap">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>Publiée</span>
+                            </span>
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="py-3.5 px-5 text-right whitespace-nowrap space-x-1.5">
+                            <a href="{% url 'portal:visit-detail' visit.pk %}"
+                               class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                Consulter
+                            </a>
+                            <a href="{% url 'portal:visit-pdf' visit.pk %}"
+                               class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg transition shadow-2xs">
+                                <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-12 px-4 text-center text-gray-400">
+                            {% include "components/empty_state.html" with title="Aucun rapport de visite trouvé" message="Aucune visite publiée ne correspond aux critères sélectionnés." action_url="/portail/visites/" action_label="Réinitialiser les filtres" %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 2. Version Cartes sur mobile (block md:hidden) -->
+        <div class="block md:hidden divide-y divide-gray-100">
+            {% for visit in visits %}
+            <div class="p-4 space-y-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <a href="{% url 'portal:site-detail' visit.mission.site.pk %}" class="font-bold text-gray-900 text-base hover:text-indigo-600 transition block">
+                            {{ visit.mission.site.nom }}
+                        </a>
+                        <div class="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                            <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-[11px] text-gray-600">{{ visit.mission.site.code }}</span>
+                            {% if visit.mission.site.ville %}
+                            <span>• {{ visit.mission.site.ville }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                        &check; Publiée
+                    </span>
+                </div>
+
+                <div class="bg-gray-50/70 p-2.5 rounded-lg border border-gray-100 space-y-1 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Rapport :</span>
+                        <strong class="text-gray-800 font-semibold">{{ visit.mission.attached_form.nom }}</strong>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Date :</span>
+                        <span class="text-gray-700">{{ visit.date_soumission|date:"d/m/Y à H:i" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Superviseur :</span>
+                        <span class="text-gray-700">{{ visit.auteur.get_full_name|default:visit.auteur.username }}</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <a href="{% url 'portal:visit-detail' visit.pk %}"
+                       class="inline-flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        Détail
+                    </a>
+                    <a href="{% url 'portal:visit-pdf' visit.pk %}"
+                       class="inline-flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg transition shadow-2xs">
+                        <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        PDF
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="py-12 px-4 text-center text-gray-400">
+                {% include "components/empty_state.html" with title="Aucun rapport de visite trouvé" message="Aucune visite publiée ne correspond aux critères sélectionnés." action_url="/portail/visites/" action_label="Réinitialiser les filtres" %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination partagée (Desktop & Mobile) -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-5 py-3.5 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+            <div>
+                Page <span class="font-semibold text-gray-900">{{ page_obj.number }}</span> sur <span class="font-semibold text-gray-900">{{ page_obj.paginator.num_pages }}</span>
+                ({{ page_obj.paginator.count }} rapport{{ page_obj.paginator.count|pluralize }})
+            </div>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_formulaire %}&formulaire={{ filter_formulaire }}{% endif %}{% if filter_ville %}&ville={{ filter_ville }}{% endif %}{% if filter_date_min %}&date_min={{ filter_date_min }}{% endif %}{% if filter_date_max %}&date_max={{ filter_date_max }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                   class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    &larr; Précédent
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_formulaire %}&formulaire={{ filter_formulaire }}{% endif %}{% if filter_ville %}&ville={{ filter_ville }}{% endif %}{% if filter_date_min %}&date_min={{ filter_date_min }}{% endif %}{% if filter_date_max %}&date_max={{ filter_date_max }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}"
+                   class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-xs transition">
+                    Suivant &rarr;
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

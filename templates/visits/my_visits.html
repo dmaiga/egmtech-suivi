@@ -19,67 +19,67 @@
         </div>
     </div>
 
-    <!-- Compteurs en tête cliquables qui appliquent le filtre de statut -->
-    <section class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+    <!-- Compteurs en tête cliquables qui appliquent le filtre de statut (Compact sur mobile) -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
         <!-- Toutes les visites -->
         <a href="{% url 'my-visits' %}"
-           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if not filter_statut %}bg-indigo-50/70 border-indigo-300 ring-2 ring-indigo-200{% else %}bg-white border-gray-200 hover:border-indigo-200 hover:bg-gray-50/50{% endif %}">
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Toutes</span>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-gray-900">{{ counts.total }}</span>
-                <span class="text-xs text-gray-400">visites</span>
+           class="p-2.5 sm:p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if not filter_statut %}bg-indigo-50/70 border-indigo-300 ring-2 ring-indigo-200{% else %}bg-white border-gray-200 hover:border-indigo-200 hover:bg-gray-50/50{% endif %}">
+            <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 truncate">Toutes</span>
+            <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span class="text-xl sm:text-2xl font-bold text-gray-900">{{ counts.total }}</span>
+                <span class="text-[10px] sm:text-xs text-gray-400">visites</span>
             </div>
         </a>
 
         <!-- Brouillons -->
         <a href="{% url 'my-visits' %}?statut=brouillon{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
-           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'brouillon' %}bg-gray-100 border-gray-400 ring-2 ring-gray-200{% else %}bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50{% endif %}">
+           class="p-2.5 sm:p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'brouillon' %}bg-gray-100 border-gray-400 ring-2 ring-gray-200{% else %}bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50{% endif %}">
             <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Brouillons</span>
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400"></span>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-600 truncate">Brouillons</span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-gray-800">{{ counts.brouillon }}</span>
-                <span class="text-xs text-gray-400">à finir</span>
+            <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span class="text-xl sm:text-2xl font-bold text-gray-800">{{ counts.brouillon }}</span>
+                <span class="text-[10px] sm:text-xs text-gray-400">à finir</span>
             </div>
         </a>
 
         <!-- À corriger (mis en évidence) -->
         <a href="{% url 'my-visits' %}?statut=a_corriger{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
-           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'a_corriger' %}bg-rose-50 border-rose-300 ring-2 ring-rose-200{% else %}bg-white border-gray-200 hover:border-rose-200 hover:bg-rose-50/30{% endif %}">
+           class="p-2.5 sm:p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'a_corriger' %}bg-rose-50 border-rose-300 ring-2 ring-rose-200{% else %}bg-white border-gray-200 hover:border-rose-200 hover:bg-rose-50/30{% endif %}">
             <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                <span class="text-xs font-semibold uppercase tracking-wider text-rose-700">À corriger</span>
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-rose-700 truncate">À corriger</span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-rose-600">{{ counts.a_corriger }}</span>
-                <span class="text-xs text-rose-500 font-medium">urgentes</span>
+            <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span class="text-xl sm:text-2xl font-bold text-rose-600">{{ counts.a_corriger }}</span>
+                <span class="text-[10px] sm:text-xs text-rose-500 font-medium">urgentes</span>
             </div>
         </a>
 
         <!-- Soumises -->
         <a href="{% url 'my-visits' %}?statut=soumise{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
-           class="p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'soumise' %}bg-amber-50 border-amber-300 ring-2 ring-amber-200{% else %}bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/30{% endif %}">
+           class="p-2.5 sm:p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'soumise' %}bg-amber-50 border-amber-300 ring-2 ring-amber-200{% else %}bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/30{% endif %}">
             <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                <span class="text-xs font-semibold uppercase tracking-wider text-amber-700">Soumises</span>
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-500"></span>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-amber-700 truncate">Soumises</span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-amber-600">{{ counts.soumise }}</span>
-                <span class="text-xs text-amber-500">en revue</span>
+            <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span class="text-xl sm:text-2xl font-bold text-amber-600">{{ counts.soumise }}</span>
+                <span class="text-[10px] sm:text-xs text-amber-500">en revue</span>
             </div>
         </a>
 
         <!-- Validées -->
         <a href="{% url 'my-visits' %}?statut=validee{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}"
-           class="col-span-2 sm:col-span-4 lg:col-span-1 p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'validee' %}bg-blue-50 border-blue-300 ring-2 ring-blue-200{% else %}bg-white border-gray-200 hover:border-blue-200 hover:bg-blue-50/30{% endif %}">
+           class="col-span-2 sm:col-span-4 lg:col-span-1 p-2.5 sm:p-4 rounded-xl border transition shadow-xs flex flex-col justify-between {% if filter_statut == 'validee' %}bg-blue-50 border-blue-300 ring-2 ring-blue-200{% else %}bg-white border-gray-200 hover:border-blue-200 hover:bg-blue-50/30{% endif %}">
             <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span class="text-xs font-semibold uppercase tracking-wider text-blue-700">Validées</span>
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"></span>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-blue-700 truncate">Validées</span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-blue-600">{{ counts.validee }}</span>
-                <span class="text-xs text-blue-500">certifiées</span>
+            <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span class="text-xl sm:text-2xl font-bold text-blue-600">{{ counts.validee }}</span>
+                <span class="text-[10px] sm:text-xs text-blue-500">certifiées</span>
             </div>
         </a>
     </section>

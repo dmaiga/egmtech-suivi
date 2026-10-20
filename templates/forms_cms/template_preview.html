@@ -147,7 +147,7 @@
                                 <p class="text-xs text-gray-500 mb-3">
                                     Permet au superviseur d'ajouter autant de lignes que nécessaire sur le terrain.
                                 </p>
-                                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                                <div class="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
                                     <table class="w-full text-xs text-left">
                                         <thead class="bg-gray-50 text-gray-600 uppercase border-b border-gray-200">
                                             <tr>
@@ -170,6 +170,17 @@
                                             </tr>
                                         </tbody>
                                     </table>
+                                </div>
+                                <div class="block md:hidden border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-2">
+                                    <span class="text-xs font-semibold text-gray-700">Ligne exemple #1</span>
+                                    <div class="space-y-1.5 text-xs">
+                                        {% for sub in entry.field.subfields %}
+                                        <div class="flex items-center justify-between text-gray-600 bg-white p-2 rounded border border-gray-100">
+                                            <span>{{ sub.label }}{% if sub.required %} <span class="text-red-500">*</span>{% endif %} <span class="text-[10px] text-gray-400 font-mono">({{ sub.type }})</span></span>
+                                            <span class="text-gray-400 italic">Exemple...</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                         {% endif %}

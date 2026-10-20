@@ -1,3 +1,4 @@
+from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -187,6 +188,92 @@ def site_detail(request, pk):
         "total_reste": total_reste,
     }
     return render(request, "portal/site_detail.html", context)
+
+
+@role_required(User.Role.CLIENT)
+def visit_list(request):
+    client = request.user.client
+
+    base_qs = (
+        Visit.objects.filter(statut=Visit.Statut.PUBLIEE, mission__site__client=client)
+        .select_related(
+            "mission",
+            "mission__site",
+            "mission__site__client",
+            "mission__attached_form",
+            "auteur",
+        )
+        .prefetch_related("photos")
+    )
+
+    # Options pour les filtres
+    sites_filter = Site.objects.filter(client=client).order_by("nom")
+    forms_filter = AttachedForm.objects.filter(client=client).order_by("nom")
+    villes = (
+        Site.objects.filter(client=client)
+        .exclude(ville="")
+        .values_list("ville", flat=True)
+        .distinct()
+        .order_by("ville")
+    )
+
+    # Paramètres de filtre GET
+    site_id = request.GET.get("site", "").strip()
+    form_id = request.GET.get("formulaire", "").strip()
+    ville = request.GET.get("ville", "").strip()
+    date_min = request.GET.get("date_min", "").strip()
+    date_max = request.GET.get("date_max", "").strip()
+    search_q = request.GET.get("q", "").strip()
+
+    visits_qs = base_qs.order_by("-date_soumission", "-id")
+
+    if site_id:
+        visits_qs = visits_qs.filter(mission__site_id=site_id)
+    if form_id:
+        visits_qs = visits_qs.filter(mission__attached_form_id=form_id)
+    if ville:
+        visits_qs = visits_qs.filter(mission__site__ville=ville)
+    if date_min:
+        try:
+            visits_qs = visits_qs.filter(date_soumission__date__gte=date_min)
+        except Exception:
+            pass
+    if date_max:
+        try:
+            visits_qs = visits_qs.filter(date_soumission__date__lte=date_max)
+        except Exception:
+            pass
+    if search_q:
+        visits_qs = visits_qs.filter(
+            Q(mission__site__nom__icontains=search_q) | Q(mission__site__code__icontains=search_q)
+        )
+
+    # Compteurs pour le ruban de synthèse
+    total_visites = base_qs.count()
+    sites_couverts = base_qs.values("mission__site_id").distinct().count()
+    forms_realises = base_qs.values("mission__attached_form_id").distinct().count()
+
+    paginator = Paginator(visits_qs, 12)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "visits": page_obj,
+        "page_obj": page_obj,
+        "sites_filter": sites_filter,
+        "forms_filter": forms_filter,
+        "villes": villes,
+        "filter_site": site_id,
+        "filter_formulaire": form_id,
+        "filter_ville": ville,
+        "filter_date_min": date_min,
+        "filter_date_max": date_max,
+        "search_q": search_q,
+        "total_visites": total_visites,
+        "sites_couverts": sites_couverts,
+        "forms_realises": forms_realises,
+    }
+    return render(request, "portal/visit_list.html", context)
 
 
 @role_required(User.Role.CLIENT)

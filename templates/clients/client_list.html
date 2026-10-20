@@ -19,102 +19,151 @@
         </div>
     </div>
 
-    <!-- Tableau responsive des clients avec avancement global et tri -->
-    <div class="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm table-responsive-wrapper">
-        <table class="min-w-full divide-y divide-gray-200 text-sm">
-            <thead class="bg-gray-50/75">
-                <tr>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <a href="?tri={% if current_tri == 'nom' %}-nom{% else %}nom{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
-                            Client
-                            {% if current_tri == 'nom' %}
-                            <span class="text-indigo-600 font-bold">▲</span>
-                            {% elif current_tri == '-nom' %}
-                            <span class="text-indigo-600 font-bold">▼</span>
+    <!-- Liste des clients : Tableau Desktop (md+) et Cartes Mobile (< md) -->
+    <div class="w-full rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <!-- Version Tableau (Desktop md+) -->
+        <div class="hidden md:block overflow-x-auto table-responsive-wrapper">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50/75">
+                    <tr>
+                        <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <a href="?tri={% if current_tri == 'nom' %}-nom{% else %}nom{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                                Client
+                                {% if current_tri == 'nom' %}
+                                <span class="text-indigo-600 font-bold">▲</span>
+                                {% elif current_tri == '-nom' %}
+                                <span class="text-indigo-600 font-bold">▼</span>
+                                {% else %}
+                                <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <a href="?tri={% if current_tri == 'statut' %}-statut{% else %}statut{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                                Statut
+                                {% if current_tri == 'statut' %}
+                                <span class="text-indigo-600 font-bold">▲</span>
+                                {% elif current_tri == '-statut' %}
+                                <span class="text-indigo-600 font-bold">▼</span>
+                                {% else %}
+                                <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <a href="?tri={% if current_tri == 'sites' %}-sites{% else %}sites{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
+                                Sites
+                                {% if current_tri == 'sites' %}
+                                <span class="text-indigo-600 font-bold">▲</span>
+                                {% elif current_tri == '-sites' %}
+                                <span class="text-indigo-600 font-bold">▼</span>
+                                {% else %}
+                                <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">Avancement global</th>
+                        <th scope="col" class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                    {% for client in clients %}
+                    <tr class="hover:bg-gray-50/60 transition">
+                        <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">
+                            <a href="{% url 'clients:detail' client.pk %}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                                {{ client.nom }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if client.actif %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Actif
+                            </span>
                             {% else %}
-                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                Inactif
+                            </span>
                             {% endif %}
-                        </a>
-                    </th>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <a href="?tri={% if current_tri == 'statut' %}-statut{% else %}statut{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
-                            Statut
-                            {% if current_tri == 'statut' %}
-                            <span class="text-indigo-600 font-bold">▲</span>
-                            {% elif current_tri == '-statut' %}
-                            <span class="text-indigo-600 font-bold">▼</span>
-                            {% else %}
-                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
-                            {% endif %}
-                        </a>
-                    </th>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <a href="?tri={% if current_tri == 'sites' %}-sites{% else %}sites{% endif %}" class="group inline-flex items-center gap-1 hover:text-gray-900">
-                            Sites
-                            {% if current_tri == 'sites' %}
-                            <span class="text-indigo-600 font-bold">▲</span>
-                            {% elif current_tri == '-sites' %}
-                            <span class="text-indigo-600 font-bold">▼</span>
-                            {% else %}
-                            <span class="text-gray-300 group-hover:text-gray-500">↕</span>
-                            {% endif %}
-                        </a>
-                    </th>
-                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">Avancement global</th>
-                    <th scope="col" class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 bg-white">
-                {% for client in clients %}
-                <tr class="hover:bg-gray-50/60 transition">
-                    <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">
-                        <a href="{% url 'clients:detail' client.pk %}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
-                            {{ client.nom }}
-                        </a>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if client.actif %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Actif
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                            Inactif
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs font-medium">
-                        {{ client.total_sites }} site{{ client.total_sites|pluralize }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="space-y-1.5">
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="font-bold text-gray-900">{{ client.total_fait }} / {{ client.total_prevu }} faites</span>
-                                <span class="text-gray-500 font-mono">{{ client.pourcentage_avancement }}%</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs font-medium">
+                            {{ client.total_sites }} site{{ client.total_sites|pluralize }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-gray-900">{{ client.total_fait }} / {{ client.total_prevu }} faites</span>
+                                    <span class="text-gray-500 font-mono">{{ client.pourcentage_avancement }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {{ client.pourcentage_avancement|default:0 }}%"></div>
+                                </div>
                             </div>
-                            <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {{ client.pourcentage_avancement|default:0 }}%"></div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        <a href="{% url 'clients:detail' client.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
-                            Ouvrir la fiche
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
-                        {% include "components/empty_state.html" with title="Aucun client pour l'instant" message="Créez votre premier client pour commencer à associer des sites et des formulaires." action_url="/app/clients/nouveau/" action_label="Nouveau client" %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <a href="{% url 'clients:detail' client.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                                Ouvrir la fiche
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                            {% include "components/empty_state.html" with title="Aucun client pour l'instant" message="Créez votre premier client pour commencer à associer des sites et des formulaires." action_url="/app/clients/nouveau/" action_label="Nouveau client" %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Version Cartes (Mobile < md) -->
+        <div class="block md:hidden divide-y divide-gray-100">
+            {% for client in clients %}
+            <div class="p-4 space-y-3">
+                <div class="flex items-start justify-between gap-2">
+                    <a href="{% url 'clients:detail' client.pk %}" class="font-bold text-gray-900 text-base hover:text-indigo-600 transition">
+                        {{ client.nom }}
+                    </a>
+                    {% if client.actif %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Actif
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        Inactif
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-gray-500">
+                    <span class="font-semibold text-gray-700">{{ client.total_sites }}</span> site{{ client.total_sites|pluralize }} rattaché{{ client.total_sites|pluralize }}
+                </div>
+                <div class="space-y-1.5 bg-gray-50/70 p-2.5 rounded-lg border border-gray-100">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold text-gray-900">{{ client.total_fait }} / {{ client.total_prevu }} faites</span>
+                        <span class="text-gray-500 font-mono text-[11px]">{{ client.pourcentage_avancement }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {{ client.pourcentage_avancement|default:0 }}%"></div>
+                    </div>
+                </div>
+                <div class="pt-1">
+                    <a href="{% url 'clients:detail' client.pk %}" class="w-full inline-flex items-center justify-center gap-1 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                        Ouvrir la fiche
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center text-gray-400">
+                {% include "components/empty_state.html" with title="Aucun client pour l'instant" message="Créez votre premier client pour commencer à associer des sites et des formulaires." action_url="/app/clients/nouveau/" action_label="Nouveau client" %}
+            </div>
+            {% endfor %}
+        </div>
 
         {% if page_obj.has_other_pages %}
         <div class="px-6 py-3.5 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">

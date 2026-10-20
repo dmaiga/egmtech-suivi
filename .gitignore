@@ -5,3 +5,5 @@ db.sqlite3
 media/*
 !media/.gitkeep
 .env
+input/
+.DS_Store
