@@ -7,3 +7,5 @@ media/*
 .env
 input/
 .DS_Store
+staticfiles/
+public/static/

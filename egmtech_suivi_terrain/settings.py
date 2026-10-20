@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -25,7 +26,7 @@ SECRET_KEY = 'django-insecure-6_3+b=6-!ylm+3g$0hue%_zl78sr&+akk-2p07d^jx(u01u0io
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -129,6 +130,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Dossier de destination pour python manage.py collectstatic
+if os.environ.get('DJANGO_STATIC_ROOT'):
+    STATIC_ROOT = Path(os.environ['DJANGO_STATIC_ROOT'])
+elif (BASE_DIR / 'public').is_dir():
+    STATIC_ROOT = BASE_DIR / 'public' / 'static'
+else:
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media / fichiers uploadés : stockage configurable ici uniquement.
 # Les apps doivent passer par core.storage.get_upload_storage(), jamais par un chemin en dur.
