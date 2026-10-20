@@ -3,81 +3,256 @@
 {% block title %}Missions{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl w-full space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-gray-900">Missions</h1>
+<div class="space-y-6">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Missions</h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {% if is_manager_view %}
+                Supervisez les missions de terrain et assignez de nouvelles visites.
+                {% else %}
+                Consultez vos missions assignées et effectuez vos visites.
+                {% endif %}
+            </p>
+        </div>
         {% if perms.visits.validate_visits %}
-        <a href="{% url 'revue:list' %}" class="text-sm text-indigo-600 hover:underline">Revue des visites</a>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'revue:list' %}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Revue des visites
+            </a>
+        </div>
         {% endif %}
     </div>
 
-    {% if messages %}
-    <ul class="space-y-1">
-        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <table class="w-full text-sm mb-2">
-            <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-200">
-                    {% if is_manager_view %}<th class="py-2">Superviseur</th>{% endif %}
-                    <th class="py-2">Client</th>
-                    <th>Site</th>
-                    <th>Formulaire</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mission in missions %}
-                <tr class="border-b border-gray-100">
-                    {% if is_manager_view %}<td class="py-2">{{ mission.superviseur.username }}</td>{% endif %}
-                    <td class="py-2">{{ mission.site.client.nom }}</td>
-                    <td>{{ mission.site.nom }}</td>
-                    <td>{{ mission.attached_form.nom }}</td>
-                    <td>
-                        {% if not is_manager_view %}
-                        <form method="post" action="{% url 'visits:visit-start' mission.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="text-indigo-600 hover:underline">Commencer / continuer</button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="py-2 text-gray-500">Aucune mission.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </section>
-
-    {% if is_manager_view %}
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Assigner une nouvelle mission</h2>
-        {% if form.non_field_errors %}
-        <p class="text-sm text-red-600 mb-2">{{ form.non_field_errors }}</p>
-        {% endif %}
-        <form method="post" action="{% url 'visits:mission-create' %}" class="space-y-3 max-w-sm">
-            {% csrf_token %}
+    <!-- Barre de filtres -->
+    <section class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+        <form method="get" action="{% url 'visits:mission-list' %}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            {% if is_manager_view %}
             <div>
-                <label class="block text-sm font-medium text-gray-700">Superviseur</label>
-                {{ form.superviseur }}
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Client</label>
-                <select hx-get="{% url 'visits:mission-options' %}" hx-target="#mission-options" hx-trigger="change" name="client_id" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    <option value="">—</option>
-                    {% for client in clients %}
-                    <option value="{{ client.pk }}">{{ client.nom }}</option>
+                <label for="filter-superviseur" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Superviseur</label>
+                <select id="filter-superviseur" name="superviseur" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les superviseurs</option>
+                    {% for sup in superviseurs %}
+                    <option value="{{ sup.pk }}" {% if filter_superviseur == sup.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ sup.get_full_name|default:sup.username }}
+                    </option>
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
+
+            <div>
+                <label for="filter-client" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Client</label>
+                <select id="filter-client" name="client" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les clients</option>
+                    {% for client in clients_filter %}
+                    <option value="{{ client.pk }}" {% if filter_client == client.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ client.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="filter-site" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Site</label>
+                <select id="filter-site" name="site" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les sites</option>
+                    {% for site in sites_filter %}
+                    <option value="{{ site.pk }}" {% if filter_site == site.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ site.nom }}{% if site.client %} ({{ site.client.nom }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="filter-statut" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Statut</label>
+                <select id="filter-statut" name="statut" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Tous les statuts</option>
+                    <option value="non_commencee" {% if filter_statut == "non_commencee" %}selected{% endif %}>Non commencée</option>
+                    {% for code, label in statut_choices %}
+                    <option value="{{ code }}" {% if filter_statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                    Filtrer
+                </button>
+                {% if filter_superviseur or filter_client or filter_site or filter_statut %}
+                <a href="{% url 'visits:mission-list' %}" class="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium hover:underline whitespace-nowrap">
+                    Effacer
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+
+    <!-- Tableau des missions -->
+    <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        {% if is_manager_view %}
+                        <th class="py-3 px-4">Superviseur</th>
+                        {% endif %}
+                        <th class="py-3 px-4">Client</th>
+                        <th class="py-3 px-4">Site</th>
+                        <th class="py-3 px-4">Formulaire</th>
+                        <th class="py-3 px-4">Statut</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                    {% for mission in missions %}
+                    <tr class="hover:bg-gray-50/60 transition">
+                        {% if is_manager_view %}
+                        <td class="py-3.5 px-4 font-medium text-gray-900">
+                            {{ mission.superviseur.get_full_name|default:mission.superviseur.username }}
+                        </td>
+                        {% endif %}
+                        <td class="py-3.5 px-4 font-medium text-gray-900">
+                            {{ mission.site.client.nom }}
+                        </td>
+                        <td class="py-3.5 px-4 text-gray-600">
+                            <div>{{ mission.site.nom }}</div>
+                            {% if mission.site.ville %}
+                            <div class="text-xs text-gray-400">{{ mission.site.ville }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-gray-600">
+                            {{ mission.attached_form.nom }}
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            {% if mission.latest_visit %}
+                                {% include "components/status_badge.html" with status=mission.latest_visit.statut label=mission.latest_visit.get_statut_display %}
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                    <span>Non commencée</span>
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                            {% if not is_manager_view %}
+                            <form method="post" action="{% url 'visits:visit-start' mission.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition">
+                                    Commencer / continuer
+                                </button>
+                            </form>
+                            {% else %}
+                                {% if mission.latest_visit and mission.latest_visit.statut == "soumise" and perms.visits.validate_visits %}
+                                <a href="{% url 'revue:list' %}?search={{ mission.site.nom }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                                    Revoir la visite &rarr;
+                                </a>
+                                {% else %}
+                                <span class="text-xs text-gray-400">—</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if is_manager_view %}6{% else %}5{% endif %}" class="py-8 px-4 text-center text-sm text-gray-500">
+                            {% include "components/empty_state.html" with title="Aucune mission trouvée" message="Aucune mission ne correspond aux filtres sélectionnés." %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between">
+            <div class="text-xs text-gray-500">
+                Page <span class="font-medium text-gray-700">{{ page_obj.number }}</span> sur <span class="font-medium text-gray-700">{{ page_obj.paginator.num_pages }}</span>
+                ({{ page_obj.paginator.count }} mission{{ page_obj.paginator.count|pluralize }})
+            </div>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if filter_superviseur %}&superviseur={{ filter_superviseur }}{% endif %}{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_statut %}&statut={{ filter_statut }}{% endif %}" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition shadow-sm">
+                    &larr; Précédent
+                </a>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if filter_superviseur %}&superviseur={{ filter_superviseur }}{% endif %}{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_statut %}&statut={{ filter_statut }}{% endif %}" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition shadow-sm">
+                    Suivant &rarr;
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Formulaire d'assignation d'une mission (manager) -->
+    {% if is_manager_view %}
+    <section class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div class="border-b border-gray-100 pb-4 mb-5">
+            <h2 class="text-lg font-bold text-gray-900">Assigner une nouvelle mission</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Choisissez le superviseur, le client puis sélectionnez le site et le formulaire cible.</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+            {% for field in form %}
+                {% for error in field.errors %}
+                <p>{{ field.label }} : {{ error }}</p>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'visits:mission-create' %}" class="space-y-4 max-w-xl">
+            {% csrf_token %}
+            <div>
+                <label for="id_superviseur" class="block text-sm font-medium text-gray-700 mb-1">
+                    Superviseur <span class="text-red-500">*</span>
+                </label>
+                <select id="id_superviseur" name="superviseur" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+                    <option value="">Sélectionner un superviseur...</option>
+                    {% for sup in superviseurs %}
+                    <option value="{{ sup.pk }}">{{ sup.get_full_name|default:sup.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="id_client_select" class="block text-sm font-medium text-gray-700 mb-1">
+                    Client <span class="text-red-500">*</span>
+                </label>
+                <select id="id_client_select"
+                        name="client_id"
+                        required
+                        hx-get="{% url 'visits:mission-options' %}"
+                        hx-target="#mission-options"
+                        hx-trigger="change"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+                    <option value="">Sélectionner un client...</option>
+                    {% for c in clients %}
+                    <option value="{{ c.pk }}">{{ c.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div id="mission-options">
                 {% include "visits/_mission_options.html" with sites=form.site.field.queryset.none attached_forms=form.attached_form.field.queryset.none %}
             </div>
-            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                Créer la mission
-            </button>
+
+            <div class="pt-2">
+                <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition">
+                    Créer la mission
+                </button>
+            </div>
         </form>
     </section>
     {% endif %}

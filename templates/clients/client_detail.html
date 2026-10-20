@@ -1,145 +1,292 @@
 {% extends "base.html" %}
 
-{% block title %}{{ client.nom }}{% endblock %}
+{% block title %}{{ client.nom }} — Fiche client{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl w-full space-y-8">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-semibold text-gray-900">{{ client.nom }}</h1>
-            <p class="text-sm {% if client.actif %}text-green-600{% else %}text-gray-400{% endif %}">
-                {% if client.actif %}Actif{% else %}Inactif{% endif %}
-            </p>
+<div class="space-y-6">
+
+    <!-- En-tête de la fiche client -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-100">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ client.nom }}</h1>
+                    {% if client.actif %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Client Actif
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        Inactif
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Fiche détaillée du client, gestion des sites, formulaires et utilisateurs.</p>
+            </div>
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <a href="{% url 'visits:client-export' client.pk %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-xs hover:bg-gray-50 transition">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Exporter tout (ZIP)
+                </a>
+                <a href="{% url 'clients:list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition">
+                    ← Retour aux clients
+                </a>
+            </div>
         </div>
-        <div class="text-right">
-            <a href="{% url 'visits:client-export' client.pk %}" class="text-indigo-600 hover:underline text-sm block">Exporter tout (ZIP)</a>
-            <a href="{% url 'clients:list' %}" class="text-indigo-600 hover:underline text-sm">Retour à la liste</a>
+
+        <!-- Onglets de navigation -->
+        <div class="flex border-b border-gray-200 mt-4 -mb-6 space-x-6">
+            <button type="button" onclick="switchTab('sites')" id="tab-btn-sites" class="tab-btn py-3 border-b-2 font-semibold text-sm transition border-indigo-600 text-indigo-600">
+                Sites ({{ sites|length }})
+            </button>
+            {% if perms.forms_cms.manage_forms %}
+            <button type="button" onclick="switchTab('formulaires')" id="tab-btn-formulaires" class="tab-btn py-3 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                Formulaires attachés et prévu ({{ attached_forms_data|length }})
+            </button>
+            {% endif %}
+            <button type="button" onclick="switchTab('acces')" id="tab-btn-acces" class="tab-btn py-3 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                Accès client ({{ client_users|length }})
+            </button>
         </div>
     </div>
 
     {% if messages %}
-    <ul class="space-y-1">
-        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
-    </ul>
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl border text-sm flex items-center gap-2 {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
 
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Sites</h2>
-        <table class="w-full text-sm mb-6">
-            <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-200">
-                    <th class="py-2">Code</th>
-                    <th>Nom</th>
-                    <th>Ville</th>
-                    <th>Quartier</th>
-                    <th>Responsable local</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="sites-body">
-                {% for site in sites %}
-                {% include "clients/_site_row.html" %}
-                {% empty %}
-                <tr><td colspan="6" class="py-2 text-gray-500">Aucun site pour ce client.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- ====================================================================== -->
+    <!-- ONGLET 1 : SITES                                                       -->
+    <!-- ====================================================================== -->
+    <div id="tab-content-sites" class="tab-pane space-y-6">
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-gray-900">Sites enregistrés pour {{ client.nom }}</h2>
+                <span class="text-xs text-gray-500">{{ sites|length }} site{{ sites|length|pluralize }}</span>
+            </div>
 
-        {% include "clients/_site_form.html" %}
-    </section>
+            <div class="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-xs mb-6">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                            <th scope="col" class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+                            <th scope="col" class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ville</th>
+                            <th scope="col" class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Quartier</th>
+                            <th scope="col" class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Responsable local</th>
+                            <th scope="col" class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sites-body" class="divide-y divide-gray-100 bg-white">
+                        {% for site in sites %}
+                        {% include "clients/_site_row.html" %}
+                        {% empty %}
+                        <tr><td colspan="6" class="px-4 py-4 text-center text-sm text-gray-400 italic">Aucun site pour ce client.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Comptes client</h2>
-        <ul class="divide-y divide-gray-200 mb-6">
-            {% for user in client_users %}
-            <li class="py-2 flex items-center justify-between">
-                <span>
-                    {{ user.username }}
-                    {% if not user.is_active %}<span class="text-red-500 text-xs">(révoqué)</span>{% endif %}
-                </span>
-                {% if user.is_active %}
-                <form method="post" action="{% url 'clients:user-revoke' client.pk user.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-red-600 text-sm hover:underline">Révoquer</button>
-                </form>
-                {% endif %}
-            </li>
-            {% empty %}
-            <li class="py-2 text-gray-500">Aucun compte client.</li>
-            {% endfor %}
-        </ul>
-
-        <form method="post" action="{% url 'clients:user-create' client.pk %}" class="space-y-3 max-w-sm">
-            {% csrf_token %}
-            {{ user_form.as_p }}
-            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                Créer le compte
-            </button>
-        </form>
-    </section>
-
-    {% if perms.forms_cms.manage_forms %}
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Formulaires attachés</h2>
-            <a href="{% url 'forms_cms:list' %}" class="text-sm text-indigo-600 hover:underline">Gérer les formulaires</a>
+            <!-- Formulaire d'ajout de site -->
+            <div class="pt-4 border-t border-gray-100">
+                <h3 class="text-sm font-bold text-gray-900 mb-3">Ajouter un site</h3>
+                {% include "clients/_site_form.html" %}
+            </div>
         </div>
+    </div>
 
-        {% for item in attached_forms_data %}
-        <div class="border border-gray-200 rounded-md p-4 mb-4">
-            <div class="flex items-center justify-between mb-3">
-                <span class="font-medium">
-                    {{ item.form.nom }}
-                    {% if not item.form.actif %}<span class="text-gray-400 text-xs">(désactivé)</span>{% endif %}
-                </span>
-                <form method="post" action="{% url 'forms_cms:attached-toggle' client.pk item.form.pk %}">
+    <!-- ====================================================================== -->
+    <!-- ONGLET 2 : FORMULAIRES ATTACHÉS ET PRÉVISIONS                          -->
+    <!-- ====================================================================== -->
+    {% if perms.forms_cms.manage_forms %}
+    <div id="tab-content-formulaires" class="tab-pane hidden space-y-6">
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                <div>
+                    <h2 class="text-base font-bold text-gray-900">Formulaires attachés et prévisions</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Configurez le nombre de passages prévus par formulaire et par site.</p>
+                </div>
+                <a href="{% url 'forms_cms:list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                    Gérer la bibliothèque des formulaires →
+                </a>
+            </div>
+
+            <div class="space-y-6">
+                {% for item in attached_forms_data %}
+                <div class="border border-gray-200 rounded-xl p-5 bg-gray-50/30">
+                    <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-900 text-sm">{{ item.form.nom }}</span>
+                            {% if item.form.actif %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Actif</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Désactivé</span>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'forms_cms:attached-toggle' client.pk item.form.pk %}" onsubmit="return confirm('Confirmer {% if item.form.actif %}la désactivation{% else %}la réactivation{% endif %} de ce formulaire pour ce client ?');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-semibold {% if item.form.actif %}text-amber-700 hover:text-amber-900{% else %}text-indigo-600 hover:text-indigo-800{% endif %}">
+                                {% if item.form.actif %}Désactiver pour ce client{% else %}Réactiver pour ce client{% endif %}
+                            </button>
+                        </form>
+                    </div>
+
+                    <form method="post" action="{% url 'forms_cms:expected-update' client.pk item.form.pk %}" class="space-y-3">
+                        {% csrf_token %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {% for site, nombre_prevu in item.sites %}
+                            <div class="p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between text-xs">
+                                <label for="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}" class="font-medium text-gray-700 truncate pr-2">
+                                    {{ site.nom }}
+                                </label>
+                                <input
+                                    type="number" min="0"
+                                    id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
+                                    name="nombre_prevu_{{ site.pk }}"
+                                    value="{{ nombre_prevu }}"
+                                    class="w-16 border border-gray-300 rounded px-2 py-1 text-xs text-right font-mono"
+                                >
+                            </div>
+                            {% empty %}
+                            <p class="text-xs text-gray-400 italic">Aucun site disponible pour configurer des prévisions.</p>
+                            {% endfor %}
+                        </div>
+
+                        {% if item.sites %}
+                        <div class="pt-2">
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                                Enregistrer les prévisions
+                            </button>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+                {% empty %}
+                <div class="p-4 bg-gray-50 rounded-xl text-center text-sm text-gray-500">
+                    Aucun formulaire attaché à ce client pour l'instant.
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Attacher un nouveau modèle de formulaire -->
+            <div class="mt-6 pt-5 border-t border-gray-100">
+                <h3 class="text-sm font-bold text-gray-900 mb-2">Attacher un nouveau formulaire disponible</h3>
+                <form method="post" action="{% url 'forms_cms:client-attach' client.pk %}" class="flex items-center gap-3 flex-wrap">
                     {% csrf_token %}
-                    <button type="submit" class="text-sm text-indigo-600 hover:underline">
-                        {% if item.form.actif %}Désactiver{% else %}Réactiver{% endif %}
+                    <select name="template_id" class="border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500">
+                        {% for template in available_templates %}
+                        <option value="{{ template.pk }}">{{ template.nom }}</option>
+                        {% empty %}
+                        <option value="" disabled>Tous les formulaires sont déjà attachés ou aucun actif</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                        Attacher le formulaire
                     </button>
                 </form>
             </div>
-            <form method="post" action="{% url 'forms_cms:expected-update' client.pk item.form.pk %}" class="space-y-2">
-                {% csrf_token %}
-                {% for site, nombre_prevu in item.sites %}
-                <div class="flex items-center justify-between text-sm">
-                    <label for="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}">{{ site.nom }}</label>
-                    <input
-                        type="number" min="0"
-                        id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
-                        name="nombre_prevu_{{ site.pk }}"
-                        value="{{ nombre_prevu }}"
-                        class="w-20 border border-gray-300 rounded-md px-2 py-1"
-                    >
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================================================================== -->
+    <!-- ONGLET 3 : ACCÈS CLIENT                                                -->
+    <!-- ====================================================================== -->
+    <div id="tab-content-acces" class="tab-pane hidden space-y-6">
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                <div>
+                    <h2 class="text-base font-bold text-gray-900">Comptes d'accès portail client</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Ces comptes permettent à vos interlocuteurs client de consulter leurs visites en lecture seule.</p>
+                </div>
+                <span class="text-xs text-gray-500">{{ client_users|length }} compte{{ client_users|length|pluralize }}</span>
+            </div>
+
+            <div class="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden mb-6">
+                {% for user in client_users %}
+                <div class="p-3.5 bg-white flex items-center justify-between hover:bg-gray-50/50 transition">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold inline-flex items-center justify-center">
+                            {{ user.username|slice:":1"|upper }}
+                        </span>
+                        <div>
+                            <span class="text-sm font-semibold text-gray-900">{{ user.username }}</span>
+                            {% if not user.is_active %}
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                Révoqué
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        {% if user.is_active %}
+                        <form method="post" action="{% url 'clients:user-revoke' client.pk user.pk %}" onsubmit="return confirm('Confirmer la révocation immédiate de cet accès client ?');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition">
+                                Révoquer l'accès
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-gray-400 italic">Accès désactivé</span>
+                        {% endif %}
+                    </div>
                 </div>
                 {% empty %}
-                <p class="text-gray-500">Aucun site pour ce client.</p>
+                <div class="p-4 text-center text-sm text-gray-400 italic">
+                    Aucun compte client associé à ce client pour le moment.
+                </div>
                 {% endfor %}
-                {% if item.sites %}
-                <button type="submit" class="mt-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-indigo-700">
-                    Enregistrer les prévisions
-                </button>
-                {% endif %}
-            </form>
-        </div>
-        {% empty %}
-        <p class="text-gray-500 mb-4">Aucun formulaire attaché.</p>
-        {% endfor %}
+            </div>
 
-        <form method="post" action="{% url 'forms_cms:client-attach' client.pk %}" class="flex items-center gap-3">
-            {% csrf_token %}
-            <select name="template_id" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                {% for template in available_templates %}
-                <option value="{{ template.pk }}">{{ template.nom }}</option>
-                {% empty %}
-                <option value="" disabled>Aucun formulaire disponible</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                Attacher
-            </button>
-        </form>
-    </section>
-    {% endif %}
+            <!-- Formulaire de création de compte client -->
+            <div class="pt-4 border-t border-gray-100 max-w-md">
+                <h3 class="text-sm font-bold text-gray-900 mb-3">Créer un nouvel accès client</h3>
+                <form method="post" action="{% url 'clients:user-create' client.pk %}" class="space-y-3.5">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Identifiant</label>
+                        {{ user_form.username }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Mot de passe</label>
+                        {{ user_form.password }}
+                    </div>
+                    {% if user_form.errors %}
+                    <p class="text-xs text-red-600">{{ user_form.errors }}</p>
+                    {% endif %}
+                    <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                        Créer le compte
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </div>
+
+<script>
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-indigo-600', 'text-indigo-600', 'font-semibold');
+        btn.classList.add('border-transparent', 'text-gray-500', 'font-medium');
+    });
+
+    const activePane = document.getElementById('tab-content-' + tabName);
+    const activeBtn = document.getElementById('tab-btn-' + tabName);
+
+    if (activePane) activePane.classList.remove('hidden');
+    if (activeBtn) {
+        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
+        activeBtn.classList.add('border-indigo-600', 'text-indigo-600', 'font-semibold');
+    }
+}
+</script>
 {% endblock %}

@@ -1,0 +1,23 @@
+{% comment %}
+Composant État vide.
+Usage :
+  {% include "components/empty_state.html" with title="Aucune visite pour l'instant" message="Description" action_url="..." action_label="..." %}
+{% endcomment %}
+<div class="text-center py-12 px-6 rounded-xl border-2 border-dashed border-gray-200 bg-white {{ extra_class }}">
+    <div class="mx-auto w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mb-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+    </div>
+    <h3 class="text-base font-semibold text-gray-900">{{ title|default:"Aucune visite pour l'instant" }}</h3>
+    {% if message %}
+    <p class="mt-1.5 text-sm text-gray-500 max-w-sm mx-auto">{{ message }}</p>
+    {% endif %}
+    {% if action_url and action_label %}
+    <div class="mt-6">
+        <a href="{{ action_url }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition">
+            {{ action_label }}
+        </a>
+    </div>
+    {% endif %}
+</div>

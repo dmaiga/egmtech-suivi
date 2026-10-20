@@ -1,0 +1,8 @@
+{% comment %}
+Conteneur de tableau responsive.
+Usage :
+  {% include "components/table_responsive.html" with table_content=... %}
+{% endcomment %}
+<div class="w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm {{ extra_class }}">
+    {{ table_content|default:content|safe }}
+</div>

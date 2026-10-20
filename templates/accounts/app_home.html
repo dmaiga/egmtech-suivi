@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil — Tableau de bord{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- En-tête de bienvenue -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Bonjour, {{ request.user.username }}</h1>
+            <p class="text-sm text-gray-500 mt-1">Aperçu global de l'activité du suivi terrain et des visites en attente.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'visits:mission-list' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Nouvelle mission
+            </a>
+            {% if perms.visits.validate_visits %}
+            <a href="{% url 'revue:list' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg shadow-xs transition">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                Ouvrir la revue
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- 1. CARTES DE SYNTHÈSE                                                  -->
+    <!-- ====================================================================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <!-- Carte 1 : Visites à revoir -->
+        <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-sm transition flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-amber-700">À revoir</span>
+                <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </span>
+            </div>
+            <div>
+                <div class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ visites_a_revoir }}</div>
+                <p class="text-xs text-gray-500 mt-1">Visite{{ visites_a_revoir|pluralize }} en attente de revue</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100">
+                {% if perms.visits.validate_visits %}
+                <a href="{% url 'revue:list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                    Accéder à la revue →
+                </a>
+                {% else %}
+                <span class="text-xs text-gray-400">Revue restreinte</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Carte 2 : Visites à corriger -->
+        <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-sm transition flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-rose-700">À corriger</span>
+                <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </span>
+            </div>
+            <div>
+                <div class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ visites_a_corriger }}</div>
+                <p class="text-xs text-gray-500 mt-1">Renvoyée{{ visites_a_corriger|pluralize }} aux superviseurs</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100">
+                <a href="{% url 'visits:mission-list' %}?statut=a_corriger" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                    Voir les missions →
+                </a>
+            </div>
+        </div>
+
+        <!-- Carte 3 : Missions en cours -->
+        <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-sm transition flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-700">En cours</span>
+                <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </span>
+            </div>
+            <div>
+                <div class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ missions_en_cours }}</div>
+                <p class="text-xs text-gray-500 mt-1">Mission{{ missions_en_cours|pluralize }} non clôturée{{ missions_en_cours|pluralize }}</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100">
+                <a href="{% url 'visits:mission-list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                    Gérer les missions →
+                </a>
+            </div>
+        </div>
+
+        <!-- Carte 4 : Visites publiées ce mois -->
+        <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-sm transition flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-700">Publiées ce mois</span>
+                <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </span>
+            </div>
+            <div>
+                <div class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ visites_publiees_mois }}</div>
+                <p class="text-xs text-gray-500 mt-1">Visible{{ visites_publiees_mois|pluralize }} côté client ce mois-ci</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-100">
+                <a href="{% url 'visits:mission-list' %}?statut=publiee" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                    Voir les rapports →
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- 2. DERNIÈRES VISITES SOUMISES                                          -->
+    <!-- ====================================================================== -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-bold text-gray-900">Dernières visites soumises</h2>
+                <p class="text-xs text-gray-500 mt-0.5">Les 5 dernières visites en attente d'examen par un manager.</p>
+            </div>
+            {% if perms.visits.validate_visits %}
+            <a href="{% url 'revue:list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                Tout voir dans la revue ({{ visites_a_revoir }}) →
+            </a>
+            {% endif %}
+        </div>
+
+        {% if dernieres_soumises %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 text-sm">
+                <thead class="bg-gray-50/75">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Formulaire</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client & Site</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Superviseur</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Soumise le</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                    {% for v in dernieres_soumises %}
+                    <tr class="hover:bg-gray-50/60 transition">
+                        <td class="px-6 py-3.5 font-semibold text-gray-900 whitespace-nowrap">
+                            {{ v.mission.attached_form.nom }}
+                        </td>
+                        <td class="px-6 py-3.5 whitespace-nowrap">
+                            <span class="font-medium text-gray-800">{{ v.mission.site.nom }}</span>
+                            <span class="text-gray-400 text-xs block">{{ v.mission.site.client.nom }}</span>
+                        </td>
+                        <td class="px-6 py-3.5 whitespace-nowrap text-gray-700">
+                            {{ v.auteur.username }}
+                        </td>
+                        <td class="px-6 py-3.5 whitespace-nowrap text-gray-500 text-xs">
+                            {{ v.date_soumission|date:"d/m/Y H:i"|default:"—" }}
+                        </td>
+                        <td class="px-6 py-3.5 whitespace-nowrap">
+                            {% include "components/status_badge.html" with visit=v %}
+                        </td>
+                        <td class="px-6 py-3.5 text-right whitespace-nowrap">
+                            {% if perms.visits.validate_visits %}
+                            <a href="{% url 'revue:detail' v.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                                Revue directe
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </a>
+                            {% else %}
+                            <span class="text-xs text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            {% include "components/empty_state.html" with title="Aucune visite en attente de revue" message="Toutes les visites ont été traitées ou aucune visite n'est encore soumise." %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

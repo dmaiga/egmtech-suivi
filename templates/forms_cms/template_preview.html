@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Aperçu - {{ template.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl w-full mx-auto space-y-6">
+    <!-- Fil d'Ariane & Navigation -->
+    <nav class="flex text-xs text-gray-500" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-2">
+            <li>
+                <a href="{% url 'forms_cms:list' %}" class="hover:text-indigo-600 font-medium transition">Formulaires</a>
+            </li>
+            <li>
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                </svg>
+            </li>
+            <li class="text-gray-800 font-medium truncate max-w-xs">
+                {{ template.nom }}
+            </li>
+            <li>
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                </svg>
+            </li>
+            <li class="text-indigo-600 font-medium">Aperçu</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ template.nom }}</h1>
+                    {% if template.actif %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Actif
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        Désactivé
+                    </span>
+                    {% endif %}
+                </div>
+                {% if template.description %}
+                <p class="mt-2 text-sm text-gray-600">{{ template.description }}</p>
+                {% endif %}
+                <div class="mt-3 text-xs text-gray-400">
+                    Créé le {{ template.created_at|date:"d/m/Y à H:i" }} &bull; Schéma version {{ template.schema.version|default:"1" }}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'forms_cms:builder-edit' template.pk %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Modifier dans l'éditeur
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bannière aperçu -->
+    <div class="rounded-lg bg-blue-50 border border-blue-200 p-4 flex items-center gap-3 text-sm text-blue-800">
+        <svg class="w-5 h-5 flex-shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <span>
+            <strong>Mode aperçu :</strong> Ceci est un rendu représentatif du formulaire tel qu'il apparaîtra lors de la saisie sur le terrain. Les champs sont affichés à titre indicatif.
+        </span>
+    </div>
+
+    <!-- Sections du formulaire -->
+    {% if preview_sections %}
+        <div class="space-y-6">
+            {% for section in preview_sections %}
+            <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-gray-50/80 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-gray-900">{{ section.title }}</h2>
+                    <span class="text-xs text-gray-400 font-mono">Section {{ forloop.counter }}</span>
+                </div>
+                <div class="p-6 space-y-6 divide-y divide-gray-100">
+                    {% for entry in section.entries %}
+                    <div class="{% if not forloop.first %}pt-6{% endif %}">
+                        {% if entry.kind == "field" %}
+                            <div class="max-w-xl">
+                                <label class="block text-sm font-semibold text-gray-800 mb-1">
+                                    {{ entry.field.label }}
+                                    {% if entry.field.required %}
+                                    <span class="text-red-500 font-bold">*</span>
+                                    {% endif %}
+                                </label>
+                                {% if entry.field.type == "texte_court" %}
+                                <input type="text" disabled placeholder="Texte court..." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
+                                {% elif entry.field.type == "texte_long" %}
+                                <textarea disabled rows="3" placeholder="Texte long / commentaires..." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed"></textarea>
+                                {% elif entry.field.type == "nombre" %}
+                                <input type="number" disabled placeholder="0" class="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
+                                {% elif entry.field.type == "date" %}
+                                <input type="date" disabled class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
+                                {% elif entry.field.type == "case" %}
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" disabled class="rounded border-gray-300 text-indigo-600 bg-gray-50 cursor-not-allowed">
+                                    <span class="text-sm text-gray-600">Oui / Non</span>
+                                </div>
+                                {% elif entry.field.type == "choix_unique" %}
+                                <select disabled class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
+                                    <option>— Choisir parmi les options —</option>
+                                    {% for opt in entry.field.options %}
+                                    <option>{{ opt }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% elif entry.field.type == "choix_multiple" %}
+                                <div class="space-y-1.5 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    {% for opt in entry.field.options %}
+                                    <label class="flex items-center gap-2 text-sm text-gray-600">
+                                        <input type="checkbox" disabled class="rounded border-gray-300 text-indigo-600 cursor-not-allowed">
+                                        <span>{{ opt }}</span>
+                                    </label>
+                                    {% empty %}
+                                    <span class="text-xs text-gray-400">Aucune option configurée</span>
+                                    {% endfor %}
+                                </div>
+                                {% elif entry.field.type == "photo" %}
+                                <div class="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center bg-gray-50 text-gray-400 text-xs">
+                                    <svg class="mx-auto w-8 h-8 text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    Prise de photo sur le terrain (avec légende obligatoire)
+                                </div>
+                                {% elif entry.field.type == "signature" %}
+                                <div class="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center bg-gray-50 text-gray-400 text-xs">
+                                    Zone de signature électronique tactile
+                                </div>
+                                {% else %}
+                                <input type="text" disabled placeholder="{{ entry.field.type }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed">
+                                {% endif %}
+                                <span class="inline-block mt-1 text-xs text-gray-400 font-mono">Type : {{ entry.field.type }}</span>
+                            </div>
+                        {% else %}
+                            <!-- Groupe répétable -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-700">Groupe répétable</span>
+                                    <h3 class="text-sm font-bold text-gray-800">{{ entry.field.label }}</h3>
+                                </div>
+                                <p class="text-xs text-gray-500 mb-3">
+                                    Permet au superviseur d'ajouter autant de lignes que nécessaire sur le terrain.
+                                </p>
+                                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                                    <table class="w-full text-xs text-left">
+                                        <thead class="bg-gray-50 text-gray-600 uppercase border-b border-gray-200">
+                                            <tr>
+                                                <th class="py-2 px-3">#</th>
+                                                {% for sub in entry.field.subfields %}
+                                                <th class="py-2 px-3 font-semibold">
+                                                    {{ sub.label }}
+                                                    {% if sub.required %}<span class="text-red-500">*</span>{% endif %}
+                                                    <span class="block text-[10px] font-normal text-gray-400 font-mono">{{ sub.type }}</span>
+                                                </th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100 bg-white">
+                                            <tr class="text-gray-400 italic">
+                                                <td class="py-2 px-3">1</td>
+                                                {% for sub in entry.field.subfields %}
+                                                <td class="py-2 px-3">Exemple de valeur...</td>
+                                                {% endfor %}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-sm">
+            Ce formulaire ne contient aucune section pour le moment.
+            <div class="mt-4">
+                <a href="{% url 'forms_cms:builder-edit' template.pk %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-sm">
+                    Ajouter des sections
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="pt-4 flex justify-between items-center">
+        <a href="{% url 'forms_cms:list' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition flex items-center gap-1.5">
+            &larr; Retour à la liste des formulaires
+        </a>
+        <a href="{% url 'forms_cms:builder-edit' template.pk %}" class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition">
+            Éditer le schéma
+        </a>
+    </div>
+</div>
+{% endblock %}

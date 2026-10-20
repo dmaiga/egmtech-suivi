@@ -164,3 +164,32 @@ class ClientUserAccountTests(TestCase):
         logged_out_client = self.client_class()
         can_login = logged_out_client.login(username="client_revoked2", password="pass12345")
         self.assertFalse(can_login)
+
+
+class ClientListViewTests(TestCase):
+    def setUp(self):
+        self.client_a = Client.objects.create(nom="Client A")
+        self.site_a = Site.objects.create(client=self.client_a, code="S1", nom="Site 1")
+        self.manager = _make_user("manager_cl", User.Role.MANAGER)
+        self.sup = _make_user("sup_cl", User.Role.SUPERVISEUR)
+        self.client_user = _make_user("client_cl", User.Role.CLIENT, client=self.client_a)
+
+    def test_manager_sees_clients_with_progress_summary(self):
+        self.client.login(username="manager_cl", password="pass12345")
+        response = self.client.get(reverse("clients:list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("total_prevu", response.context)
+        self.assertIn("total_fait", response.context)
+        self.assertIn("total_sites", response.context)
+        self.assertIn("pourcentage_avancement", response.context)
+        self.assertContains(response, "Client A")
+
+    def test_superviseur_cannot_access_client_list(self):
+        self.client.login(username="sup_cl", password="pass12345")
+        response = self.client.get(reverse("clients:list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_client_cannot_access_client_list(self):
+        self.client.login(username="client_cl", password="pass12345")
+        response = self.client.get(reverse("clients:list"))
+        self.assertEqual(response.status_code, 403)

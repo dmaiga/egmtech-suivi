@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -9,7 +10,8 @@ from accounts.mixins import RoleRequiredMixin
 from accounts.models import User
 from core.services import log
 
-from forms_cms.models import FormTemplate
+from forms_cms.models import ExpectedVisits, FormTemplate
+from visits.models import Visit
 
 from .forms import ClientForm, ClientUserCreationForm, SiteForm
 from .models import Client, Site
@@ -24,11 +26,52 @@ class ClientListView(ManagerRequiredMixin, ListView):
     template_name = "clients/client_list.html"
     context_object_name = "clients"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        prevu_map = {
+            row["site__client_id"]: row["total_prevu"]
+            for row in ExpectedVisits.objects.values("site__client_id").annotate(total_prevu=Sum("nombre_prevu"))
+        }
+        fait_map = {
+            row["mission__site__client_id"]: row["total_fait"]
+            for row in Visit.objects.filter(statut=Visit.Statut.PUBLIEE).values("mission__site__client_id").annotate(total_fait=Count("id"))
+        }
+        sites_count_map = {
+            row["client_id"]: row["total_sites"]
+            for row in Site.objects.values("client_id").annotate(total_sites=Count("id"))
+        }
+
+        clients_list = list(context["clients"])
+        for client in clients_list:
+            client.total_prevu = prevu_map.get(client.pk, 0)
+            client.total_fait = fait_map.get(client.pk, 0)
+            client.total_sites = sites_count_map.get(client.pk, 0)
+            client.pourcentage_avancement = (
+                int(round(client.total_fait / client.total_prevu * 100))
+                if client.total_prevu > 0
+                else 0
+            )
+        context["clients"] = clients_list
+        context["total_prevu"] = sum(c.total_prevu for c in clients_list)
+        context["total_fait"] = sum(c.total_fait for c in clients_list)
+        context["total_sites"] = sum(c.total_sites for c in clients_list)
+        context["pourcentage_avancement"] = (
+            int(round(context["total_fait"] / context["total_prevu"] * 100))
+            if context["total_prevu"] > 0
+            else 0
+        )
+        return context
+
 
 class ClientCreateView(ManagerRequiredMixin, CreateView):
     model = Client
     form_class = ClientForm
     template_name = "clients/client_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Client '{self.object.nom}' créé avec succès.")
+        return response
 
     def get_success_url(self):
         return reverse("clients:detail", args=[self.object.pk])
@@ -74,6 +117,11 @@ class SiteUpdateView(ManagerRequiredMixin, UpdateView):
     def get_queryset(self):
         return Site.objects.filter(client_id=self.kwargs["client_pk"])
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Site '{self.object.nom}' mis à jour.")
+        return response
+
     def get_success_url(self):
         return reverse("clients:detail", args=[self.kwargs["client_pk"]])
 
@@ -88,6 +136,7 @@ def site_create(request, client_pk):
         site.client = client
         site.save()
         log(request.user, "creation_site", site, detail={"client_id": client.pk})
+        messages.success(request, f"Site '{site.nom}' créé.")
         return render(
             request,
             "clients/_site_create_success.html",
@@ -105,8 +154,10 @@ def site_create(request, client_pk):
 @require_POST
 def site_delete(request, client_pk, pk):
     site = get_object_or_404(Site, pk=pk, client_id=client_pk)
-    log(request.user, "suppression_site", site, detail={"client_id": client_pk, "nom": site.nom})
+    nom = site.nom
+    log(request.user, "suppression_site", site, detail={"client_id": client_pk, "nom": nom})
     site.delete()
+    messages.success(request, f"Site '{nom}' supprimé avec succès.")
     return redirect("clients:detail", pk=client_pk)
 
 

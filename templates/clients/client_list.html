@@ -1,26 +1,98 @@
 {% extends "base.html" %}
 
-{% block title %}Clients{% endblock %}
+{% block title %}Clients — EGM Suivi Terrain{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl w-full">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold text-gray-900">Clients</h1>
-        <a href="{% url 'clients:create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-            Nouveau client
-        </a>
+<div class="space-y-6">
+
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Clients</h1>
+            <p class="text-sm text-gray-500 mt-1">Gestion des comptes clients, sites et suivi de l'avancement global.</p>
+        </div>
+        <div>
+            <a href="{% url 'clients:create' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Nouveau client
+            </a>
+        </div>
     </div>
-    <ul class="divide-y divide-gray-200 bg-white rounded-lg border border-gray-200">
-        {% for client in clients %}
-        <li class="p-4 flex items-center justify-between">
-            <a href="{% url 'clients:detail' client.pk %}" class="font-medium text-indigo-700 hover:underline">{{ client.nom }}</a>
-            <span class="text-sm {% if client.actif %}text-green-600{% else %}text-gray-400{% endif %}">
-                {% if client.actif %}Actif{% else %}Inactif{% endif %}
-            </span>
-        </li>
-        {% empty %}
-        <li class="p-4 text-gray-500">Aucun client pour l'instant.</li>
+
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl border text-sm flex items-center gap-2 {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+            <span>{{ message }}</span>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
+    {% endif %}
+
+    <!-- Tableau responsive des clients avec avancement global -->
+    <div class="w-full overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50/75">
+                <tr>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sites</th>
+                    <th scope="col" class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">Avancement global</th>
+                    <th scope="col" class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+                {% for client in clients %}
+                <tr class="hover:bg-gray-50/60 transition">
+                    <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">
+                        <a href="{% url 'clients:detail' client.pk %}" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                            {{ client.nom }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if client.actif %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Actif
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                            Inactif
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-600 text-xs font-medium">
+                        {{ client.total_sites }} site{{ client.total_sites|pluralize }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-bold text-gray-900">{{ client.total_fait }} / {{ client.total_prevu }} faites</span>
+                                <span class="text-gray-500 font-mono">{{ client.pourcentage_avancement }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {{ client.pourcentage_avancement|default:0 }}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                        <a href="{% url 'clients:detail' client.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                            Ouvrir la fiche
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                        {% include "components/empty_state.html" with title="Aucun client pour l'instant" message="Créez votre premier client pour commencer à associer des sites et des formulaires." action_url="/app/clients/nouveau/" action_label="Nouveau client" %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
 {% endblock %}

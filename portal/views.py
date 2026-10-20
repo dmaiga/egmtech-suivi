@@ -15,7 +15,7 @@ from visits.pdf import (
     zip_filename_for_client,
     zip_filename_for_site,
 )
-from visits.schema_utils import build_render_model
+from visits.schema_utils import build_render_model, get_visit_detail_context
 
 
 @role_required(User.Role.CLIENT)
@@ -107,18 +107,7 @@ def visit_detail(request, pk):
 
     log(request.user, "consultation_visite_portail", visit, detail={"mission_id": visit.mission_id})
 
-    schema = visit.mission.attached_form.schema
-    photos_by_field = {}
-    for photo in visit.photos.all():
-        photos_by_field.setdefault(photo.field_key, []).append(photo)
-    sections = build_render_model(schema, visit.reponses, photos_by_field)
-
-    context = {
-        "visit": visit,
-        "mission": visit.mission,
-        "site": visit.mission.site,
-        "sections": sections,
-    }
+    context = get_visit_detail_context(visit, user=request.user, is_portal=True)
     return render(request, "portal/visit_detail.html", context)
 
 

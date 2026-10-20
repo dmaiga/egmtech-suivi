@@ -105,6 +105,20 @@ def form_builder(request, pk=None):
 
 
 @manage_forms_required
+def form_template_preview(request, pk):
+    template = get_object_or_404(FormTemplate, pk=pk)
+    preview_sections = build_render_model(template.schema, {})
+    return render(
+        request,
+        "forms_cms/template_preview.html",
+        {
+            "template": template,
+            "preview_sections": preview_sections,
+        },
+    )
+
+
+@manage_forms_required
 @require_POST
 def form_template_toggle(request, pk):
     template = get_object_or_404(FormTemplate, pk=pk)
@@ -112,6 +126,8 @@ def form_template_toggle(request, pk):
     template.save(update_fields=["actif"])
     action = "activation_formulaire" if template.actif else "desactivation_formulaire"
     log(request.user, action, template)
+    statut_msg = "activé" if template.actif else "désactivé"
+    messages.success(request, f"Formulaire « {template.nom} » {statut_msg}.")
     return redirect("forms_cms:list")
 
 
@@ -130,6 +146,8 @@ def client_attach_form(request, client_pk):
 def attached_form_toggle(request, client_pk, pk):
     attached = get_object_or_404(AttachedForm, pk=pk, client_id=client_pk)
     toggle_attached_form(request.user, attached)
+    statut_msg = "activé" if attached.actif else "désactivé"
+    messages.success(request, f"Formulaire attaché « {attached.nom} » {statut_msg}.")
     return redirect("clients:detail", pk=client_pk)
 
 

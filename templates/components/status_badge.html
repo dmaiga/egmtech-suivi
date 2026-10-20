@@ -1,0 +1,86 @@
+{% comment %}
+Badge de statut pour les visites.
+Usage :
+  {% include "components/status_badge.html" with status=visit.statut label=visit.get_statut_display %}
+  ou
+  {% include "components/status_badge.html" with visit=visit %}
+{% endcomment %}
+{% if visit %}
+{% with s=visit.statut l=visit.get_statut_display %}
+{% if s == "brouillon" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+    <span>{{ l|default:"Brouillon" }}</span>
+</span>
+{% elif s == "soumise" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+    <span>{{ l|default:"Soumise" }}</span>
+</span>
+{% elif s == "a_corriger" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+    <span>{{ l|default:"À corriger" }}</span>
+</span>
+{% elif s == "validee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+    <span>{{ l|default:"Validée" }}</span>
+</span>
+{% elif s == "publiee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+    <span>{{ l|default:"Publiée" }}</span>
+</span>
+{% elif s == "depubliee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-300">
+    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+    <span>{{ l|default:"Dépubliée" }}</span>
+</span>
+{% else %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+    <span>{{ l|default:s|default:"—" }}</span>
+</span>
+{% endif %}
+{% endwith %}
+{% else %}
+{% with s=status l=label %}
+{% if s == "brouillon" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+    <span>{{ l|default:"Brouillon" }}</span>
+</span>
+{% elif s == "soumise" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+    <span>{{ l|default:"Soumise" }}</span>
+</span>
+{% elif s == "a_corriger" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+    <span>{{ l|default:"À corriger" }}</span>
+</span>
+{% elif s == "validee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+    <span>{{ l|default:"Validée" }}</span>
+</span>
+{% elif s == "publiee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+    <span>{{ l|default:"Publiée" }}</span>
+</span>
+{% elif s == "depubliee" %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-300">
+    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+    <span>{{ l|default:"Dépubliée" }}</span>
+</span>
+{% else %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+    <span>{{ l|default:s|default:"—" }}</span>
+</span>
+{% endif %}
+{% endwith %}
+{% endif %}

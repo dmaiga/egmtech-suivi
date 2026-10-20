@@ -4,6 +4,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -31,6 +33,7 @@ from .schema_utils import (
     build_render_model,
     find_missing_required,
     find_repeat_field,
+    get_visit_detail_context,
     parse_responses,
     photo_label_for_field,
     photo_max_for_field,
@@ -44,22 +47,66 @@ def _is_manager(user):
 
 @role_required(User.Role.MANAGER, User.Role.SUPERVISEUR)
 def mission_list(request):
-    if _is_manager(request.user):
-        missions = Mission.objects.select_related(
+    is_manager = _is_manager(request.user)
+    if is_manager:
+        missions_qs = Mission.objects.select_related(
             "superviseur", "site", "site__client", "attached_form"
-        ).all()
-        context = {
-            "missions": missions,
-            "is_manager_view": True,
-            "form": MissionForm(),
-            "clients": Client.objects.filter(actif=True),
-        }
-        return render(request, "visits/mission_list.html", context)
+        )
+    else:
+        missions_qs = Mission.objects.filter(superviseur=request.user).select_related(
+            "site", "site__client", "attached_form"
+        )
 
-    missions = Mission.objects.filter(superviseur=request.user).select_related(
-        "site", "site__client", "attached_form"
+    superviseur_id = request.GET.get("superviseur")
+    client_id = request.GET.get("client")
+    site_id = request.GET.get("site")
+    statut = request.GET.get("statut")
+
+    if superviseur_id and is_manager:
+        missions_qs = missions_qs.filter(superviseur_id=superviseur_id)
+    if client_id:
+        missions_qs = missions_qs.filter(site__client_id=client_id)
+    if site_id:
+        missions_qs = missions_qs.filter(site_id=site_id)
+    if statut:
+        if statut == "non_commencee":
+            missions_qs = missions_qs.filter(visits__isnull=True)
+        elif statut in [s[0] for s in Visit.Statut.choices]:
+            missions_qs = missions_qs.filter(visits__statut=statut)
+
+    missions_qs = missions_qs.distinct().prefetch_related(
+        Prefetch(
+            "visits",
+            queryset=Visit.objects.order_by("-date_debut", "-id"),
+            to_attr="ordered_visits",
+        )
     )
-    context = {"missions": missions, "is_manager_view": False}
+
+    paginator = Paginator(missions_qs, 10)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    for m in page_obj.object_list:
+        m.latest_visit = m.ordered_visits[0] if getattr(m, "ordered_visits", None) else None
+
+    context = {
+        "missions": page_obj,
+        "page_obj": page_obj,
+        "is_manager_view": is_manager,
+        "filter_superviseur": superviseur_id or "",
+        "filter_client": client_id or "",
+        "filter_site": site_id or "",
+        "filter_statut": statut or "",
+        "statut_choices": Visit.Statut.choices,
+        "clients_filter": Client.objects.filter(actif=True) if is_manager else Client.objects.filter(sites__missions__superviseur=request.user).distinct(),
+        "sites_filter": Site.objects.all() if is_manager else Site.objects.filter(missions__superviseur=request.user).distinct(),
+    }
+
+    if is_manager:
+        context["superviseurs"] = User.objects.filter(role=User.Role.SUPERVISEUR, is_active=True)
+        context["form"] = MissionForm()
+        context["clients"] = Client.objects.filter(actif=True)
+
     return render(request, "visits/mission_list.html", context)
 
 
@@ -77,17 +124,33 @@ def mission_create(request):
             mission,
             detail={"superviseur_id": mission.superviseur_id, "site_id": mission.site_id},
         )
-        messages.success(request, "Mission créée.")
+        messages.success(request, "Mission créée avec succès.")
         return redirect("visits:mission-list")
 
-    missions = Mission.objects.select_related(
+    missions_qs = Mission.objects.select_related(
         "superviseur", "site", "site__client", "attached_form"
-    ).all()
+    ).prefetch_related(
+        Prefetch("visits", queryset=Visit.objects.order_by("-date_debut", "-id"), to_attr="ordered_visits")
+    )
+    paginator = Paginator(missions_qs, 10)
+    page_obj = paginator.get_page(1)
+    for m in page_obj.object_list:
+        m.latest_visit = m.ordered_visits[0] if getattr(m, "ordered_visits", None) else None
+
     context = {
-        "missions": missions,
+        "missions": page_obj,
+        "page_obj": page_obj,
         "is_manager_view": True,
         "form": form,
         "clients": Client.objects.filter(actif=True),
+        "clients_filter": Client.objects.filter(actif=True),
+        "sites_filter": Site.objects.all(),
+        "superviseurs": User.objects.filter(role=User.Role.SUPERVISEUR, is_active=True),
+        "statut_choices": Visit.Statut.choices,
+        "filter_superviseur": "",
+        "filter_client": "",
+        "filter_site": "",
+        "filter_statut": "",
     }
     return render(request, "visits/mission_list.html", context, status=400)
 
@@ -118,30 +181,24 @@ def visit_start(request, mission_pk):
     return redirect("visits:visit-edit", pk=visit.pk)
 
 
-def _visit_edit_context(visit, errors=None):
-    schema = visit.mission.attached_form.schema
-    photos_by_field = {}
-    for photo in visit.photos.all():
-        photos_by_field.setdefault(photo.field_key, []).append(photo)
-    sections = build_render_model(schema, visit.reponses, photos_by_field)
-    return {
-        "visit": visit,
-        "mission": visit.mission,
-        "sections": sections,
+def _visit_edit_context(visit, errors=None, user=None):
+    ctx = get_visit_detail_context(visit, user=user)
+    ctx.update({
         "max_photo_size_mb": settings.VISITS_MAX_PHOTO_SIZE_BYTES // (1024 * 1024),
         "errors": errors or [],
         "locked": not visit.peut_etre_modifiee(),
-    }
+    })
+    return ctx
 
 
 def _render_visit_edit(request, visit, errors=None, status=200):
-    return render(request, "visits/visit_edit.html", _visit_edit_context(visit, errors), status=status)
+    return render(request, "visits/visit_edit.html", _visit_edit_context(visit, errors, user=request.user), status=status)
 
 
 @role_required(User.Role.SUPERVISEUR)
 def visit_edit(request, pk):
     visit = get_object_or_404(Visit, pk=pk, auteur=request.user)
-    return render(request, "visits/visit_edit.html", _visit_edit_context(visit))
+    return render(request, "visits/visit_edit.html", _visit_edit_context(visit, user=request.user))
 
 
 def _decode_data_url(data_url):
@@ -310,15 +367,65 @@ def repeat_row_remove(request):
 
 @validate_visits_required
 def revue_list(request):
-    visits = Visit.objects.filter(
-        statut__in=[
-            Visit.Statut.SOUMISE,
-            Visit.Statut.VALIDEE,
-            Visit.Statut.PUBLIEE,
-            Visit.Statut.DEPUBLIEE,
-        ]
-    ).select_related("mission", "mission__site", "mission__site__client", "mission__attached_form", "auteur")
-    return render(request, "visits/revue_list.html", {"visits": visits})
+    visits = (
+        Visit.objects.filter(
+            statut__in=[
+                Visit.Statut.SOUMISE,
+                Visit.Statut.VALIDEE,
+                Visit.Statut.PUBLIEE,
+                Visit.Statut.DEPUBLIEE,
+            ]
+        )
+        .select_related(
+            "mission",
+            "mission__site",
+            "mission__site__client",
+            "mission__attached_form",
+            "auteur",
+            "decision_par",
+        )
+        .order_by("-date_debut")
+    )
+
+    selected_visit = None
+    detail_context = {}
+    selected_pk = request.GET.get("visit_pk")
+    if selected_pk:
+        selected_visit = visits.filter(pk=selected_pk).first()
+    if not selected_visit and visits.exists():
+        selected_visit = visits.first()
+
+    if selected_visit:
+        detail_context = get_visit_detail_context(
+            selected_visit, user=request.user, show_revue_actions=True
+        )
+
+    context = {
+        "visits": visits,
+        "selected_visit": selected_visit,
+        **detail_context,
+    }
+    return render(request, "visits/revue_list.html", context)
+
+
+@validate_visits_required
+def revue_detail(request, pk):
+    visit = get_object_or_404(
+        Visit.objects.select_related(
+            "mission",
+            "mission__site",
+            "mission__site__client",
+            "mission__attached_form",
+            "auteur",
+            "decision_par",
+        ),
+        pk=pk,
+    )
+    context = get_visit_detail_context(visit, user=request.user, show_revue_actions=True)
+
+    if request.headers.get("HX-Request"):
+        return render(request, "visits/_visit_detail.html", context)
+    return render(request, "visits/revue_detail.html", context)
 
 
 @validate_visits_required

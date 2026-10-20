@@ -1,0 +1,43 @@
+{% comment %}
+Barre de titre de page avec fil d'Ariane.
+Usage :
+  {% include "components/page_header.html" with title="Missions" subtitle="Gérer et suivre vos missions" breadcrumbs=breadcrumbs action_url="..." action_label="Nouvelle mission" %}
+{% endcomment %}
+<div class="mb-6 {{ extra_class }}">
+    {% if breadcrumbs %}
+    <nav class="flex text-xs text-gray-500 mb-2" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 sm:space-x-2">
+            {% for crumb in breadcrumbs %}
+            <li class="inline-flex items-center">
+                {% if not forloop.first %}
+                <svg class="w-3.5 h-3.5 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                {% endif %}
+                {% if crumb.url and not forloop.last %}
+                <a href="{{ crumb.url }}" class="hover:text-indigo-600 font-medium transition">{{ crumb.label }}</a>
+                {% else %}
+                <span class="text-gray-700 font-medium">{{ crumb.label }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </nav>
+    {% endif %}
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ title }}</h1>
+            {% if subtitle %}
+            <p class="mt-1 text-sm text-gray-500">{{ subtitle }}</p>
+            {% endif %}
+        </div>
+        {% if action_url and action_label %}
+        <div>
+            <a href="{{ action_url }}" class="inline-flex items-center gap-2 px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                {{ action_label }}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>

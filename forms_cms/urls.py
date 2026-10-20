@@ -9,6 +9,7 @@ urlpatterns = [
     path("nouveau/", views.form_builder, name="builder-new"),
     path("nouveau/json/", views.FormTemplateImportView.as_view(), name="import"),
     path("<int:pk>/editer/", views.form_builder, name="builder-edit"),
+    path("<int:pk>/apercu/", views.form_template_preview, name="template-preview"),
     path("<int:pk>/basculer/", views.form_template_toggle, name="template-toggle"),
     path("clients/<int:client_pk>/attacher/", views.client_attach_form, name="client-attach"),
     path(

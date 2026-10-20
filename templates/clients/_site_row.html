@@ -7,7 +7,7 @@
     <td class="text-right whitespace-nowrap">
         <a href="{% url 'visits:site-export' client.pk site.pk %}" class="text-indigo-600 text-xs hover:underline">Exporter (ZIP)</a>
         <a href="{% url 'clients:site-update' client.pk site.pk %}" class="text-indigo-600 text-xs hover:underline ml-2">Modifier</a>
-        <form method="post" action="{% url 'clients:site-delete' client.pk site.pk %}" class="inline">
+        <form method="post" action="{% url 'clients:site-delete' client.pk site.pk %}" class="inline" onsubmit="return confirm('Confirmer la suppression définitive de ce site ?');">
             {% csrf_token %}
             <button type="submit" class="text-red-600 text-xs hover:underline ml-2">Supprimer</button>
         </form>

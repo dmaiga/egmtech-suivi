@@ -422,3 +422,354 @@ class ManagerPdfExportTests(TestCase):
         self.client.force_login(self.sup)
         response = self.client.get(reverse("visits:client-export", args=[self.client_obj.pk]))
         self.assertEqual(response.status_code, 403)
+
+
+class VisitDetailTemplateAndPrivacyTests(TestCase):
+    def setUp(self):
+        self.client_obj = Client.objects.create(nom="Client BNDA", actif=True)
+        self.site = Site.objects.create(
+            client=self.client_obj,
+            code="BNDA-TEST",
+            nom="Agence Test",
+            ville="Bamako",
+            quartier="ACI 2000",
+            latitude="12.600000",
+            longitude="-8.000000",
+        )
+        self.manager = User.objects.create_user(
+            username="mgr_detail", password="x", role=User.Role.MANAGER
+        )
+        self.perm_validate = Permission.objects.get(codename="validate_visits")
+        self.manager.user_permissions.add(self.perm_validate)
+
+        self.sup = User.objects.create_user(
+            username="sup_detail", password="x", role=User.Role.SUPERVISEUR
+        )
+        self.client_user = User.objects.create_user(
+            username="cli_detail", password="x", role=User.Role.CLIENT, client=self.client_obj
+        )
+
+        # Schéma contenant tous les types de champs du seed (text, date, number, gps, photo, repeat, choice, signature, checkbox, multichoice)
+        self.schema = {
+            "sections": [
+                {
+                    "title": "Général",
+                    "fields": [
+                        {"key": "tech_nom", "label": "Nom du technicien", "type": "text", "required": True},
+                        {"key": "date_visite", "label": "Date de la visite", "type": "date", "required": True},
+                        {"key": "nb_equipements", "label": "Nombre d'équipements", "type": "number", "required": True},
+                        {"key": "conforme", "label": "Installation conforme", "type": "checkbox", "required": False},
+                        {"key": "options", "label": "Options installées", "type": "multichoice", "required": False},
+                        {"key": "type_site", "label": "Type de site", "type": "choice", "options": ["Agence", "Guichet"], "required": True},
+                        {"key": "champ_vide", "label": "Champ vide optionnel", "type": "text", "required": False},
+                        {"key": "champ_manquant", "label": "Champ obligatoire manquant", "type": "text", "required": True},
+                        {"key": "position_gps", "label": "Position GPS", "type": "gps", "required": True},
+                        {"key": "photo_facade", "label": "Photo façade", "type": "photo", "max_photos": 2, "required": True},
+                        {"key": "signature_tech", "label": "Signature technicien", "type": "signature", "required": False},
+                    ],
+                },
+                {
+                    "title": "Équipements",
+                    "fields": [
+                        {
+                            "key": "cameras",
+                            "label": "Liste des caméras",
+                            "type": "repeat",
+                            "required": True,
+                            "fields": [
+                                {"key": "marque", "label": "Marque", "type": "text", "required": True},
+                                {"key": "etat", "label": "État", "type": "choice", "options": ["OK", "KO"], "required": True},
+                                {"key": "photo_cam", "label": "Photo caméra", "type": "photo", "max_photos": 1, "required": False},
+                            ],
+                        }
+                    ],
+                },
+            ]
+        }
+
+        self.template = FormTemplate.objects.create(
+            nom="Formulaire Test Complet",
+            schema=self.schema,
+            actif=True,
+        )
+        self.attached = AttachedForm.objects.create(
+            client=self.client_obj,
+            template=self.template,
+            nom="Formulaire Test Complet",
+            schema=self.schema,
+        )
+        self.mission = Mission.objects.create(
+            superviseur=self.sup,
+            site=self.site,
+            attached_form=self.attached,
+            created_by=self.manager,
+        )
+
+    def test_visit_detail_renders_all_seed_field_types_and_repeat_table(self):
+        # Création d'une visite avec coordonnées GPS à plus de 500m du site (ex. 12.610000 vs 12.600000 ~ 1.1 km)
+        visit = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.sup,
+            statut=Visit.Statut.SOUMISE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+            gps_latitude="12.610000",
+            gps_longitude="-8.000000",
+            reponses={
+                "tech_nom": "Amadou Traoré",
+                "date_visite": "2026-10-20",
+                "nb_equipements": 4,
+                "conforme": True,
+                "options": ["Alarme", "Onduleur"],
+                "type_site": "Agence",
+                "position_gps": {"lat": "12.610000", "lng": "-8.000000"},
+                "signature_tech": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                "cameras": [
+                    {"_index": "0", "marque": "Hikvision", "etat": "OK"},
+                    {"_index": "1", "marque": "Dahua", "etat": "KO"},
+                ],
+            },
+            responsable_absent=True,
+            motif_absence_responsable="En réunion externe",
+            commentaire_rejet="Motif rejet interne confidentiel",
+        )
+
+        # Ajout d'une photo pour photo_facade
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        tiny_gif = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04"
+            b"\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        VisitPhoto.objects.create(
+            visit=visit,
+            field_key="photo_facade",
+            image=SimpleUploadedFile("facade.gif", tiny_gif, content_type="image/gif"),
+            legende="Vue de face",
+        )
+
+        # Ajout d'un ActivityLog
+        from core.models import ActivityLog
+        ActivityLog.objects.create(
+            user=self.manager,
+            action="rejet_visite",
+            object_type="Visit",
+            object_id=str(visit.pk),
+            detail={"commentaire": "Motif rejet interne confidentiel"},
+        )
+
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("revue:detail", args=[visit.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Vérification en-tête et métadonnées
+        self.assertContains(response, "Formulaire Test Complet")
+        self.assertContains(response, "Agence Test")
+        self.assertContains(response, "BNDA-TEST")
+        self.assertContains(response, "ACI 2000")
+        self.assertContains(response, "sup_detail")
+
+        # Vérification types de champs simples
+        self.assertContains(response, "Amadou Traoré") # text
+        self.assertContains(response, "2026-10-20") # date
+        self.assertContains(response, "4") # number
+        self.assertContains(response, "Oui") # checkbox conforme
+        self.assertContains(response, "Alarme") # multichoice
+        self.assertContains(response, "Onduleur")
+        self.assertContains(response, "Agence") # choice
+
+        # Vérification GPS et lien carte
+        self.assertContains(response, "12.610000, -8.000000")
+        self.assertContains(response, "Voir sur la carte")
+
+        # Vérification écart GPS > 500m
+        self.assertContains(response, "Écart site")
+
+        # Vérification champ vide affiché Non renseigné et obligatoire manquant signalé
+        self.assertContains(response, "Non renseigné")
+        self.assertContains(response, "Obligatoire manquant")
+
+        # Vérification photo et légende
+        self.assertContains(response, "Vue de face")
+
+        # Vérification tableau du groupe répétable
+        self.assertContains(response, "<table")
+        self.assertContains(response, "Hikvision")
+        self.assertContains(response, "Dahua")
+        self.assertContains(response, "Marque")
+        self.assertContains(response, "État")
+
+        # Vérification signatures (responsable absent avec motif)
+        self.assertContains(response, "Responsable absent")
+        self.assertContains(response, "En réunion externe")
+
+        # Vérification affichage historique interne pour le manager
+        self.assertContains(response, "Historique interne")
+        self.assertContains(response, "Motif rejet interne confidentiel")
+
+    def test_client_never_sees_internal_history_or_rejection_comments(self):
+        # Visite publiée pour consultation côté portail client
+        visit = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.sup,
+            statut=Visit.Statut.PUBLIEE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+            reponses={"tech_nom": "Moussa Keita"},
+            commentaire_rejet="Raison interne de rejet strictement confidentielle",
+        )
+        from core.models import ActivityLog
+        ActivityLog.objects.create(
+            user=self.manager,
+            action="rejet_visite",
+            object_type="Visit",
+            object_id=str(visit.pk),
+            detail={"commentaire": "Raison interne de rejet strictement confidentielle"},
+        )
+        ActivityLog.objects.create(
+            user=self.manager,
+            action="validation_visite",
+            object_type="Visit",
+            object_id=str(visit.pk),
+            detail={"mission_id": self.mission.pk},
+        )
+
+        self.client.force_login(self.client_user)
+        response = self.client.get(reverse("portal:visit-detail", args=[visit.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Le client voit le contenu métier
+        self.assertContains(response, "Moussa Keita")
+        self.assertContains(response, "Formulaire Test Complet")
+
+        # Le client ne doit JAMAIS voir l'historique interne ni les motifs de rejet
+        self.assertNotContains(response, "Historique interne")
+        self.assertNotContains(response, "Raison interne de rejet strictement confidentielle")
+        self.assertNotContains(response, "rejet_visite")
+        self.assertNotContains(response, "validation_visite")
+
+    def test_manager_revue_htmx_detail_and_actions(self):
+        visit = Visit.objects.create(
+            mission=self.mission,
+            auteur=self.sup,
+            statut=Visit.Statut.SOUMISE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+            reponses={"tech_nom": "Issa"},
+        )
+
+        self.client.force_login(self.manager)
+
+        # Requête HTMX : retourne le fragment _visit_detail.html
+        response = self.client.get(
+            reverse("revue:detail", args=[visit.pk]),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "visit-detail-container")
+        self.assertContains(response, "Valider")
+        self.assertContains(response, "Rejeter")
+        self.assertNotContains(response, "<!DOCTYPE html>")
+
+        # Requête normale : vue complète de revue
+        response_full = self.client.get(reverse("revue:list"))
+        self.assertEqual(response_full.status_code, 200)
+        self.assertContains(response_full, "Revue des visites")
+        self.assertContains(response_full, "revue-list-item")
+        self.assertContains(response_full, "revue-detail")
+
+
+class MissionFilteringAndPaginationTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_mf", password="pass", role=User.Role.MANAGER)
+        self.sup1 = User.objects.create_user(username="sup_mf1", password="pass", role=User.Role.SUPERVISEUR)
+        self.sup2 = User.objects.create_user(username="sup_mf2", password="pass", role=User.Role.SUPERVISEUR)
+
+        self.client_a = Client.objects.create(nom="Client Alpha")
+        self.client_b = Client.objects.create(nom="Client Beta")
+
+        self.site_a = Site.objects.create(client=self.client_a, code="S-A", nom="Site Alpha 1")
+        self.site_b = Site.objects.create(client=self.client_b, code="S-B", nom="Site Beta 1")
+
+        self.template = FormTemplate.objects.create(
+            nom="Form Alpha",
+            schema={"sections": [{"title": "S1", "fields": [{"key": "f1", "label": "Champ", "type": "text"}]}]},
+            actif=True,
+        )
+        self.attached_a = AttachedForm.objects.create(
+            client=self.client_a, template=self.template, nom="Form A", schema=self.template.schema, actif=True
+        )
+        self.attached_b = AttachedForm.objects.create(
+            client=self.client_b, template=self.template, nom="Form B", schema=self.template.schema, actif=True
+        )
+
+        self.mission1 = Mission.objects.create(
+            superviseur=self.sup1, site=self.site_a, attached_form=self.attached_a, created_by=self.manager
+        )
+        self.mission2 = Mission.objects.create(
+            superviseur=self.sup2, site=self.site_b, attached_form=self.attached_b, created_by=self.manager
+        )
+
+    def test_filter_by_superviseur(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("visits:mission-list"), {"superviseur": self.sup1.pk})
+        self.assertEqual(response.status_code, 200)
+        missions = list(response.context["missions"])
+        self.assertEqual(missions, [self.mission1])
+
+    def test_filter_by_client(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("visits:mission-list"), {"client": self.client_b.pk})
+        self.assertEqual(response.status_code, 200)
+        missions = list(response.context["missions"])
+        self.assertEqual(missions, [self.mission2])
+
+    def test_filter_by_site(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("visits:mission-list"), {"site": self.site_a.pk})
+        self.assertEqual(response.status_code, 200)
+        missions = list(response.context["missions"])
+        self.assertEqual(missions, [self.mission1])
+
+    def test_filter_by_statut(self):
+        self.client.force_login(self.manager)
+        # mission1 has a submitted visit
+        Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup1,
+            statut=Visit.Statut.SOUMISE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+        )
+        # Filter by statut=soumise
+        response = self.client.get(reverse("visits:mission-list"), {"statut": "soumise"})
+        self.assertEqual(response.status_code, 200)
+        missions = list(response.context["missions"])
+        self.assertEqual(missions, [self.mission1])
+
+        # Filter by statut=non_commencee
+        response_nc = self.client.get(reverse("visits:mission-list"), {"statut": "non_commencee"})
+        self.assertEqual(response_nc.status_code, 200)
+        missions_nc = list(response_nc.context["missions"])
+        self.assertEqual(missions_nc, [self.mission2])
+
+    def test_pagination_missions(self):
+        self.client.force_login(self.manager)
+        # Create additional missions to exceed 10
+        for i in range(12):
+            site = Site.objects.create(client=self.client_a, code=f"S-P{i}", nom=f"Site P{i}")
+            Mission.objects.create(
+                superviseur=self.sup1, site=site, attached_form=self.attached_a, created_by=self.manager
+            )
+
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertEqual(response.status_code, 200)
+        page_obj = response.context["missions"]
+        self.assertEqual(len(page_obj.object_list), 10)
+        self.assertTrue(page_obj.has_next())
+
+        # Page 2
+        response_p2 = self.client.get(reverse("visits:mission-list"), {"page": 2})
+        self.assertEqual(response_p2.status_code, 200)
+        page_obj_p2 = response_p2.context["missions"]
+        self.assertEqual(len(page_obj_p2.object_list), 4)
+        self.assertFalse(page_obj_p2.has_next())

@@ -26,14 +26,15 @@
     {% endif %}
 
     {% if locked %}
-    <p class="bg-gray-50 border border-gray-200 rounded-md p-4 text-sm text-gray-600">
-        Cette visite est en lecture seule ({{ visit.get_statut_display }}).
-        {% if visit.decision_par %}Décision de {{ visit.decision_par.username }} le {{ visit.decision_le }}.{% endif %}
-    </p>
-    {% elif visit.commentaire_rejet %}
-    <p class="bg-amber-50 border border-amber-200 rounded-md p-4 text-sm text-amber-700">
-        Renvoyée pour correction : {{ visit.commentaire_rejet }}
-    </p>
+    <div class="space-y-6">
+        {% include "visits/_visit_detail.html" with show_internal_history=True %}
+    </div>
+    {% else %}
+    {% if visit.commentaire_rejet %}
+    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <span class="font-bold block">Renvoyée pour correction :</span>
+        <p class="mt-0.5">{{ visit.commentaire_rejet }}</p>
+    </div>
     {% endif %}
 
     <form id="visit-form" method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
@@ -114,7 +115,6 @@
             </div>
         </section>
 
-        {% if not locked %}
         <div class="flex items-center gap-3">
             <button type="submit" formaction="{% url 'visits:visit-save' visit.pk %}"
                     class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
@@ -125,9 +125,7 @@
                 Soumettre la visite
             </button>
         </div>
-        {% endif %}
     </form>
-</div>
 
 <script>
     document.body.addEventListener('htmx:configRequest', function (event) {
@@ -141,13 +139,18 @@
         }
     });
 
-    document.getElementById('responsable_absent').addEventListener('change', function () {
-        document.getElementById('responsable-signature-block').classList.toggle('hidden', this.checked);
-        document.getElementById('responsable-motif-block').classList.toggle('hidden', !this.checked);
-    });
+    var respAbsentEl = document.getElementById('responsable_absent');
+    if (respAbsentEl) {
+        respAbsentEl.addEventListener('change', function () {
+            document.getElementById('responsable-signature-block').classList.toggle('hidden', this.checked);
+            document.getElementById('responsable-motif-block').classList.toggle('hidden', !this.checked);
+        });
+    }
 </script>
 <script src="{% static 'visits/geolocation.js' %}"></script>
 <script src="{% static 'visits/signature-pad.js' %}"></script>
 <script src="{% static 'visits/photo-compress.js' %}"></script>
 <script src="{% static 'visits/autosave.js' %}"></script>
+{% endif %}
+</div>
 {% endblock %}

@@ -3,71 +3,123 @@
 {% block title %}Revue des visites{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl w-full space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">Revue des visites</h1>
+<div class="space-y-6">
+    <!-- En-tête de page -->
+    <div class="flex items-center justify-between pb-2">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Revue des visites</h1>
+            <p class="text-sm text-gray-500 mt-1">Validez, commentez ou publiez les rapports de visite des superviseurs.</p>
+        </div>
+        <div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {{ visits|length }} visite{{ visits|length|pluralize }} à traiter
+            </span>
+        </div>
+    </div>
 
     {% if messages %}
-    <ul class="space-y-1">
-        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
-    </ul>
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl border text-sm flex items-center gap-2 {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
 
-    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-        {% for visit in visits %}
-        <div class="border border-gray-200 rounded-md p-4">
-            <div class="flex items-center justify-between mb-2">
-                <div>
-                    <span class="font-medium">{{ visit.mission.attached_form.nom }}</span>
-                    <span class="text-gray-500 text-sm">
-                        — {{ visit.mission.site.nom }} ({{ visit.mission.site.client.nom }}) — {{ visit.auteur.username }}
-                    </span>
+    {% if visits %}
+    <!-- Disposition Responsive : 2 colonnes sur grand écran, liste simple sur mobile -->
+    <div class="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+
+        <!-- ============================================================== -->
+        <!-- COLONNE GAUCHE : LISTE DES VISITES                             -->
+        <!-- ============================================================== -->
+        <div class="lg:col-span-5 xl:col-span-4 space-y-3 lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto pr-1">
+            {% for v in visits %}
+            <!-- Sur ordinateur : Clic HTMX pour charger à droite -->
+            <div class="hidden lg:block cursor-pointer p-4 bg-white border rounded-xl shadow-xs hover:border-indigo-400 transition revue-list-item {% if selected_visit.pk == v.pk %}border-indigo-600 ring-2 ring-indigo-50 bg-indigo-50/20{% else %}border-gray-200{% endif %}"
+                 hx-get="{% url 'revue:detail' v.pk %}"
+                 hx-target="#revue-detail"
+                 hx-swap="innerHTML"
+                 onclick="selectRevueItem(this)">
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                    <span class="font-bold text-gray-900 text-sm leading-snug">{{ v.mission.attached_form.nom }}</span>
+                    {% include "components/status_badge.html" with visit=v %}
                 </div>
-                <span class="text-sm text-gray-500">{{ visit.get_statut_display }}</span>
+                <p class="text-xs text-gray-600">
+                    <span class="font-medium text-gray-900">{{ v.mission.site.nom }}</span>
+                    <span class="text-gray-400">({{ v.mission.site.client.nom }})</span>
+                </p>
+                <div class="mt-2.5 flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
+                    <span>Par <strong class="text-gray-700 font-medium">{{ v.auteur.username }}</strong></span>
+                    <time>{{ v.date_soumission|date:"d/m/Y H:i"|default:v.date_debut|date:"d/m/Y H:i" }}</time>
+                </div>
+                {% if v.commentaire_rejet %}
+                <p class="mt-2 text-xs text-red-600 bg-red-50 p-1.5 rounded truncate">
+                    Rejet : {{ v.commentaire_rejet }}
+                </p>
+                {% endif %}
             </div>
 
-            {% if visit.commentaire_rejet %}
-            <p class="text-sm text-amber-700 mb-2">Commentaire : {{ visit.commentaire_rejet }}</p>
-            {% endif %}
-            {% if visit.decision_par %}
-            <p class="text-xs text-gray-400 mb-2">
-                Dernière décision par {{ visit.decision_par.username }} le {{ visit.decision_le }}
-            </p>
-            {% endif %}
+            <!-- Sur mobile : Lien complet vers la page détail de revue -->
+            <a href="{% url 'revue:detail' v.pk %}" class="block lg:hidden p-4 bg-white border border-gray-200 rounded-xl shadow-xs hover:border-indigo-300 transition">
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                    <span class="font-bold text-gray-900 text-sm leading-snug">{{ v.mission.attached_form.nom }}</span>
+                    {% include "components/status_badge.html" with visit=v %}
+                </div>
+                <p class="text-xs text-gray-600">
+                    <span class="font-medium text-gray-900">{{ v.mission.site.nom }}</span>
+                    <span class="text-gray-400">({{ v.mission.site.client.nom }})</span>
+                </p>
+                <div class="mt-2.5 flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
+                    <span>Par <strong class="text-gray-700 font-medium">{{ v.auteur.username }}</strong></span>
+                    <time>{{ v.date_soumission|date:"d/m/Y H:i"|default:v.date_debut|date:"d/m/Y H:i" }}</time>
+                </div>
+                {% if v.commentaire_rejet %}
+                <p class="mt-2 text-xs text-red-600 bg-red-50 p-1.5 rounded truncate">
+                    Rejet : {{ v.commentaire_rejet }}
+                </p>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
 
-            <div class="flex items-center gap-3">
-                {% if visit.statut == "soumise" %}
-                <form method="post" action="{% url 'revue:validate' visit.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-sm text-green-700 hover:underline">Valider</button>
-                </form>
-                <form method="post" action="{% url 'revue:reject' visit.pk %}" class="flex items-center gap-2">
-                    {% csrf_token %}
-                    <input type="text" name="commentaire" placeholder="Commentaire (obligatoire)" required
-                           class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                    <button type="submit" class="text-sm text-red-600 hover:underline">Rejeter</button>
-                </form>
-                {% elif visit.statut == "validee" %}
-                <form method="post" action="{% url 'revue:publish' visit.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-sm text-indigo-600 hover:underline">Publier au client</button>
-                </form>
-                {% elif visit.statut == "publiee" %}
-                <a href="{% url 'visits:visit-pdf' visit.pk %}" class="text-sm text-indigo-600 hover:underline">PDF</a>
-                <form method="post" action="{% url 'revue:unpublish' visit.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-sm text-gray-600 hover:underline">Dépublier</button>
-                </form>
-                {% elif visit.statut == "depubliee" %}
-                <form method="post" action="{% url 'revue:publish' visit.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="text-sm text-indigo-600 hover:underline">Republier au client</button>
-                </form>
+        <!-- ============================================================== -->
+        <!-- COLONNE DROITE : APERÇU DE LA VISITE (Desktop)                 -->
+        <!-- ============================================================== -->
+        <div class="hidden lg:block lg:col-span-7 xl:col-span-8">
+            <div id="revue-detail" class="space-y-6">
+                {% if selected_visit %}
+                    {% include "visits/_visit_detail.html" with show_revue_actions=True %}
+                {% else %}
+                    <div class="text-center py-16 bg-white border border-gray-200 rounded-2xl p-8">
+                        <p class="text-gray-400 text-sm">Sélectionnez une visite dans la colonne de gauche pour afficher son aperçu.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
-        {% empty %}
-        <p class="text-gray-500">Aucune visite à revoir.</p>
-        {% endfor %}
-    </section>
+
+    </div>
+    {% else %}
+    <!-- État vide si aucune visite à revoir -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-12 text-center max-w-xl mx-auto my-12">
+        <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900">Aucune visite à revoir</h3>
+        <p class="mt-1 text-sm text-gray-500">Toutes les visites soumises ont été traitées ou aucune visite n'est en attente de revue.</p>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+function selectRevueItem(el) {
+    document.querySelectorAll('.revue-list-item').forEach(item => {
+        item.classList.remove('border-indigo-600', 'ring-2', 'ring-indigo-50', 'bg-indigo-50/20');
+        item.classList.add('border-gray-200');
+    });
+    el.classList.remove('border-gray-200');
+    el.classList.add('border-indigo-600', 'ring-2', 'ring-indigo-50', 'bg-indigo-50/20');
+}
+</script>
 {% endblock %}

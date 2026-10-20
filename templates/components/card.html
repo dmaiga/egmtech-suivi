@@ -1,0 +1,26 @@
+{% comment %}
+Composant Carte réutilisable.
+Usage :
+  {% include "components/card.html" with title="Titre" subtitle="Sous-titre" content=... %}
+{% endcomment %}
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden {{ extra_class }}">
+    {% if title or header %}
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+            {% if title %}<h3 class="text-base font-semibold text-gray-900">{{ title }}</h3>{% endif %}
+            {% if subtitle %}<p class="mt-0.5 text-xs text-gray-500">{{ subtitle }}</p>{% endif %}
+        </div>
+        {% if header_action %}
+        <div>{{ header_action|safe }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="p-6">
+        {{ content|default:body|safe }}
+    </div>
+    {% if footer %}
+    <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
+        {{ footer|safe }}
+    </div>
+    {% endif %}
+</div>

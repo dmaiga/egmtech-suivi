@@ -447,3 +447,78 @@ class FormBuilderViewTests(TestCase):
         self.assertEqual(template.schema["sections"][0]["fields"][0]["label"], "Nom complet")
         self.assertEqual(attached.schema, schema_au_moment_de_lattachement)
         self.assertNotEqual(attached.schema, template.schema)
+
+
+class TemplatePreviewAndToggleTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_prev", password="pass", role=User.Role.MANAGER)
+        self.perm_manage = Permission.objects.get(codename="manage_forms")
+        self.manager.user_permissions.add(self.perm_manage)
+
+        self.sup = User.objects.create_user(username="sup_prev", password="pass", role=User.Role.SUPERVISEUR)
+        self.client_a = Client.objects.create(nom="Client Prev")
+        self.client_user = User.objects.create_user(
+            username="cli_prev", password="pass", role=User.Role.CLIENT, client=self.client_a
+        )
+
+        self.template = FormTemplate.objects.create(
+            nom="Audit Sécurité",
+            description="Audit complet des sites",
+            schema={
+                "sections": [
+                    {
+                        "title": "Infos Générales",
+                        "fields": [
+                            {"key": "site_resp", "label": "Responsable", "type": "texte_court", "required": True},
+                            {"key": "alarme_ok", "label": "Alarme en service", "type": "case"},
+                        ],
+                    }
+                ]
+            },
+            actif=True,
+        )
+
+    def test_manager_with_perm_can_view_preview(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("forms_cms:template-preview", args=[self.template.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Audit Sécurité")
+        self.assertContains(response, "Infos Générales")
+        self.assertContains(response, "Responsable")
+        self.assertContains(response, "Mode aperçu")
+
+    def test_superviseur_cannot_access_preview(self):
+        self.client.force_login(self.sup)
+        response = self.client.get(reverse("forms_cms:template-preview", args=[self.template.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_client_cannot_access_preview(self):
+        self.client.force_login(self.client_user)
+        response = self.client.get(reverse("forms_cms:template-preview", args=[self.template.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_toggle_deactivates_and_reactivates_with_messages(self):
+        self.client.force_login(self.manager)
+
+        # Toggle to inactive
+        response = self.client.post(reverse("forms_cms:template-toggle", args=[self.template.pk]), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.template.refresh_from_db()
+        self.assertFalse(self.template.actif)
+        self.assertContains(response, "désactivé")
+
+        # Toggle back to active
+        response2 = self.client.post(reverse("forms_cms:template-toggle", args=[self.template.pk]), follow=True)
+        self.assertEqual(response2.status_code, 200)
+        self.template.refresh_from_db()
+        self.assertTrue(self.template.actif)
+        self.assertContains(response2, "activé")
+
+    def test_template_list_renders_status_badge_and_preview_link(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("forms_cms:list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Audit Sécurité")
+        self.assertContains(response, "Actif")
+        self.assertContains(response, reverse("forms_cms:template-preview", args=[self.template.pk]))
+        self.assertContains(response, "Désactiver")

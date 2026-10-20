@@ -3,58 +3,88 @@
 {% block title %}Formulaires{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl w-full space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-gray-900">Formulaires</h1>
-        <div class="flex items-center gap-4">
-            <a href="{% url 'forms_cms:import' %}" class="text-sm text-gray-500 hover:underline">
-                Import JSON (secours)
+<div class="space-y-6">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Formulaires</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Modèles de formulaires de terrain réutilisables et personnalisables.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'forms_cms:import' %}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-300 shadow-sm transition">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                Import JSON
             </a>
-            <a href="{% url 'forms_cms:builder-new' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+            <a href="{% url 'forms_cms:builder-new' %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 Nouveau formulaire
             </a>
         </div>
     </div>
 
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-200">
-                    <th class="py-2">Nom</th>
-                    <th>Description</th>
-                    <th>Statut</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for template in templates %}
-                <tr class="border-b border-gray-100">
-                    <td class="py-2">{{ template.nom }}</td>
-                    <td>{{ template.description }}</td>
-                    <td>
-                        {% if template.actif %}
-                        <span class="text-green-600">Actif</span>
-                        {% else %}
-                        <span class="text-gray-400">Inactif</span>
-                        {% endif %}
-                    </td>
-                    <td class="whitespace-nowrap">
-                        <a href="{% url 'forms_cms:builder-edit' template.pk %}" class="text-indigo-600 hover:underline">
-                            Modifier
-                        </a>
-                        <form method="post" action="{% url 'forms_cms:template-toggle' template.pk %}" class="inline ml-2">
-                            {% csrf_token %}
-                            <button type="submit" class="text-indigo-600 hover:underline">
-                                {% if template.actif %}Désactiver{% else %}Réactiver{% endif %}
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="4" class="py-2 text-gray-500">Aucun formulaire.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Tableau des formulaires -->
+    <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <th class="py-3 px-4">Nom du modèle</th>
+                        <th class="py-3 px-4">Description</th>
+                        <th class="py-3 px-4">Statut</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                    {% for template in templates %}
+                    <tr class="hover:bg-gray-50/60 transition">
+                        <td class="py-3.5 px-4 font-semibold text-gray-900">
+                            <a href="{% url 'forms_cms:template-preview' template.pk %}" class="hover:text-indigo-600 transition">
+                                {{ template.nom }}
+                            </a>
+                        </td>
+                        <td class="py-3.5 px-4 text-gray-600 max-w-md">
+                            {{ template.description|default:"—"|truncatewords:20 }}
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            {% if template.actif %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Actif
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                Désactivé
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap text-xs space-x-2">
+                            <a href="{% url 'forms_cms:template-preview' template.pk %}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition">
+                                <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                Aperçu
+                            </a>
+                            <a href="{% url 'forms_cms:builder-edit' template.pk %}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                                Modifier
+                            </a>
+                            <form method="post" action="{% url 'forms_cms:template-toggle' template.pk %}" class="inline"
+                                  {% if template.actif %}onsubmit="return confirm('Êtes-vous sûr de vouloir désactiver ce modèle de formulaire ?');"{% endif %}>
+                                {% csrf_token %}
+                                <button type="submit" class="inline-flex items-center px-2.5 py-1.5 rounded-md font-medium transition {% if template.actif %}text-rose-700 bg-rose-50 hover:bg-rose-100{% else %}text-emerald-700 bg-emerald-50 hover:bg-emerald-100{% endif %}">
+                                    {% if template.actif %}Désactiver{% else %}Réactiver{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 px-4 text-center text-sm text-gray-500">
+                            {% include "components/empty_state.html" with title="Aucun formulaire configuré" message="Créez votre premier modèle de formulaire pour commencer à assigner des missions." action_url="/formulaires/nouveau/" action_label="Nouveau formulaire" %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </section>
 </div>
 {% endblock %}

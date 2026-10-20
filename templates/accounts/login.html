@@ -3,24 +3,84 @@
 {% block title %}Connexion{% endblock %}
 
 {% block content %}
-<div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg shadow-sm p-8">
-    <h1 class="text-xl font-semibold text-gray-900 mb-6">Connexion</h1>
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
+<div class="w-full max-w-md mx-auto my-8">
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 sm:p-10">
+        <!-- Logo et Titre -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600 text-white shadow-sm mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Connexion</h1>
+            <p class="mt-1.5 text-sm text-gray-500">Accédez à votre espace de suivi terrain</p>
+        </div>
+
+        <!-- Erreurs globales -->
         {% if form.non_field_errors %}
-        <p class="text-sm text-red-600">{{ form.non_field_errors }}</p>
+        <div class="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
+            <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            <div class="text-sm text-red-700 font-medium">
+                {{ form.non_field_errors }}
+            </div>
+        </div>
         {% endif %}
-        <div>
-            <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">Identifiant</label>
-            {{ form.username }}
-        </div>
-        <div>
-            <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">Mot de passe</label>
-            {{ form.password }}
-        </div>
-        <button type="submit" class="w-full bg-indigo-600 text-white rounded-md py-2 font-medium hover:bg-indigo-700">
-            Se connecter
-        </button>
-    </form>
+
+        <!-- Formulaire -->
+        <form method="post" class="space-y-5 login-form">
+            {% csrf_token %}
+            <div>
+                <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    Identifiant
+                </label>
+                <div class="form-input-wrapper">
+                    {{ form.username }}
+                </div>
+                {% if form.username.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ form.username.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    Mot de passe
+                </label>
+                <div class="form-input-wrapper">
+                    {{ form.password }}
+                </div>
+                {% if form.password.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ form.password.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="w-full mt-2 inline-flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                Se connecter
+            </button>
+        </form>
+    </div>
 </div>
+
+<style>
+.login-form input[type="text"],
+.login-form input[type="password"] {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #111827;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    outline: none;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.login-form input[type="text"]:focus,
+.login-form input[type="password"]:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+</style>
 {% endblock %}

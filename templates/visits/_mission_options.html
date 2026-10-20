@@ -1,18 +1,26 @@
-<div>
-    <label class="block text-sm font-medium text-gray-700">Site</label>
-    <select name="site" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-        <option value="">—</option>
-        {% for site in sites %}
-        <option value="{{ site.pk }}">{{ site.nom }}</option>
-        {% endfor %}
-    </select>
-</div>
-<div>
-    <label class="block text-sm font-medium text-gray-700">Formulaire attaché</label>
-    <select name="attached_form" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-        <option value="">—</option>
-        {% for attached_form in attached_forms %}
-        <option value="{{ attached_form.pk }}">{{ attached_form.nom }}</option>
-        {% endfor %}
-    </select>
+<div class="space-y-4">
+    <div>
+        <label for="id_site" class="block text-sm font-medium text-gray-700 mb-1">Site <span class="text-red-500">*</span></label>
+        <select id="id_site" name="site" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+            <option value="">Sélectionner un site...</option>
+            {% for site in sites %}
+            <option value="{{ site.pk }}">{{ site.nom }}{% if site.ville %} ({{ site.ville }}){% endif %}</option>
+            {% endfor %}
+        </select>
+        {% if not sites and request.GET.client_id %}
+        <p class="text-xs text-amber-600 mt-1">Aucun site disponible pour ce client.</p>
+        {% endif %}
+    </div>
+    <div>
+        <label for="id_attached_form" class="block text-sm font-medium text-gray-700 mb-1">Formulaire attaché <span class="text-red-500">*</span></label>
+        <select id="id_attached_form" name="attached_form" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+            <option value="">Sélectionner un formulaire...</option>
+            {% for attached_form in attached_forms %}
+            <option value="{{ attached_form.pk }}">{{ attached_form.nom }}</option>
+            {% endfor %}
+        </select>
+        {% if not attached_forms and request.GET.client_id %}
+        <p class="text-xs text-amber-600 mt-1">Aucun formulaire actif rattaché à ce client.</p>
+        {% endif %}
+    </div>
 </div>

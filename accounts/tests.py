@@ -146,3 +146,37 @@ class ForbiddenPageTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertContains(response, "Accès refusé", status_code=403)
+
+
+class AppHomeTests(TestCase):
+    def test_manager_sees_dashboard_and_stats(self):
+        manager = _make_user("mgr_home", User.Role.MANAGER)
+        self.client.login(username="mgr_home", password="pass12345")
+
+        response = self.client.get(reverse("app-home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tableau de bord")
+        self.assertIn("visites_a_revoir", response.context)
+        self.assertIn("visites_a_corriger", response.context)
+        self.assertIn("missions_en_cours", response.context)
+        self.assertIn("visites_publiees_mois", response.context)
+        self.assertIn("dernieres_soumises", response.context)
+
+    def test_superviseur_redirected_from_app_home_to_missions(self):
+        _make_user("sup_home", User.Role.SUPERVISEUR)
+        self.client.login(username="sup_home", password="pass12345")
+
+        response = self.client.get(reverse("app-home"))
+        self.assertRedirects(response, reverse("visits:mission-list"))
+
+    def test_client_redirected_from_app_home_to_portal(self):
+        _make_user("cli_home", User.Role.CLIENT)
+        self.client.login(username="cli_home", password="pass12345")
+
+        response = self.client.get(reverse("app-home"))
+        self.assertRedirects(response, reverse("portal:dashboard"))
+
+    def test_anonymous_redirected_to_login(self):
+        response = self.client.get(reverse("app-home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
