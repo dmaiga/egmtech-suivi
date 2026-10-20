@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -74,6 +74,14 @@ def mission_list(request):
         elif statut in [s[0] for s in Visit.Statut.choices]:
             missions_qs = missions_qs.filter(visits__statut=statut)
 
+    if not is_manager:
+        has_a_corriger = Exists(
+            Visit.objects.filter(mission=OuterRef("pk"), statut=Visit.Statut.A_CORRIGER)
+        )
+        missions_qs = missions_qs.annotate(has_a_corriger=has_a_corriger).order_by(
+            "-has_a_corriger", "-created_at"
+        )
+
     missions_qs = missions_qs.distinct().prefetch_related(
         Prefetch(
             "visits",
@@ -106,6 +114,21 @@ def mission_list(request):
         context["superviseurs"] = User.objects.filter(role=User.Role.SUPERVISEUR, is_active=True)
         context["form"] = MissionForm()
         context["clients"] = Client.objects.filter(actif=True)
+    else:
+        missions_a_corriger = []
+        missions_a_faire = []
+        missions_soumises = []
+        for m in page_obj.object_list:
+            lv = m.latest_visit
+            if lv and lv.statut == Visit.Statut.A_CORRIGER:
+                missions_a_corriger.append(m)
+            elif not lv or lv.statut == Visit.Statut.BROUILLON:
+                missions_a_faire.append(m)
+            else:
+                missions_soumises.append(m)
+        context["missions_a_corriger"] = missions_a_corriger
+        context["missions_a_faire"] = missions_a_faire
+        context["missions_soumises"] = missions_soumises
 
     return render(request, "visits/mission_list.html", context)
 
@@ -183,10 +206,27 @@ def visit_start(request, mission_pk):
 
 def _visit_edit_context(visit, errors=None, user=None):
     ctx = get_visit_detail_context(visit, user=user)
+
+    sections = ctx.get("sections", [])
+    total_sections = len(sections)
+    completed_sections = 0
+    for section in sections:
+        entries = section.get("entries", [])
+        has_missing = any(entry.get("is_missing") for entry in entries)
+        has_any_filled = any(not entry.get("is_empty") for entry in entries)
+        is_comp = (not has_missing) and (has_any_filled or len(entries) == 0)
+        section["is_completed"] = is_comp
+        if is_comp:
+            completed_sections += 1
+
+    progress_percent = int(round((completed_sections / total_sections) * 100)) if total_sections > 0 else 0
     ctx.update({
         "max_photo_size_mb": settings.VISITS_MAX_PHOTO_SIZE_BYTES // (1024 * 1024),
         "errors": errors or [],
         "locked": not visit.peut_etre_modifiee(),
+        "total_sections_count": total_sections,
+        "completed_sections_count": completed_sections,
+        "progress_percent": progress_percent,
     })
     return ctx
 
@@ -341,8 +381,15 @@ def visit_submit(request, pk):
     visit.date_soumission = timezone.now()
     visit.save(update_fields=["statut", "date_soumission"])
     log(request.user, "soumission_visite", visit, detail={"mission_id": visit.mission_id})
-    messages.success(request, "Visite soumise.")
-    return redirect("visits:mission-list")
+    messages.success(request, "Visite soumise avec succès.")
+    return redirect("visits:visit-confirmation", pk=visit.pk)
+
+
+@role_required(User.Role.SUPERVISEUR)
+def visit_confirmation(request, pk):
+    visit = get_object_or_404(Visit, pk=pk, auteur=request.user)
+    ctx = get_visit_detail_context(visit, user=request.user)
+    return render(request, "visits/visit_confirmation.html", ctx)
 
 
 @role_required(User.Role.SUPERVISEUR)

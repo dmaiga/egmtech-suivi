@@ -1,15 +1,25 @@
 {% if row %}
-<div class="repeat-row border border-gray-200 rounded-md p-3 mb-2" id="row-{{ group_key }}-{{ row.index }}">
-    {% for sub in row.subentries %}
-    {% include "visits/_field.html" with entry=sub %}
-    {% endfor %}
-    <input type="hidden" name="{{ group_key }}__indices" value="{{ row.index }}">
-    <button type="button"
-            hx-post="{% url 'visits:repeat-row-remove' %}"
-            hx-target="closest .repeat-row"
-            hx-swap="outerHTML"
-            class="text-red-600 text-xs hover:underline">
-        Retirer la ligne
-    </button>
+<div class="repeat-row bg-gray-50/70 border border-gray-200 rounded-2xl p-4 sm:p-5 mb-4 shadow-sm space-y-4 transition" id="row-{{ group_key }}-{{ row.index }}">
+    <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 border border-gray-200 shadow-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+            Ligne #{{ row.index|add:1 }}
+        </span>
+        <input type="hidden" name="{{ group_key }}__indices" value="{{ row.index }}">
+        <button type="button"
+                hx-post="{% url 'visits:repeat-row-remove' %}"
+                hx-target="closest .repeat-row"
+                hx-swap="outerHTML"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-lg transition active:scale-95">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            Supprimer
+        </button>
+    </div>
+
+    <div class="space-y-4">
+        {% for sub in row.subentries %}
+        {% include "visits/_field.html" with entry=sub %}
+        {% endfor %}
+    </div>
 </div>
 {% endif %}

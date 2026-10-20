@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmation de soumission - {{ mission.attached_form.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl w-full mx-auto space-y-6 py-4">
+    <!-- En-tête succès -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 text-center shadow-sm">
+        <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 ring-8 ring-emerald-50">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Visite soumise avec succès !</h1>
+        <p class="text-sm text-gray-600 mt-2 max-w-md mx-auto">
+            Votre compte-rendu pour le site <strong class="text-gray-900">{{ site.nom }}</strong> a bien été enregistré et transmis au manager pour revue et validation.
+        </p>
+
+        <div class="mt-4 inline-flex items-center gap-2">
+            <span class="text-xs text-gray-500 font-medium">Statut actuel :</span>
+            {% include "components/status_badge.html" with status=visit.statut label=visit.get_statut_display %}
+        </div>
+    </div>
+
+    <!-- Carte résumé -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2">
+            Résumé de la visite
+        </h2>
+
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Formulaire</dt>
+                <dd class="mt-1 font-bold text-gray-900">{{ attached_form.nom }}</dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Client</dt>
+                <dd class="mt-1 font-bold text-gray-900">{{ client.nom }}</dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Site inspecté</dt>
+                <dd class="mt-1 font-bold text-gray-900">
+                    {{ site.nom }}
+                    {% if site.ville or site.quartier %}
+                    <span class="block text-xs font-normal text-gray-500">
+                        {{ site.ville }}{% if site.quartier %}, {{ site.quartier }}{% endif %}
+                    </span>
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Superviseur</dt>
+                <dd class="mt-1 font-bold text-gray-900">{{ visit.auteur.get_full_name|default:visit.auteur.username }}</dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Date de début</dt>
+                <dd class="mt-1 text-gray-800">{{ visit.date_debut|date:"d/m/Y à H:i"|default:"—" }}</dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Date de soumission</dt>
+                <dd class="mt-1 text-gray-800">{{ visit.date_soumission|date:"d/m/Y à H:i"|default:"—" }}</dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Photos transmises</dt>
+                <dd class="mt-1 font-medium text-gray-900">
+                    {{ visit.photos.count }} photo{{ visit.photos.count|pluralize }} jointe{{ visit.photos.count|pluralize }}
+                </dd>
+            </div>
+
+            <div class="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
+                <dt class="text-xs font-semibold text-gray-500 uppercase">Signatures</dt>
+                <dd class="mt-1 font-medium text-gray-900">
+                    {% if visit.signature_superviseur %}Superviseur validé{% else %}Non signée{% endif %}
+                    <span class="block text-xs text-gray-500 font-normal">
+                        {% if visit.responsable_absent %}
+                        Responsable absent ({{ visit.motif_absence_responsable }})
+                        {% elif visit.signature_responsable %}
+                        Responsable de site signé
+                        {% else %}
+                        Sans signature responsable
+                        {% endif %}
+                    </span>
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <a href="{% url 'visits:mission-list' %}" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-base rounded-xl shadow-sm transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Retour à mes missions
+        </a>
+        <a href="{% url 'visits:visit-edit' visit.pk %}" class="inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-medium text-sm rounded-xl shadow-sm transition">
+            Consulter le récapitulatif
+        </a>
+    </div>
+</div>
+{% endblock %}

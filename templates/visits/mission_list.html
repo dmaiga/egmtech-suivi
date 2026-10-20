@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Missions{% endblock %}
+{% block title %}{% if is_manager_view %}Missions{% else %}Mes missions{% endif %}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- En-tête -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Missions</h1>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+                {% if is_manager_view %}Missions{% else %}Mes missions{% endif %}
+            </h1>
             <p class="text-sm text-gray-500 mt-0.5">
                 {% if is_manager_view %}
                 Supervisez les missions de terrain et assignez de nouvelles visites.
                 {% else %}
-                Consultez vos missions assignées et effectuez vos visites.
+                Consultez vos missions de terrain et réalisez vos visites.
                 {% endif %}
             </p>
         </div>
@@ -28,11 +30,11 @@
 
     <!-- Barre de filtres -->
     <section class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-        <form method="get" action="{% url 'visits:mission-list' %}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <form method="get" action="{% url 'visits:mission-list' %}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{% if is_manager_view %}5{% else %}4{% endif %} gap-3 items-end">
             {% if is_manager_view %}
             <div>
                 <label for="filter-superviseur" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Superviseur</label>
-                <select id="filter-superviseur" name="superviseur" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                <select id="filter-superviseur" name="superviseur" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">Tous les superviseurs</option>
                     {% for sup in superviseurs %}
                     <option value="{{ sup.pk }}" {% if filter_superviseur == sup.pk|stringformat:"s" %}selected{% endif %}>
@@ -45,7 +47,7 @@
 
             <div>
                 <label for="filter-client" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Client</label>
-                <select id="filter-client" name="client" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                <select id="filter-client" name="client" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">Tous les clients</option>
                     {% for client in clients_filter %}
                     <option value="{{ client.pk }}" {% if filter_client == client.pk|stringformat:"s" %}selected{% endif %}>
@@ -57,7 +59,7 @@
 
             <div>
                 <label for="filter-site" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Site</label>
-                <select id="filter-site" name="site" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                <select id="filter-site" name="site" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">Tous les sites</option>
                     {% for site in sites_filter %}
                     <option value="{{ site.pk }}" {% if filter_site == site.pk|stringformat:"s" %}selected{% endif %}>
@@ -69,7 +71,7 @@
 
             <div>
                 <label for="filter-statut" class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Statut</label>
-                <select id="filter-statut" name="statut" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                <select id="filter-statut" name="statut" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">Tous les statuts</option>
                     <option value="non_commencee" {% if filter_statut == "non_commencee" %}selected{% endif %}>Non commencée</option>
                     {% for code, label in statut_choices %}
@@ -79,7 +81,7 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition shadow-sm">
                     Filtrer
                 </button>
                 {% if filter_superviseur or filter_client or filter_site or filter_statut %}
@@ -91,15 +93,14 @@
         </form>
     </section>
 
-    <!-- Tableau des missions -->
+    {% if is_manager_view %}
+    <!-- VUE TABLEAU MANAGER -->
     <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-50/80 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        {% if is_manager_view %}
                         <th class="py-3 px-4">Superviseur</th>
-                        {% endif %}
                         <th class="py-3 px-4">Client</th>
                         <th class="py-3 px-4">Site</th>
                         <th class="py-3 px-4">Formulaire</th>
@@ -110,11 +111,9 @@
                 <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
                     {% for mission in missions %}
                     <tr class="hover:bg-gray-50/60 transition">
-                        {% if is_manager_view %}
                         <td class="py-3.5 px-4 font-medium text-gray-900">
                             {{ mission.superviseur.get_full_name|default:mission.superviseur.username }}
                         </td>
-                        {% endif %}
                         <td class="py-3.5 px-4 font-medium text-gray-900">
                             {{ mission.site.client.nom }}
                         </td>
@@ -138,27 +137,18 @@
                             {% endif %}
                         </td>
                         <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                            {% if not is_manager_view %}
-                            <form method="post" action="{% url 'visits:visit-start' mission.pk %}" class="inline">
-                                {% csrf_token %}
-                                <button type="submit" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition">
-                                    Commencer / continuer
-                                </button>
-                            </form>
+                            {% if mission.latest_visit and mission.latest_visit.statut == "soumise" and perms.visits.validate_visits %}
+                            <a href="{% url 'revue:list' %}?search={{ mission.site.nom }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                                Revoir la visite &rarr;
+                            </a>
                             {% else %}
-                                {% if mission.latest_visit and mission.latest_visit.statut == "soumise" and perms.visits.validate_visits %}
-                                <a href="{% url 'revue:list' %}?search={{ mission.site.nom }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
-                                    Revoir la visite &rarr;
-                                </a>
-                                {% else %}
-                                <span class="text-xs text-gray-400">—</span>
-                                {% endif %}
+                            <span class="text-xs text-gray-400">—</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{% if is_manager_view %}6{% else %}5{% endif %}" class="py-8 px-4 text-center text-sm text-gray-500">
+                        <td colspan="6" class="py-8 px-4 text-center text-sm text-gray-500">
                             {% include "components/empty_state.html" with title="Aucune mission trouvée" message="Aucune mission ne correspond aux filtres sélectionnés." %}
                         </td>
                     </tr>
@@ -167,7 +157,6 @@
             </table>
         </div>
 
-        <!-- Pagination -->
         {% if page_obj.has_other_pages %}
         <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-200 flex items-center justify-between">
             <div class="text-xs text-gray-500">
@@ -180,7 +169,6 @@
                     &larr; Précédent
                 </a>
                 {% endif %}
-
                 {% if page_obj.has_next %}
                 <a href="?page={{ page_obj.next_page_number }}{% if filter_superviseur %}&superviseur={{ filter_superviseur }}{% endif %}{% if filter_client %}&client={{ filter_client }}{% endif %}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_statut %}&statut={{ filter_statut }}{% endif %}" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition shadow-sm">
                     Suivant &rarr;
@@ -192,7 +180,6 @@
     </section>
 
     <!-- Formulaire d'assignation d'une mission (manager) -->
-    {% if is_manager_view %}
     <section class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
         <div class="border-b border-gray-100 pb-4 mb-5">
             <h2 class="text-lg font-bold text-gray-900">Assigner une nouvelle mission</h2>
@@ -255,6 +242,197 @@
             </div>
         </form>
     </section>
+
+    {% else %}
+    <!-- VUE CARTES SUPERVISEUR (MOBILE-FIRST) -->
+    <div class="space-y-8">
+        <!-- 1. À CORRIGER (EN TÊTE AVEC BANDEAU DE REJET) -->
+        {% if missions_a_corriger %}
+        <section class="space-y-3">
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                <h2 class="text-base font-bold text-rose-900 tracking-tight">
+                    À corriger ({{ missions_a_corriger|length }})
+                </h2>
+                <span class="text-xs text-rose-600 font-medium bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">Action requise</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for mission in missions_a_corriger %}
+                <div class="bg-white border-2 border-rose-300 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition">
+                    <!-- Bandeau du motif de rejet -->
+                    <div class="bg-rose-50 border-b border-rose-200 p-3.5 text-xs text-rose-900 flex items-start gap-2.5">
+                        <svg class="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold text-rose-950 block">Motif du rejet par le manager :</span>
+                            <p class="mt-0.5 text-rose-800">{{ mission.latest_visit.commentaire_rejet|default:"Corrections requises avant validation." }}</p>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ mission.site.client.nom }}</span>
+                                <h3 class="text-lg font-bold text-gray-900 tracking-tight">{{ mission.site.nom }}</h3>
+                            </div>
+                            {% include "components/status_badge.html" with status=mission.latest_visit.statut label=mission.latest_visit.get_statut_display %}
+                        </div>
+
+                        {% if mission.site.ville or mission.site.quartier %}
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500">
+                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span>{{ mission.site.ville }}{% if mission.site.quartier %}, {{ mission.site.quartier }}{% endif %}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="pt-1">
+                            <span class="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                {{ mission.attached_form.nom }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-gray-50/50 border-t border-gray-100">
+                        <form method="post" action="{% url 'visits:visit-start' mission.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                Reprendre la visite
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- 2. À FAIRE (NOUVELLES MISSIONS & BROUILLONS) -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                    <span>Missions à faire</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{{ missions_a_faire|length }}</span>
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for mission in missions_a_faire %}
+                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between hover:border-indigo-300 hover:shadow-md transition">
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ mission.site.client.nom }}</span>
+                                <h3 class="text-lg font-bold text-gray-900 tracking-tight">{{ mission.site.nom }}</h3>
+                            </div>
+                            {% if mission.latest_visit and mission.latest_visit.statut == "brouillon" %}
+                                {% include "components/status_badge.html" with status="brouillon" label="Brouillon" %}
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                    <span>À faire</span>
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        {% if mission.site.ville or mission.site.quartier %}
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500">
+                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span>{{ mission.site.ville }}{% if mission.site.quartier %}, {{ mission.site.quartier }}{% endif %}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="pt-1">
+                            <span class="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                {{ mission.attached_form.nom }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="pt-5 mt-4 border-t border-gray-100">
+                        <form method="post" action="{% url 'visits:visit-start' mission.pk %}">
+                            {% csrf_token %}
+                            {% if mission.latest_visit and mission.latest_visit.statut == "brouillon" %}
+                            <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Reprendre
+                            </button>
+                            {% else %}
+                            <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Commencer
+                            </button>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full py-8 text-center bg-white border border-gray-200 rounded-2xl">
+                    <p class="text-sm text-gray-500">Aucune mission à faire actuellement.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- 3. SOUMISES / EN ATTENTE DE VALIDATION -->
+        {% if missions_soumises %}
+        <section class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                    <span>Missions soumises & terminées</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{{ missions_soumises|length }}</span>
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for mission in missions_soumises %}
+                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ mission.site.client.nom }}</span>
+                                <h3 class="text-lg font-bold text-gray-900 tracking-tight">{{ mission.site.nom }}</h3>
+                            </div>
+                            {% include "components/status_badge.html" with status=mission.latest_visit.statut label=mission.latest_visit.get_statut_display %}
+                        </div>
+
+                        {% if mission.site.ville or mission.site.quartier %}
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500">
+                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span>{{ mission.site.ville }}{% if mission.site.quartier %}, {{ mission.site.quartier }}{% endif %}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="pt-1">
+                            <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                {{ mission.attached_form.nom }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="pt-5 mt-4 border-t border-gray-100 flex items-center justify-between">
+                        <span class="text-xs text-gray-400">
+                            {% if mission.latest_visit.date_soumission %}
+                            Soumise le {{ mission.latest_visit.date_soumission|date:"d/m/Y" }}
+                            {% endif %}
+                        </span>
+                        {% if mission.latest_visit %}
+                        <a href="{% url 'visits:visit-edit' mission.latest_visit.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-lg transition">
+                            Consulter
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}

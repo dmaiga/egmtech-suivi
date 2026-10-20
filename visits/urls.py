@@ -12,6 +12,7 @@ urlpatterns = [
     path("visites/<int:pk>/", views.visit_edit, name="visit-edit"),
     path("visites/<int:pk>/enregistrer/", views.visit_save, name="visit-save"),
     path("visites/<int:pk>/soumettre/", views.visit_submit, name="visit-submit"),
+    path("visites/<int:pk>/confirmation/", views.visit_confirmation, name="visit-confirmation"),
     path("visites/<int:pk>/ligne/ajouter/", views.repeat_row_add, name="repeat-row-add"),
     path("ligne/retirer/", views.repeat_row_remove, name="repeat-row-remove"),
     path("photos/<int:pk>/supprimer/", views.photo_delete, name="photo-delete"),

@@ -4,153 +4,452 @@
 {% block title %}Visite - {{ mission.attached_form.nom }}{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl w-full space-y-6">
-    <div class="flex items-center justify-between">
+<div class="max-w-3xl w-full mx-auto space-y-6 pb-28 sm:pb-32">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold text-gray-900">{{ mission.attached_form.nom }}</h1>
-            <p class="text-sm text-gray-500">{{ mission.site.nom }} — {{ mission.site.client.nom }}</p>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                    {{ mission.site.client.nom }}
+                </span>
+                <span class="text-xs text-gray-400">&bull;</span>
+                <span class="text-xs text-gray-500 font-medium">{{ mission.site.ville|default:"Site terrain" }}</span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight mt-0.5">{{ mission.attached_form.nom }}</h1>
+            <p class="text-sm text-gray-600 font-medium">{{ mission.site.nom }}</p>
         </div>
-        <a href="{% url 'visits:mission-list' %}" class="text-indigo-600 hover:underline text-sm">Retour aux missions</a>
+        <div>
+            <a href="{% url 'visits:mission-list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-xs transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Mes missions
+            </a>
+        </div>
     </div>
 
-    {% if messages %}
-    <ul class="space-y-1">
-        {% for message in messages %}<li class="text-sm text-green-700">{{ message }}</li>{% endfor %}
-    </ul>
+    <!-- Barre de progression en haut -->
+    {% if not locked %}
+    <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-2 sticky top-2 z-30 backdrop-blur-sm bg-white/95">
+        <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-gray-700 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                Progression du formulaire
+            </span>
+            <span class="text-indigo-700 font-semibold" id="progress-text">
+                <span id="completed-count">{{ completed_sections_count|default:0 }}</span> sur {{ total_sections_count|default:sections|length }} sections complétées
+            </span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: {{ progress_percent|default:0 }}%;"></div>
+        </div>
+    </div>
     {% endif %}
 
-    {% if errors %}
-    <ul class="bg-red-50 border border-red-200 rounded-md p-4 space-y-1">
-        {% for error in errors %}<li class="text-sm text-red-700">{{ error }}</li>{% endfor %}
+    <!-- Messages flash -->
+    {% if messages %}
+    <ul class="space-y-2">
+        {% for message in messages %}
+        <li class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm font-medium text-emerald-800 flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+            <span>{{ message }}</span>
+        </li>
+        {% endfor %}
     </ul>
     {% endif %}
 
     {% if locked %}
+    <!-- Visite verrouillée en lecture seule -->
     <div class="space-y-6">
         {% include "visits/_visit_detail.html" with show_internal_history=True %}
     </div>
     {% else %}
+
+    <!-- Bandeau de rejet bien visible si renvoyée pour correction -->
     {% if visit.commentaire_rejet %}
-    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
-        <span class="font-bold block">Renvoyée pour correction :</span>
-        <p class="mt-0.5">{{ visit.commentaire_rejet }}</p>
+    <div class="p-4 sm:p-5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-sm text-rose-900 shadow-sm flex items-start gap-3.5">
+        <div class="p-2 bg-rose-100 rounded-xl text-rose-700 flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="space-y-1">
+            <span class="font-bold text-rose-950 text-base block">Visite renvoyée pour correction par le manager</span>
+            <p class="text-rose-800 leading-relaxed font-medium">{{ visit.commentaire_rejet }}</p>
+            <p class="text-xs text-rose-600 pt-1">Veuillez corriger ou compléter les éléments signalés puis soumettre à nouveau la visite.</p>
+        </div>
     </div>
     {% endif %}
 
+    <!-- Résumé des erreurs serveur -->
+    {% if errors %}
+    <div id="server-errors-summary" class="p-4 sm:p-5 rounded-2xl bg-red-50 border-2 border-red-300 text-sm text-red-900 shadow-sm space-y-2">
+        <div class="flex items-center gap-2 font-bold text-red-950">
+            <svg class="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <span>La visite ne peut pas être soumise ({{ errors|length }} point{{ errors|length|pluralize }} à corriger) :</span>
+        </div>
+        <ul class="list-disc list-inside space-y-1 text-red-800 font-medium pl-1 text-xs sm:text-sm">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Résumé des erreurs côté client (au clic sur Soumettre) -->
+    <div id="client-errors-summary" class="hidden p-4 sm:p-5 rounded-2xl bg-red-50 border-2 border-red-300 text-sm text-red-900 shadow-sm space-y-2">
+        <div class="flex items-center gap-2 font-bold text-red-950">
+            <svg class="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <span id="client-errors-title">Champs obligatoires manquants :</span>
+        </div>
+        <ul id="client-errors-list" class="list-disc list-inside space-y-1 text-red-800 font-medium pl-1 text-xs sm:text-sm"></ul>
+    </div>
+
+    <!-- Formulaire de saisie -->
     <form id="visit-form" method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
           data-draft-key="visit-draft-{{ visit.pk }}" data-max-photo-mb="{{ max_photo_size_mb }}">
         {% csrf_token %}
-        <input type="hidden" name="gps_device_lat" id="gps_device_lat">
-        <input type="hidden" name="gps_device_lng" id="gps_device_lng">
+        <input type="hidden" name="gps_device_lat" id="gps_device_lat" value="{{ visit.gps_latitude|default:'' }}">
+        <input type="hidden" name="gps_device_lng" id="gps_device_lng" value="{{ visit.gps_longitude|default:'' }}">
 
+        <!-- Sections repliables -->
         {% for section in sections %}
-        <section class="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ section.title }}</h2>
-
-            {% for entry in section.entries %}
-            {% if entry.kind == "field" %}
-            {% include "visits/_field.html" %}
-            {% else %}
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    {{ entry.field.label }}{% if entry.field.required %} *{% endif %}
-                </label>
-                <div id="repeat-rows-{{ entry.field.key }}">
-                    {% for row in entry.rows %}
-                    {% include "visits/_repeat_row.html" with group_key=entry.field.key %}
-                    {% endfor %}
+        <section class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden js-collapsible-section" id="section-{{ forloop.counter }}">
+            <!-- En-tête de section accordéon -->
+            <button type="button" class="w-full px-5 py-4 bg-gray-50/80 hover:bg-gray-100 flex items-center justify-between text-left transition js-toggle-section">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        {{ forloop.counter }}
+                    </span>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900">{{ section.title }}</h2>
+                        <span class="text-xs text-gray-500 font-normal">
+                            {{ section.entries|length }} élément{{ section.entries|length|pluralize }}
+                        </span>
+                    </div>
                 </div>
-                <input type="hidden" id="next-index-{{ entry.field.key }}" value="{{ entry.rows|length }}">
-                <button type="button"
-                        hx-get="{% url 'visits:repeat-row-add' visit.pk %}?group={{ entry.field.key }}"
-                        hx-vals='js:{"index": document.getElementById("next-index-{{ entry.field.key }}").value}'
-                        hx-target="#repeat-rows-{{ entry.field.key }}"
-                        hx-swap="beforeend"
-                        hx-on::after-request="document.getElementById('next-index-{{ entry.field.key }}').value = parseInt(document.getElementById('next-index-{{ entry.field.key }}').value) + 1"
-                        class="text-indigo-600 text-sm hover:underline">
-                    Ajouter une ligne
-                </button>
+                <div class="flex items-center gap-2">
+                    {% if section.is_completed %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                        Complétée
+                    </span>
+                    {% endif %}
+                    <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-200 js-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </button>
+
+            <!-- Corps de la section -->
+            <div class="p-5 sm:p-6 space-y-6 js-section-body">
+                {% for entry in section.entries %}
+                    {% if entry.kind == "field" %}
+                        {% include "visits/_field.html" %}
+                    {% else %}
+                        <!-- Groupe répétable -->
+                        <div class="space-y-3 pt-1 js-repeat-group" data-group-key="{{ entry.field.key }}">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-sm font-bold text-gray-900">
+                                    {{ entry.field.label }}
+                                    {% if entry.field.required %}
+                                    <span class="text-red-500 font-bold">*</span>
+                                    {% endif %}
+                                </label>
+                                <span class="text-xs text-gray-500">Groupe répétable</span>
+                            </div>
+
+                            <div id="repeat-rows-{{ entry.field.key }}" class="space-y-3">
+                                {% for row in entry.rows %}
+                                    {% include "visits/_repeat_row.html" with group_key=entry.field.key %}
+                                {% empty %}
+                                    <div class="text-center py-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 text-xs text-gray-400">
+                                        Aucune ligne ajoutée pour le moment.
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                            <input type="hidden" id="next-index-{{ entry.field.key }}" value="{{ entry.rows|length }}">
+
+                            <div class="pt-1">
+                                <button type="button"
+                                        hx-get="{% url 'visits:repeat-row-add' visit.pk %}?group={{ entry.field.key }}"
+                                        hx-vals='js:{"index": document.getElementById("next-index-{{ entry.field.key }}").value}'
+                                        hx-target="#repeat-rows-{{ entry.field.key }}"
+                                        hx-swap="beforeend"
+                                        hx-on::after-request="document.getElementById('next-index-{{ entry.field.key }}').value = parseInt(document.getElementById('next-index-{{ entry.field.key }}').value) + 1"
+                                        class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-xl text-indigo-700 font-semibold text-sm transition shadow-xs">
+                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                    Ajouter une ligne
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
             </div>
-            {% endif %}
-            {% endfor %}
         </section>
         {% endfor %}
 
-        <section class="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Signatures</h2>
-
-            <div class="mb-4">
-                <p class="text-sm font-medium text-gray-700 mb-1">Signature du superviseur *</p>
-                <canvas class="js-signature-canvas border border-gray-300 rounded-md bg-white" width="320" height="140"
-                        data-target="signature_superviseur_data"></canvas>
-                <input type="hidden" name="signature_superviseur_data" id="signature_superviseur_data">
-                <div>
-                    <button type="button" class="js-signature-clear text-xs text-gray-500 hover:underline" data-target="signature_superviseur_data">
-                        Effacer
-                    </button>
-                </div>
-            </div>
-
-            <div>
-                <label class="flex items-center gap-2 text-sm mb-2">
-                    <input type="checkbox" name="responsable_absent" id="responsable_absent" {% if visit.responsable_absent %}checked{% endif %}>
-                    Responsable de site absent
-                </label>
-                <div id="responsable-signature-block" {% if visit.responsable_absent %}class="hidden"{% endif %}>
-                    <p class="text-sm font-medium text-gray-700 mb-1">Signature du responsable de site</p>
-                    <canvas class="js-signature-canvas border border-gray-300 rounded-md bg-white" width="320" height="140"
-                            data-target="signature_responsable_data"></canvas>
-                    <input type="hidden" name="signature_responsable_data" id="signature_responsable_data">
+        <!-- Section Signatures (repliable) -->
+        <section class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden js-collapsible-section" id="section-signatures">
+            <button type="button" class="w-full px-5 py-4 bg-gray-50/80 hover:bg-gray-100 flex items-center justify-between text-left transition js-toggle-section">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        &check;
+                    </span>
                     <div>
-                        <button type="button" class="js-signature-clear text-xs text-gray-500 hover:underline" data-target="signature_responsable_data">
+                        <h2 class="text-base font-bold text-gray-900">Signatures électroniques</h2>
+                        <span class="text-xs text-gray-500 font-normal">Superviseur et responsable du site</span>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-200 js-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            <div class="p-5 sm:p-6 space-y-6 js-section-body">
+                <!-- Signature Superviseur -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-gray-800">
+                        Signature du superviseur <span class="text-red-500 font-bold">*</span>
+                    </label>
+                    <div class="relative">
+                        <canvas class="js-signature-canvas w-full h-44 sm:h-52 border-2 border-dashed border-gray-300 rounded-xl bg-white touch-none block"
+                                width="600" height="200"
+                                data-target="signature_superviseur_data"></canvas>
+                        <input type="hidden" name="signature_superviseur_data" id="signature_superviseur_data">
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-500 pt-1">
+                        <span>Signez au doigt ou stylet pour certifier les observations.</span>
+                        <button type="button"
+                                class="js-signature-clear inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition"
+                                data-target="signature_superviseur_data">
+                            <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             Effacer
                         </button>
                     </div>
                 </div>
-                <div id="responsable-motif-block" {% if not visit.responsable_absent %}class="hidden"{% endif %}>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Motif de l'absence</label>
-                    <input type="text" name="motif_absence_responsable" value="{{ visit.motif_absence_responsable }}"
-                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+
+                <!-- Signature Responsable du site -->
+                <div class="space-y-3 pt-3 border-t border-gray-100">
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer">
+                        <input type="checkbox" name="responsable_absent" id="responsable_absent" {% if visit.responsable_absent %}checked{% endif %}
+                               class="w-5 h-5 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                        <span class="text-sm font-semibold text-gray-800">Responsable de site absent</span>
+                    </label>
+
+                    <div id="responsable-signature-block" {% if visit.responsable_absent %}class="hidden"{% endif %} class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-800">
+                            Signature du responsable local du site
+                        </label>
+                        <div class="relative">
+                            <canvas class="js-signature-canvas w-full h-44 sm:h-52 border-2 border-dashed border-gray-300 rounded-xl bg-white touch-none block"
+                                    width="600" height="200"
+                                    data-target="signature_responsable_data"></canvas>
+                            <input type="hidden" name="signature_responsable_data" id="signature_responsable_data">
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-gray-500 pt-1">
+                            <span>Signature du représentant sur place.</span>
+                            <button type="button"
+                                    class="js-signature-clear inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition"
+                                    data-target="signature_responsable_data">
+                                <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Effacer
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="responsable-motif-block" {% if not visit.responsable_absent %}class="hidden"{% endif %} class="space-y-1.5">
+                        <label class="block text-sm font-semibold text-gray-800">Motif de l'absence du responsable</label>
+                        <input type="text" name="motif_absence_responsable" value="{{ visit.motif_absence_responsable }}"
+                               placeholder="Ex : En déplacement, site fermé..."
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                    </div>
                 </div>
             </div>
         </section>
 
-        <div class="flex items-center gap-3">
-            <button type="submit" formaction="{% url 'visits:visit-save' visit.pk %}"
-                    class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
-                Enregistrer le brouillon
-            </button>
-            <button type="submit" formaction="{% url 'visits:visit-submit' visit.pk %}"
-                    class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                Soumettre la visite
-            </button>
+        <!-- Barre d'actions collée en bas de l'écran (Sticky Bottom Bar) -->
+        <div class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 shadow-xl">
+            <div class="max-w-3xl mx-auto flex items-center gap-3">
+                <button type="submit"
+                        id="btn-save-draft"
+                        formaction="{% url 'visits:visit-save' visit.pk %}"
+                        class="flex-1 py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold text-sm sm:text-base rounded-xl shadow-xs transition active:scale-[0.99] text-center">
+                    Enregistrer le brouillon
+                </button>
+                <button type="submit"
+                        id="btn-submit-visit"
+                        formaction="{% url 'visits:visit-submit' visit.pk %}"
+                        class="flex-1 py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm sm:text-base rounded-xl shadow-sm transition active:scale-[0.99] flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Soumettre la visite
+                </button>
+            </div>
         </div>
     </form>
 
-<script>
-    document.body.addEventListener('htmx:configRequest', function (event) {
-        var name = 'csrftoken';
-        var cookies = document.cookie.split(';');
-        for (var i = 0; i < cookies.length; i++) {
-            var c = cookies[i].trim();
-            if (c.startsWith(name + '=')) {
-                event.detail.headers['X-CSRFToken'] = decodeURIComponent(c.substring(name.length + 1));
+    <script>
+        // Gestion CSRF pour les requêtes dynamiques HTMX
+        document.body.addEventListener('htmx:configRequest', function (event) {
+            var name = 'csrftoken';
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var c = cookies[i].trim();
+                if (c.startsWith(name + '=')) {
+                    event.detail.headers['X-CSRFToken'] = decodeURIComponent(c.substring(name.length + 1));
+                }
             }
-        }
-    });
-
-    var respAbsentEl = document.getElementById('responsable_absent');
-    if (respAbsentEl) {
-        respAbsentEl.addEventListener('change', function () {
-            document.getElementById('responsable-signature-block').classList.toggle('hidden', this.checked);
-            document.getElementById('responsable-motif-block').classList.toggle('hidden', !this.checked);
         });
-    }
-</script>
-<script src="{% static 'visits/geolocation.js' %}"></script>
-<script src="{% static 'visits/signature-pad.js' %}"></script>
-<script src="{% static 'visits/photo-compress.js' %}"></script>
-<script src="{% static 'visits/autosave.js' %}"></script>
-{% endif %}
+
+        // Bascule responsable absent
+        var respAbsentEl = document.getElementById('responsable_absent');
+        if (respAbsentEl) {
+            respAbsentEl.addEventListener('change', function () {
+                document.getElementById('responsable-signature-block').classList.toggle('hidden', this.checked);
+                document.getElementById('responsable-motif-block').classList.toggle('hidden', !this.checked);
+            });
+        }
+
+        // Accordéons repliables
+        document.querySelectorAll('.js-toggle-section').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var section = this.closest('.js-collapsible-section');
+                var body = section.querySelector('.js-section-body');
+                var chevron = section.querySelector('.js-chevron');
+                if (body.classList.contains('hidden')) {
+                    body.classList.remove('hidden');
+                    chevron.classList.remove('-rotate-90');
+                } else {
+                    body.classList.add('hidden');
+                    chevron.classList.add('-rotate-90');
+                }
+            });
+        });
+
+        // Miniature immédiate pour les photos prises par l'appareil
+        document.body.addEventListener('change', function (event) {
+            var input = event.target;
+            if (!input.classList.contains('js-photo-native')) return;
+
+            var targetId = input.dataset.targetPreview;
+            var previewContainer = document.getElementById(targetId);
+            var legend = input.dataset.legend || 'Photo';
+            var counter = input.closest('.js-field-group')?.querySelector('.js-count-val');
+            var maxPhotos = parseInt(input.dataset.maxPhotos || '1');
+
+            if (!previewContainer || !input.files) return;
+
+            // Retirer les anciens aperçus temporaires
+            previewContainer.querySelectorAll('.js-temp-preview').forEach(function (el) { el.remove(); });
+
+            var files = Array.from(input.files);
+            var existingCount = previewContainer.querySelectorAll(':scope > div:not(.js-temp-preview)').length;
+            var totalCount = existingCount + files.length;
+            if (counter) counter.textContent = totalCount;
+
+            files.forEach(function (file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var card = document.createElement('div');
+                    card.className = 'js-temp-preview relative bg-white border-2 border-indigo-300 rounded-xl p-2 shadow-sm flex flex-col justify-between animate-fadeIn';
+                    card.innerHTML = `
+                        <div class="aspect-square w-full rounded-lg overflow-hidden bg-gray-100 mb-2 relative">
+                            <img src="${e.target.result}" alt="${legend}" class="w-full h-full object-cover">
+                            <span class="absolute top-1 left-1 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">Nouvelle</span>
+                        </div>
+                        <div class="text-[11px] font-semibold text-gray-800 truncate mb-2" title="${legend}">
+                            ${legend}
+                        </div>
+                        <div class="flex items-center justify-between border-t border-gray-100 pt-1.5">
+                            <span class="text-[10px] text-emerald-600 font-medium">Prête à l'envoi</span>
+                            <button type="button" class="text-[11px] text-rose-600 font-medium hover:underline js-remove-temp">
+                                Supprimer
+                            </button>
+                        </div>
+                    `;
+                    card.querySelector('.js-remove-temp').addEventListener('click', function () {
+                        card.remove();
+                        input.value = '';
+                        if (counter) counter.textContent = existingCount;
+                    });
+                    previewContainer.appendChild(card);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        // Validation résumé et scroll au clic sur Soumettre
+        var submitBtn = document.getElementById('btn-submit-visit');
+        var form = document.getElementById('visit-form');
+        if (submitBtn && form) {
+            submitBtn.addEventListener('click', function (e) {
+                var missingFields = [];
+                var firstInvalid = null;
+
+                // Vérification des champs requis
+                document.querySelectorAll('.js-field-group[data-required="true"]').forEach(function (group) {
+                    var isFilled = false;
+                    var label = group.querySelector('label')?.innerText.replace('*', '').trim() || 'Champ';
+                    var textInput = group.querySelector('input[type="text"], input[type="number"], input[type="date"], select');
+                    var checkbox = group.querySelector('input[type="checkbox"]');
+                    var photoPreviews = group.querySelectorAll('#preview_' + group.dataset.fieldName + ' > div');
+                    var signatureInput = group.querySelector('input[type="hidden"][id$="__data"]');
+
+                    if (textInput && textInput.value.trim() !== '') isFilled = true;
+                    if (checkbox && checkbox.checked) isFilled = true;
+                    if (photoPreviews && photoPreviews.length > 0) isFilled = true;
+                    if (signatureInput && signatureInput.value.trim() !== '') isFilled = true;
+
+                    if (!isFilled) {
+                        missingFields.push(label);
+                        group.classList.add('ring-2', 'ring-rose-400', 'p-2', 'rounded-xl');
+                        if (!firstInvalid) firstInvalid = group;
+                        // Déplier la section parente si repliée
+                        var secBody = group.closest('.js-section-body');
+                        if (secBody && secBody.classList.contains('hidden')) {
+                            secBody.classList.remove('hidden');
+                        }
+                    } else {
+                        group.classList.remove('ring-2', 'ring-rose-400', 'p-2', 'rounded-xl');
+                    }
+                });
+
+                // Vérifier la signature du superviseur
+                var supSigData = document.getElementById('signature_superviseur_data');
+                if (supSigData && !supSigData.value) {
+                    missingFields.push('Signature du superviseur');
+                    var sigSec = document.getElementById('section-signatures');
+                    if (sigSec) {
+                        sigSec.querySelector('.js-section-body')?.classList.remove('hidden');
+                        if (!firstInvalid) firstInvalid = sigSec;
+                    }
+                }
+
+                if (missingFields.length > 0) {
+                    e.preventDefault();
+                    var summary = document.getElementById('client-errors-summary');
+                    var list = document.getElementById('client-errors-list');
+                    if (summary && list) {
+                        list.innerHTML = '';
+                        missingFields.forEach(function (name) {
+                            var li = document.createElement('li');
+                            li.textContent = 'Champ obligatoire manquant : ' + name;
+                            list.appendChild(li);
+                        });
+                        summary.classList.remove('hidden');
+                        summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        }
+    </script>
+    <script src="{% static 'visits/geolocation.js' %}"></script>
+    <script src="{% static 'visits/signature-pad.js' %}"></script>
+    <script src="{% static 'visits/photo-compress.js' %}"></script>
+    <script src="{% static 'visits/autosave.js' %}"></script>
+    {% endif %}
 </div>
 {% endblock %}

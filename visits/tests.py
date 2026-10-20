@@ -773,3 +773,218 @@ class MissionFilteringAndPaginationTests(TestCase):
         page_obj_p2 = response_p2.context["missions"]
         self.assertEqual(len(page_obj_p2.object_list), 4)
         self.assertFalse(page_obj_p2.has_next())
+
+
+class SupervisorScreensTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_sup_scr", password="pass", role=User.Role.MANAGER)
+        self.sup = User.objects.create_user(username="sup_scr", password="pass", role=User.Role.SUPERVISEUR)
+        self.client_obj = Client.objects.create(nom="Société Générale")
+        self.site1 = Site.objects.create(client=self.client_obj, code="SG-01", nom="Agence Centrale", ville="Bamako")
+        self.site2 = Site.objects.create(client=self.client_obj, code="SG-02", nom="Agence Badalabougou", ville="Bamako")
+        self.site3 = Site.objects.create(client=self.client_obj, code="SG-03", nom="Agence Ségou", ville="Ségou")
+
+        self.template = FormTemplate.objects.create(
+            nom="Contrôle Technique",
+            schema={
+                "sections": [
+                    {
+                        "title": "Généralités",
+                        "fields": [
+                            {"key": "tech_nom", "label": "Nom de l'agent", "type": "text", "required": True},
+                            {"key": "compteur", "label": "Index compteur", "type": "number", "required": True},
+                            {"key": "date_passage", "label": "Date de passage", "type": "date"},
+                            {"key": "conforme", "label": "Installation conforme", "type": "checkbox"},
+                            {"key": "type_site", "label": "Type de site", "type": "choice", "options": ["Agence", "GAB"]},
+                            {"key": "options", "label": "Options", "type": "multichoice", "options": ["Alarme", "Onduleur"]},
+                            {"key": "pos_gps", "label": "Position GPS", "type": "gps"},
+                            {"key": "photo_site", "label": "Photo du site", "type": "photo", "max_photos": 3, "required": True},
+                        ],
+                    },
+                    {
+                        "title": "Équipements",
+                        "fields": [
+                            {
+                                "key": "liste_mat",
+                                "label": "Matériels inspectés",
+                                "type": "repeat",
+                                "fields": [
+                                    {"key": "designation", "label": "Désignation", "type": "text", "required": True},
+                                    {"key": "quantite", "label": "Quantité", "type": "number"},
+                                ],
+                            }
+                        ],
+                    },
+                ]
+            },
+            actif=True,
+        )
+
+        self.attached = AttachedForm.objects.create(
+            client=self.client_obj,
+            template=self.template,
+            nom="Contrôle Technique",
+            schema=self.template.schema,
+            actif=True,
+        )
+
+        self.mission1 = Mission.objects.create(
+            superviseur=self.sup, site=self.site1, attached_form=self.attached, created_by=self.manager
+        )
+        self.mission2 = Mission.objects.create(
+            superviseur=self.sup, site=self.site2, attached_form=self.attached, created_by=self.manager
+        )
+        self.mission3 = Mission.objects.create(
+            superviseur=self.sup, site=self.site3, attached_form=self.attached, created_by=self.manager
+        )
+
+    def test_mes_missions_superviseur_cartes_par_statut(self):
+        # mission1: A_CORRIGER avec commentaire de rejet
+        Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup,
+            statut=Visit.Statut.A_CORRIGER,
+            date_debut=timezone.now(),
+            commentaire_rejet="Photos de façade floues et incomplètes",
+        )
+        # mission2: SOUMISE
+        Visit.objects.create(
+            mission=self.mission2,
+            auteur=self.sup,
+            statut=Visit.Statut.SOUMISE,
+            date_debut=timezone.now(),
+            date_soumission=timezone.now(),
+        )
+        # mission3: pas de visite (À faire / Commencer)
+
+        self.client.force_login(self.sup)
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertEqual(response.status_code, 200)
+
+        # Vérifier la présence des sections de cartes
+        self.assertContains(response, "À corriger")
+        self.assertContains(response, "Photos de façade floues et incomplètes")
+        self.assertContains(response, "Missions à faire")
+        self.assertContains(response, "Commencer")
+        self.assertContains(response, "Missions soumises")
+        self.assertContains(response, "Consulter")
+
+        # La mission à corriger doit apparaître en tête
+        missions = list(response.context["missions"])
+        self.assertEqual(missions[0], self.mission1)
+
+    def test_rendu_types_de_champs_saisie_superviseur(self):
+        visit = Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup,
+            statut=Visit.Statut.BROUILLON,
+            date_debut=timezone.now(),
+        )
+        self.client.force_login(self.sup)
+        response = self.client.get(reverse("visits:visit-edit", args=[visit.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Vérification barre de progression
+        self.assertContains(response, "Progression du formulaire")
+        self.assertContains(response, "sections complétées")
+
+        # Vérification types de champs et attributs mobile-friendly
+        self.assertContains(response, 'inputmode="numeric"') # champ nombre
+        self.assertContains(response, "Nom de l&#x27;agent") # texte
+        self.assertContains(response, "Index compteur") # nombre
+        self.assertContains(response, "Date de passage") # date
+        self.assertContains(response, "Installation conforme") # case
+        self.assertContains(response, "Type de site") # choice
+        self.assertContains(response, "Alarme") # multichoice
+        self.assertContains(response, "Relever la position GPS") # gps
+
+        # Photo : bouton appareil photo + compteur
+        self.assertContains(response, "Prendre une photo (Appareil photo)")
+        self.assertContains(response, "0</span> sur 3")
+
+        # Groupe répétable et boutons
+        self.assertContains(response, "Matériels inspectés")
+        self.assertContains(response, "Ajouter une ligne")
+
+        # Signatures et boutons collés en bas
+        self.assertContains(response, "Signature du superviseur")
+        self.assertContains(response, "Effacer")
+        self.assertContains(response, "Enregistrer le brouillon")
+        self.assertContains(response, "Soumettre la visite")
+
+    def test_bandeau_de_rejet_visible_en_saisie(self):
+        visit = Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup,
+            statut=Visit.Statut.A_CORRIGER,
+            date_debut=timezone.now(),
+            commentaire_rejet="Veuillez reprendre la signature client",
+        )
+        self.client.force_login(self.sup)
+        response = self.client.get(reverse("visits:visit-edit", args=[visit.pk]))
+        self.assertEqual(response.status_code, 200)
+
+        # Le bandeau de rejet est clairement affiché
+        self.assertContains(response, "Visite renvoyée pour correction par le manager")
+        self.assertContains(response, "Veuillez reprendre la signature client")
+
+    def test_soumission_bloquee_si_champs_obligatoires_manquants(self):
+        visit = Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup,
+            statut=Visit.Statut.BROUILLON,
+            date_debut=timezone.now(),
+        )
+        self.client.force_login(self.sup)
+
+        # Soumission sans remplir les champs obligatoires (tech_nom, compteur, photo_site, signature)
+        response = self.client.post(
+            reverse("visits:visit-submit", args=[visit.pk]),
+            {"date_passage": "2026-10-20"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Champ obligatoire manquant", status_code=400)
+
+        # La visite reste en brouillon
+        visit.refresh_from_db()
+        self.assertEqual(visit.statut, Visit.Statut.BROUILLON)
+
+    def test_apres_soumission_ecran_confirmation(self):
+        visit = Visit.objects.create(
+            mission=self.mission1,
+            auteur=self.sup,
+            statut=Visit.Statut.BROUILLON,
+            date_debut=timezone.now(),
+        )
+        # Ajout d'une photo pour satisfaire le champ requis photo_site
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        tiny_gif = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04"
+            b"\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        VisitPhoto.objects.create(
+            visit=visit,
+            field_key="photo_site",
+            image=SimpleUploadedFile("site.gif", tiny_gif, content_type="image/gif"),
+            legende="Photo du site",
+        )
+
+        self.client.force_login(self.sup)
+        response = self.client.post(
+            reverse("visits:visit-submit", args=[visit.pk]),
+            {
+                "tech_nom": "Kader",
+                "compteur": "12345",
+                "signature_superviseur_data": SIGNATURE_DATA_URL,
+            },
+        )
+        # Redirection vers l'écran de confirmation
+        self.assertRedirects(response, reverse("visits:visit-confirmation", args=[visit.pk]))
+
+        # L'écran de confirmation affiche le résumé et le retour aux missions
+        conf_response = self.client.get(reverse("visits:visit-confirmation", args=[visit.pk]))
+        self.assertEqual(conf_response.status_code, 200)
+        self.assertContains(conf_response, "Visite soumise avec succès !")
+        self.assertContains(conf_response, "Contrôle Technique")
+        self.assertContains(conf_response, "Agence Centrale")
+        self.assertContains(conf_response, "Retour à mes missions")
