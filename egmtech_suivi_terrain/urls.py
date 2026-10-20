@@ -17,9 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from accounts import views as accounts_views
+
 urlpatterns = [
+    path('', accounts_views.root_redirect, name='root'),
     path('admin/', admin.site.urls),
     path('comptes/', include('accounts.urls')),
+    path('app/', accounts_views.app_home, name='app-home'),
     path('app/clients/', include('clients.urls')),
     path('app/formulaires/', include('forms_cms.urls')),
     path('app/missions/', include('visits.urls')),

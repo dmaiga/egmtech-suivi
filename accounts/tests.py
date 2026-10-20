@@ -31,28 +31,28 @@ class LoginRedirectTests(TestCase):
         response = self.client.post(
             reverse("accounts:login"), {"username": "manager1", "password": "pass12345"}
         )
-        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("visits:mission-list"))
 
     def test_superviseur_redirected_to_app(self):
         _make_user("sup1", User.Role.SUPERVISEUR)
         response = self.client.post(
             reverse("accounts:login"), {"username": "sup1", "password": "pass12345"}
         )
-        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("visits:mission-list"))
 
     def test_client_redirected_to_portail(self):
         _make_user("client1", User.Role.CLIENT)
         response = self.client.post(
             reverse("accounts:login"), {"username": "client1", "password": "pass12345"}
         )
-        self.assertRedirects(response, "/portail/", fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("portal:dashboard"))
 
     def test_superuser_without_role_redirected_to_app(self):
         UserModel.objects.create_superuser(username="admin1", password="pass12345", email="")
         response = self.client.post(
             reverse("accounts:login"), {"username": "admin1", "password": "pass12345"}
         )
-        self.assertRedirects(response, "/app/", fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("visits:mission-list"))
 
     def test_logout_redirects_to_login(self):
         _make_user("manager2", User.Role.MANAGER)
