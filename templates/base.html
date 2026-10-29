@@ -12,6 +12,12 @@
 
     <!-- Tailwind CDN & HTMX -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { colors: {
+            indigo: { 50:'#EAF2F9', 100:'#D6E6F3', 200:'#C9DDEE', 500:'#3F82BC', 600:'#28689F', 700:'#1F5282', 800:'#1A436A' },
+            gray: { 50:'#F5F7FA', 100:'#EDF1F5', 200:'#DEE5ED', 300:'#C9D3DE', 500:'#6B7785', 600:'#556070', 700:'#3D4856', 900:'#293441' }
+        } } } };
+    </script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 
     <!-- Pré-chargement de l'état replié du menu desktop sans flash visuel -->
@@ -25,110 +31,7 @@
         })();
     </script>
 
-    <style>
-        /* Polices système et lissage */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* Styles universels de formulaire pour contrer le reset Tailwind Preflight */
-        input[type="text"],
-        input[type="email"],
-        input[type="password"],
-        input[type="number"],
-        input[type="date"],
-        input[type="url"],
-        input[type="tel"],
-        select,
-        textarea {
-            border: 1px solid #d1d5db;
-            background-color: #ffffff;
-            border-radius: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            color: #111827;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            outline: none;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-
-        input[type="text"]:focus,
-        input[type="email"]:focus,
-        input[type="password"]:focus,
-        input[type="number"]:focus,
-        input[type="date"]:focus,
-        input[type="url"]:focus,
-        input[type="tel"]:focus,
-        select:focus,
-        textarea:focus {
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-        }
-
-        /* Amélioration de l'affichage par défaut de Django {{ form.as_p }} */
-        form p {
-            margin-bottom: 1rem;
-        }
-        form p > label {
-            display: block;
-            font-size: 0.8125rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.375rem;
-        }
-        form p > input[type="text"],
-        form p > input[type="email"],
-        form p > input[type="password"],
-        form p > input[type="number"],
-        form p > select,
-        form p > textarea {
-            width: 100%;
-        }
-        form p > label:has(input[type="checkbox"]) {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            cursor: pointer;
-        }
-
-        /* Indicateur de chargement HTMX */
-        .htmx-indicator {
-            opacity: 0;
-            transition: opacity 200ms ease-in-out;
-            pointer-events: none;
-        }
-        .htmx-request .htmx-indicator,
-        .htmx-request.htmx-indicator,
-        body.htmx-request #htmx-indicator-bar {
-            opacity: 1 !important;
-        }
-
-        /* Boutons désactivés lors d'un envoi */
-        button[disabled], input[type="submit"][disabled] {
-            cursor: not-allowed !important;
-            opacity: 0.65 !important;
-        }
-
-        /* Tableaux : défilement horizontal fluide sur mobile */
-        .table-responsive-wrapper {
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Styles immédiats pour le sidebar desktop fermé sans flash */
-        html.sidebar-init-collapsed #desktop-sidebar {
-            transform: translateX(-100%) !important;
-        }
-        html.sidebar-init-collapsed #main-wrapper {
-            padding-left: 0 !important;
-        }
-        html.sidebar-init-collapsed #desktop-brand-collapsed {
-            display: flex !important;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/ds.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-screen text-gray-900 bg-gray-50 flex flex-col">
@@ -143,23 +46,23 @@
     <!-- ====================================================================== -->
 
     <!-- Mobile Drawer Overlay / Backdrop -->
-    <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-gray-950/60 z-40 transition-opacity"></div>
+    <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-gray-900/40 z-40 transition-opacity"></div>
 
     <!-- Mobile Drawer (menu repliable téléphone) -->
-    <aside id="mobile-menu-drawer" class="hidden fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 z-50 shadow-2xl flex flex-col justify-between transform -translate-x-full transition-transform duration-200 ease-in-out md:hidden">
+    <aside id="mobile-menu-drawer" class="hidden fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-50 shadow-2xl flex flex-col justify-between transform -translate-x-full transition-transform duration-200 ease-in-out md:hidden">
         <div>
             <!-- Header du Drawer Mobile -->
-            <div class="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 bg-slate-950/40">
+            <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200 bg-gray-50">
                 <div class="flex items-center gap-2.5">
                     <div class="h-8 px-1.5 py-0.5 rounded-lg bg-white flex items-center justify-center shadow-xs">
                         <img src="{% static 'images/logo.png' %}" alt="EGM" class="h-5 w-auto object-contain">
                     </div>
                     <div>
-                        <span class="font-bold text-white text-sm tracking-tight block">Suivi Terrain</span>
-                        <span class="text-[10px] text-slate-400 font-medium tracking-wider block uppercase">EGM Tech</span>
+                        <span class="font-bold text-gray-900 text-sm tracking-tight block">Suivi Terrain</span>
+                        <span class="text-[10px] text-gray-500 font-medium tracking-wider block uppercase">EGM Tech</span>
                     </div>
                 </div>
-                <button type="button" id="mobile-menu-close" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none" aria-label="Fermer le menu">
+                <button type="button" id="mobile-menu-close" class="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none" aria-label="Fermer le menu">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -169,23 +72,23 @@
             <!-- Navigation mobile -->
             <nav class="p-3 space-y-1">
                 {% for item in nav_items %}
-                <a href="{{ item.url }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {% if item.is_active %}bg-slate-800 text-white font-semibold border-l-4 border-[#b80e1f] shadow-xs{% else %}text-slate-300 hover:bg-slate-800/70 hover:text-white border-l-4 border-transparent{% endif %}">
+                <a href="{{ item.url }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {% if item.is_active %}bg-indigo-50 text-indigo-700 font-semibold border-l-4 border-indigo-600 shadow-xs{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent{% endif %}">
                     {% if item.icon == "home" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     {% elif item.icon == "clipboard-check" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     {% elif item.icon == "briefcase" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     {% elif item.icon == "users" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     {% elif item.icon == "document-text" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     {% elif item.icon == "clipboard-list" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                     {% elif item.icon == "chart-bar" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     {% else %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {% endif %}
                     <span>{{ item.label }}</span>
                 </a>
@@ -194,20 +97,20 @@
         </div>
 
         <!-- Profil & Déconnexion mobile -->
-        <div class="p-4 border-t border-slate-800/80 bg-slate-950/40">
+        <div class="p-4 border-t border-gray-200 bg-gray-50">
             <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center font-bold text-sm shadow-inner">
+                <div class="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 text-gray-700 flex items-center justify-center font-bold text-sm shadow-inner">
                     {{ request.user.username|slice:":1"|upper }}
                 </div>
                 <div class="overflow-hidden">
-                    <p class="text-sm font-semibold text-white truncate">{{ request.user.username }}</p>
-                    <p class="text-xs text-slate-400 truncate">{{ user_role_label }}</p>
+                    <p class="text-sm font-semibold text-gray-900 truncate">{{ request.user.username }}</p>
+                    <p class="text-xs text-gray-500 truncate">{{ user_role_label }}</p>
                 </div>
             </div>
             <form method="post" action="{% url 'accounts:logout' %}">
                 {% csrf_token %}
-                <button type="submit" class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg shadow-sm transition">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button type="submit" class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-100 border border-gray-200 rounded-lg shadow-sm transition">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                     </svg>
                     Se déconnecter
@@ -218,22 +121,22 @@
 
     <!-- Sidebar Desktop (ordinateur) repliable -->
     <aside id="desktop-sidebar"
-           class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-900 border-r border-slate-800 z-30 justify-between transition-all duration-300 ease-in-out md:translate-x-0">
+           class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-gray-200 z-30 justify-between transition-all duration-300 ease-in-out md:translate-x-0">
         <div class="flex flex-col flex-1 min-h-0">
             <!-- Brand / Logo + Bouton replier le menu -->
-            <div class="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 flex-shrink-0 bg-slate-950/40">
+            <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200 flex-shrink-0 bg-gray-50">
                 <a href="/" class="flex items-center gap-2.5 min-w-0">
                     <div class="h-8 px-1.5 py-0.5 rounded-lg bg-white flex items-center justify-center shadow-xs flex-shrink-0">
                         <img src="{% static 'images/logo.png' %}" alt="EGM" class="h-6 w-auto object-contain">
                     </div>
                     <div class="overflow-hidden min-w-0">
-                        <span class="font-bold text-white text-sm tracking-tight block truncate">Suivi Terrain</span>
-                        <span class="text-[10px] text-slate-400 font-medium tracking-wider block uppercase truncate">EGM Tech</span>
+                        <span class="font-bold text-gray-900 text-sm tracking-tight block truncate">Suivi Terrain</span>
+                        <span class="text-[10px] text-gray-500 font-medium tracking-wider block uppercase truncate">EGM Tech</span>
                     </div>
                 </a>
                 <!-- Bouton pour réduire le sidebar sur desktop -->
                 <button type="button" id="desktop-sidebar-close"
-                        class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition focus:outline-none"
+                        class="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition focus:outline-none"
                         title="Réduire le menu (Ctrl+B)">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
@@ -245,23 +148,23 @@
             <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {% for item in nav_items %}
                 <a href="{{ item.url }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition group {% if item.is_active %}bg-slate-800 text-white font-semibold border-l-4 border-[#b80e1f] shadow-xs{% else %}text-slate-300 hover:bg-slate-800/70 hover:text-white border-l-4 border-transparent{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition group {% if item.is_active %}bg-indigo-50 text-indigo-700 font-semibold border-l-4 border-indigo-600 shadow-xs{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent{% endif %}">
                     {% if item.icon == "home" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     {% elif item.icon == "clipboard-check" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     {% elif item.icon == "briefcase" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     {% elif item.icon == "users" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     {% elif item.icon == "document-text" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     {% elif item.icon == "clipboard-list" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                     {% elif item.icon == "chart-bar" %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     {% else %}
-                    <svg class="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-white {% if item.is_active %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-gray-900 {% if item.is_active %}text-indigo-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {% endif %}
                     <span>{{ item.label }}</span>
                 </a>
@@ -270,20 +173,20 @@
         </div>
 
         <!-- Profil & Déconnexion Sidebar Desktop -->
-        <div class="p-3.5 border-t border-slate-800/80 bg-slate-950/40 flex-shrink-0">
+        <div class="p-3.5 border-t border-gray-200 bg-gray-50 flex-shrink-0">
             <div class="flex items-center gap-3 mb-3 px-1">
-                <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center font-bold text-xs shadow-inner flex-shrink-0">
+                <div class="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 text-gray-700 flex items-center justify-center font-bold text-xs shadow-inner flex-shrink-0">
                     {{ request.user.username|slice:":1"|upper }}
                 </div>
                 <div class="overflow-hidden flex-1 min-w-0">
-                    <p class="text-xs font-semibold text-white truncate">{{ request.user.username }}</p>
-                    <p class="text-[11px] text-slate-400 truncate">{{ user_role_label }}</p>
+                    <p class="text-xs font-semibold text-gray-900 truncate">{{ request.user.username }}</p>
+                    <p class="text-[11px] text-gray-500 truncate">{{ user_role_label }}</p>
                 </div>
             </div>
             <form method="post" action="{% url 'accounts:logout' %}">
                 {% csrf_token %}
-                <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-800 hover:text-white border border-slate-700 rounded-lg transition shadow-xs">
-                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 bg-white hover:bg-gray-100 hover:text-gray-900 border border-gray-200 rounded-lg transition shadow-xs">
+                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                     </svg>
                     Se déconnecter
@@ -294,12 +197,12 @@
 
 {% else %}
     <!-- En-tête simple pour utilisateur non connecté -->
-    <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shadow-xs">
+    <header class="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between shadow-xs">
         <div class="flex items-center gap-2.5">
             <div class="h-8 px-1.5 py-0.5 rounded-lg bg-white flex items-center justify-center shadow-xs">
                 <img src="{% static 'images/logo.png' %}" alt="EGM" class="h-6 w-auto object-contain">
             </div>
-            <span class="font-bold text-white text-base tracking-tight">Suivi Terrain</span>
+            <span class="font-bold text-gray-900 text-base tracking-tight">Suivi Terrain</span>
         </div>
     </header>
 {% endif %}

@@ -1,0 +1,92 @@
+/* Design system EGM — MVP. Une seule source de vérité pour les couleurs et composants.
+   Les palettes Tailwind (indigo = bleu EGM, gray) sont redéfinies dans base.html. */
+:root {
+    --bg: #F5F7FA;
+    --surface: #FFFFFF;
+    --primary: #28689F;
+    --primary-hover: #1F5282;
+    --primary-soft: #EAF2F9;
+    --text: #293441;
+    --muted: #6B7785;
+    --border: #DEE5ED;
+    --danger: #BE1027;
+    --success: #2E8B57;
+    --warning: #D9822B;
+    --radius: 0.5rem;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* Champs */
+input[type="text"], input[type="email"], input[type="password"], input[type="number"],
+input[type="date"], input[type="url"], input[type="tel"], select, textarea {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(40, 104, 159, .15);
+}
+
+/* Formulaires Django {{ form.as_p }} */
+form p { margin-bottom: 1rem; }
+form p > label { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
+form p > input[type="text"], form p > input[type="email"], form p > input[type="password"],
+form p > input[type="number"], form p > select, form p > textarea { width: 100%; }
+form p > label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: .5rem; font-weight: 500; cursor: pointer; }
+
+/* Boutons */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .375rem;
+    padding: .5rem 1rem; font-size: .875rem; font-weight: 600;
+    border: 1px solid transparent; border-radius: var(--radius);
+    transition: background .15s, border-color .15s; cursor: pointer;
+}
+.btn-sm { padding: .375rem .75rem; font-size: .75rem; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover { background: var(--bg); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #9a0d20; }
+
+/* Cartes */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; }
+
+/* Badges / alertes : fond doux, texte foncé de la même teinte */
+.badge { display: inline-flex; align-items: center; gap: .375rem; padding: .125rem .625rem;
+    border-radius: 9999px; font-size: .75rem; font-weight: 500; border: 1px solid transparent; }
+.badge-neutral { background: #F1F4F8; color: #4A5565; border-color: var(--border); }
+.badge-info    { background: var(--primary-soft); color: var(--primary-hover); border-color: #C9DDEE; }
+.badge-success { background: #E8F5EE; color: #1F6B41; border-color: #BFE3CE; }
+.badge-warning { background: #FDF1E3; color: #9A5A12; border-color: #F2D7B3; }
+.badge-danger  { background: #FBE9EC; color: #9A0D20; border-color: #F0BCC4; }
+
+.alert { padding: 1rem; border-radius: .75rem; border: 1px solid; font-size: .875rem; }
+.alert-success { background: #E8F5EE; color: #1F6B41; border-color: #BFE3CE; }
+.alert-info    { background: var(--primary-soft); color: var(--primary-hover); border-color: #C9DDEE; }
+.alert-warning { background: #FDF1E3; color: #9A5A12; border-color: #F2D7B3; }
+.alert-error   { background: #FBE9EC; color: #9A0D20; border-color: #F0BCC4; }
+
+/* HTMX */
+.htmx-indicator { opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator, body.htmx-request #htmx-indicator-bar { opacity: 1 !important; }
+button[disabled], input[type="submit"][disabled] { cursor: not-allowed !important; opacity: .65 !important; }
+.table-responsive-wrapper { -webkit-overflow-scrolling: touch; }
+
+/* Menu latéral replié sans flash */
+html.sidebar-init-collapsed #desktop-sidebar { transform: translateX(-100%) !important; }
+html.sidebar-init-collapsed #main-wrapper { padding-left: 0 !important; }
+html.sidebar-init-collapsed #desktop-brand-collapsed { display: flex !important; }
