@@ -1,7 +1,7 @@
 # egmtech-suivi-terrain
 
 ## Produit
-Plateforme web qui archive les visites terrain de superviseurs, les fait valider par un manager,
+Plateforme web qui archive les visites terrain d'auditeurs, les fait valider par un manager,
 puis les montre au client en lecture seule. Multi-clients dès le départ : **cloisonnement strict
 par client** sur toutes les données.
 
@@ -14,15 +14,18 @@ par client** sur toutes les données.
 ## Vocabulaire (ne pas dévier)
 - **Administrateur** : accès Django admin, tous les droits.
 - **Manager** : rôle métier.
-- **Superviseur** : exécute les visites.
+- **Auditeur** : exécute les visites. Le client préfère ce terme à « superviseur ». Dans le code,
+  l'identifiant technique reste `superviseur` (valeur du rôle, `Role.SUPERVISEUR`) pour éviter une
+  migration ; l'interface et les documents disent « auditeur ».
 - **Client** : accès lecture seule à ses propres données via le portail.
 - Les droits fins (valider une visite, gérer les formulaires, etc.) sont des **permissions
   Django**, attribuables à un utilisateur ou à un groupe — pas de champs de rôle ad hoc.
 
 ## Modèle métier
-- Pas de notion d'« audit » ni d'« installation » dans le code.
+- Pas de notion d'« installation » dans le code. « Audit » n'est utilisé que dans les noms de
+  formulaires (ex. « Audit CCTV BNDA ») et dans le mot « auditeur ».
 - Un **formulaire** est nommé et attaché à un client.
-- Une **mission** = superviseur + site + formulaire attaché.
+- Une **mission** = auditeur + site + formulaire attaché.
 - Une **visite** = exécution d'une mission.
 - Un formulaire attaché à une mission est une **copie figée (JSON)** du formulaire source au
   moment de l'attachement. Pas de migration entre versions de formulaire.

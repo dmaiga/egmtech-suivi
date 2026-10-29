@@ -1,30 +1,87 @@
-# egmtech-suivi-terrain
+# EGM Suivi Terrain
 
-## Installation
+Plateforme web qui archive les visites terrain des auditeurs, les fait valider par un manager, puis les montre au client en lecture seule. Cloisonnement strict par client.
+
+Stack : Django 5.2 (LTS), SQLite, templates serveur + HTMX + Tailwind (CDN). Aucun build front. Langue `fr`, fuseau `Africa/Bamako`.
+
+## Deux usages, deux guides
+
+| Usage | Guide | Données |
+|---|---|---|
+| **Démonstration / test** | [DEMO.md](DEMO.md) | Fictives (`seed_demo`) |
+| **Production réelle** | [EXPLOITATION.md](EXPLOITATION.md) | Vraies (`installer_formulaire_bnda`) |
+
+Ne jamais mélanger : `seed_demo` crée des comptes au mot de passe connu (`demo1234`). Il ne doit jamais être lancé sur une base réelle.
+
+## Installation (commune)
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate        # Windows : .venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env             # puis remplacer DJANGO_SECRET_KEY
+python manage.py migrate
 ```
 
-## Base de données
+Générer une clé secrète :
 
 ```bash
-python manage.py migrate
-python manage.py createsuperuser
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-Installer le modèle d'audit dans la bibliothèque avec `python manage.py installer_formulaire_bnda`. Cette commande ne crée ni client, ni site, ni mission et ne modifie pas un modèle existant. EGMTECH peut ensuite modifier le modèle, créer le client et lui attacher le formulaire depuis l'application. Ne pas lancer `seed_demo` pour une installation réelle : cette commande crée des comptes et données fictifs.
+Variables d'environnement (`.env`, ignoré par Git) :
 
-## Configuration locale
+| Variable | Rôle | Défaut |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | Obligatoire, l'application refuse de démarrer sans | — |
+| `DJANGO_DEBUG` | `true` en local, **`false` en production** | `true` |
+| `DJANGO_ALLOWED_HOSTS` | Hôtes autorisés, séparés par des virgules | `localhost,127.0.0.1` |
+| `DJANGO_STATIC_ROOT` | Dossier cible de `collectstatic` | `public/static` ou `staticfiles` |
 
-Copier `.env.example` vers `.env`, puis remplacer `DJANGO_SECRET_KEY` par une clé aléatoire. Par exemple, générer une clé avec `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`. Le fichier `.env` est ignoré par Git et ne doit pas être partagé. `DJANGO_DEBUG=true` et les hôtes `localhost,127.0.0.1` conviennent aux tests locaux.
-
-## Lancer le serveur
+## Lancer
 
 ```bash
 python manage.py runserver
 ```
 
-Application accessible sur http://127.0.0.1:8000/, admin sur http://127.0.0.1:8000/admin/.
+Connexion : http://127.0.0.1:8000/comptes/connexion/ — admin Django : `/admin/`.
+Chaque rôle est redirigé vers son espace : manager `/app/`, auditeur `/app/missions/`, client `/portail/`.
+
+## Démo en une commande
+
+```bash
+python manage.py seed_demo --reset
+```
+
+Détails, comptes et déroulé dans [DEMO.md](DEMO.md).
+
+## Production réelle en une commande
+
+```bash
+python manage.py createsuperuser
+python manage.py installer_formulaire_bnda
+```
+
+Détails (création des comptes, client, sites, sauvegardes, passation) dans [EXPLOITATION.md](EXPLOITATION.md).
+
+## Tests
+
+```bash
+python manage.py test
+```
+
+Les tests de cloisonnement client sont obligatoires pour tout lot touchant des données liées à un client.
+
+## Repères pour reprendre le code
+
+| Dossier | Contenu |
+|---|---|
+| `accounts` | Utilisateurs, rôles, connexion, création des auditeurs |
+| `clients` | Clients, sites, comptes d'accès client |
+| `forms_cms` | Formulaires (modèles), éditeur, formulaires attachés (copie figée JSON) |
+| `visits` | Missions, visites, saisie terrain, revue manager |
+| `portal` | Portail client en lecture seule |
+| `core` | Journal d'activité, stockage des fichiers, commande `seed_demo` |
+| `static/css/ds.css` | Design system (couleurs, boutons, badges) |
+
+Conventions : voir [CLAUDE.md](CLAUDE.md) (vocabulaire, permissions Django, stockage unique, cloisonnement).
