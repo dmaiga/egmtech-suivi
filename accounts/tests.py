@@ -195,24 +195,62 @@ class AuditorCreationTests(TestCase):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("app-home")), "Auditeurs")
         response = self.client.post(self.url, {
-            "username": "nouvel.auditeur", "first_name": "Awa", "last_name": "Diallo",
+            "first_name": "Awa", "last_name": "Diallo",
             "email": "awa@example.com", "password1": "Solide-4729!", "password2": "Solide-4729!",
-            "role": "manager", "is_superuser": "on", "is_staff": "on",
+            "role": "superviseur", "is_superuser": "on", "is_staff": "on",
         })
-        user = UserModel.objects.get(username="nouvel.auditeur")
+        user = UserModel.objects.get(email="awa@example.com")
         self.assertRedirects(response, reverse("accounts:auditor-detail", args=[user.pk]))
         self.assertEqual(user.role, User.Role.SUPERVISEUR)
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.is_staff)
+        self.assertFalse(user.has_perm("visits.validate_visits"))
         self.assertTrue(user.check_password("Solide-4729!"))
         self.assertIn(user, MissionForm().fields["superviseur"].queryset)
         self.assertTrue(ActivityLog.objects.filter(user=self.admin, action="creation_auditeur").exists())
+        self.client.logout()
+        self.assertTrue(self.client.login(username="AWA@example.com", password="Solide-4729!"))
+
+    def test_admin_can_create_manager_who_logs_in_by_email(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url, {
+            "first_name": "Moussa", "last_name": "Keita", "email": "moussa@example.com",
+            "password1": "Solide-4729!", "password2": "Solide-4729!", "role": "manager",
+        })
+        user = UserModel.objects.get(email="moussa@example.com")
+        self.assertEqual(user.role, User.Role.MANAGER)
+        self.assertFalse(user.is_superuser)
+        self.assertTrue(user.has_perm("forms_cms.manage_forms"))
+        self.assertTrue(user.has_perm("visits.validate_visits"))
+        self.client.logout()
+        self.assertTrue(self.client.login(username="moussa@example.com", password="Solide-4729!"))
+
+    def test_manager_created_by_form_can_create_accounts_without_admin(self):
+        self.client.force_login(self.admin)
+        base = {"password1": "Solide-4729!", "password2": "Solide-4729!", "last_name": "N"}
+        self.client.post(self.url, {**base, "first_name": "Chef", "email": "chef@example.com", "role": "manager"})
+        chef = UserModel.objects.get(email="chef@example.com")
+        self.assertTrue(chef.has_perm("accounts.manage_users"))
+        self.client.force_login(chef)
+        self.assertContains(self.client.get(reverse("accounts:auditor-list")), "Créer un utilisateur")
+        self.client.post(self.url, {**base, "first_name": "Sup", "email": "sup@example.com", "role": "superviseur"})
+        self.assertEqual(UserModel.objects.get(email="sup@example.com").role, User.Role.SUPERVISEUR)
+
+    def test_role_must_be_manager_or_superviseur_and_email_unique(self):
+        self.client.force_login(self.admin)
+        base = {"first_name": "A", "last_name": "B", "password1": "Solide-4729!", "password2": "Solide-4729!"}
+        self.client.post(self.url, {**base, "email": "x@example.com", "role": "client"})
+        self.assertFalse(UserModel.objects.filter(email="x@example.com").exists())
+        self.client.post(self.url, {**base, "email": "dup@example.com", "role": "manager"})
+        response = self.client.post(self.url, {**base, "email": "DUP@example.com", "role": "manager"})
+        self.assertEqual(UserModel.objects.filter(email__iexact="dup@example.com").count(), 1)
+        self.assertIn("email", response.context["form"].errors)
 
     def test_invalid_form_does_not_create_user(self):
         self.client.force_login(self.admin)
-        response = self.client.post(self.url, {"username": "invalide", "first_name": "Awa", "last_name": "Diallo", "password1": "abc", "password2": "different"})
+        response = self.client.post(self.url, {"first_name": "Awa", "last_name": "Diallo", "password1": "abc", "password2": "different"})
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(UserModel.objects.filter(username="invalide").exists())
+        self.assertFalse(UserModel.objects.filter(first_name="Awa").exists())
         self.assertTrue(response.context["form"].errors)
 
     def test_non_admin_cannot_create_accounts(self):
@@ -233,7 +271,9 @@ class AuditorCreationTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get(listing)
         self.assertContains(response, "auditor_existing")
-        self.assertContains(response, "Créer un auditeur")
-        self.assertNotContains(response, "manager_create")
+        self.assertContains(response, "Créer un utilisateur")
+        self.assertContains(response, "manager_create")
         self.assertContains(self.client.get(detail), "auditor_existing")
-        self.assertEqual(self.client.get(reverse("accounts:auditor-detail", args=[self.manager.pk])).status_code, 404)
+        client_user = _make_user("client_user", User.Role.CLIENT)
+        self.assertNotContains(response, "client_user")
+        self.assertEqual(self.client.get(reverse("accounts:auditor-detail", args=[client_user.pk])).status_code, 404)

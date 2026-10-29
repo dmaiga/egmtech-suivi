@@ -47,7 +47,7 @@ def navigation(request):
                 "icon": "home",
             })
 
-        if user.is_superuser:
+        if user.is_superuser or user.has_perm("accounts.manage_users"):
             auditor_url = _safe_reverse("accounts:auditor-list")
             if auditor_url:
                 items.append({

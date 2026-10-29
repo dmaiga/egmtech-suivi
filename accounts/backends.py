@@ -3,9 +3,11 @@ from .models import User
 
 
 class ClientEmailBackend(ModelBackend):
+    """Connexion par e-mail (tous les rôles) ou par identifiant (administrateur)."""
+
     def authenticate(self, request, username=None, password=None, **kwargs):
         if username and "@" in username:
-            matches = list(User.objects.filter(role=User.Role.CLIENT, email__iexact=username.strip())[:2])
+            matches = list(User.objects.filter(email__iexact=username.strip())[:2])
             if len(matches) == 1:
                 return super().authenticate(request, username=matches[0].username, password=password, **kwargs)
             if matches:

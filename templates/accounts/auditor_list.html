@@ -4,13 +4,13 @@
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 class="text-2xl font-bold text-gray-900">Auditeurs</h1><p class="mt-1 text-sm text-gray-500">Consultez les comptes des auditeurs de terrain.</p></div>
-        <a href="{% url 'accounts:auditor-create' %}" class="inline-flex justify-center items-center px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">+ Créer un auditeur</a>
+        <a href="{% url 'accounts:auditor-create' %}" class="inline-flex justify-center items-center px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">+ Créer un utilisateur</a>
     </div>
     <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <ul class="divide-y divide-gray-100">
             {% for auditor in page_obj %}
             <li><a href="{% url 'accounts:auditor-detail' auditor.pk %}" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-gray-50 transition">
-                <span><span class="block font-semibold text-gray-900">{{ auditor.get_full_name|default:auditor.username }}</span><span class="block text-sm text-gray-500">{{ auditor.username }}{% if auditor.email %} · {{ auditor.email }}{% endif %}</span></span>
+                <span><span class="block font-semibold text-gray-900">{{ auditor.get_full_name|default:auditor.username }}</span><span class="block text-sm text-gray-500">{{ auditor.email|default:auditor.username }} · {{ auditor.get_role_display }}</span></span>
                 <span class="flex items-center gap-4"><span class="text-xs font-medium {% if auditor.is_active %}text-emerald-700{% else %}text-gray-500{% endif %}">{% if auditor.is_active %}Actif{% else %}Inactif{% endif %}</span><span class="text-sm font-semibold text-indigo-700">Voir la fiche →</span></span>
             </a></li>
             {% empty %}<li class="p-8 text-center text-sm text-gray-500">Aucun auditeur pour le moment. Créez un compte pour lui affecter des missions.</li>{% endfor %}

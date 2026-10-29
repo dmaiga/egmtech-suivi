@@ -13,32 +13,36 @@ from .forms import AuditorCreationForm
 from .models import User
 
 
+def _can_manage_users(user):
+    return user.is_superuser or user.has_perm("accounts.manage_users")
+
+
 @login_required
 def auditor_list(request):
-    if not request.user.is_superuser:
+    if not _can_manage_users(request.user):
         raise PermissionDenied
-    auditors = User.objects.filter(role=User.Role.SUPERVISEUR).order_by("last_name", "first_name", "username")
+    auditors = User.objects.filter(role__in=[User.Role.SUPERVISEUR, User.Role.MANAGER]).order_by("last_name", "first_name", "username")
     return render(request, "accounts/auditor_list.html", {"page_obj": Paginator(auditors, 20).get_page(request.GET.get("page"))})
 
 
 @login_required
 def auditor_detail(request, pk):
-    if not request.user.is_superuser:
+    if not _can_manage_users(request.user):
         raise PermissionDenied
-    auditor = get_object_or_404(User, pk=pk, role=User.Role.SUPERVISEUR)
+    auditor = get_object_or_404(User, pk=pk, role__in=[User.Role.SUPERVISEUR, User.Role.MANAGER])
     missions = Mission.objects.filter(superviseur=auditor).select_related("site", "site__client", "attached_form").order_by("-created_at")
     return render(request, "accounts/auditor_detail.html", {"auditor": auditor, "missions": missions[:10], "mission_count": missions.count()})
 
 
 @login_required
 def auditor_create(request):
-    if not request.user.is_superuser:
+    if not _can_manage_users(request.user):
         raise PermissionDenied
     form = AuditorCreationForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         auditor = form.save()
         log(request.user, "creation_auditeur", auditor)
-        messages.success(request, f"Auditeur {auditor.get_full_name()} créé. Il peut maintenant recevoir des missions.")
+        messages.success(request, f"Compte {auditor.get_role_display().lower()} de {auditor.get_full_name()} créé. Connexion par e-mail.")
         return redirect("accounts:auditor-detail", pk=auditor.pk)
     return render(request, "accounts/auditor_form.html", {"form": form})
 

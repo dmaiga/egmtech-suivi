@@ -240,7 +240,7 @@ class Command(BaseCommand):
         )
         manager1.set_password(DEMO_PASSWORD)
         manager1.save()
-        manager1.user_permissions.set([manage_forms_perm, validate_visits_perm])
+        manager1.user_permissions.set([manage_forms_perm, validate_visits_perm, Permission.objects.get(codename="manage_users")])
         users["manager1"] = manager1
 
         manager2, _ = User.objects.update_or_create(

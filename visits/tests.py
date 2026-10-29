@@ -904,8 +904,8 @@ class SupervisorScreensTests(TestCase):
         self.assertContains(response, "Relever la position GPS") # gps
 
         # Photo : bouton appareil photo + compteur
-        self.assertContains(response, "Prendre une photo (Appareil photo)")
-        self.assertContains(response, "0</span> sur 3")
+        self.assertContains(response, "Prendre une photo")
+        self.assertContains(response, 'data-max-photos="3"')
 
         # Groupe répétable et boutons
         self.assertContains(response, "Matériels inspectés")

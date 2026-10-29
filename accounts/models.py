@@ -31,6 +31,9 @@ class User(AbstractUser):
     poste = models.CharField(max_length=150, blank=True)
 
     class Meta:
+        permissions = [
+            ("manage_users", "Peut gérer les comptes manager et superviseur"),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=~models.Q(role="client") | models.Q(client__isnull=False),

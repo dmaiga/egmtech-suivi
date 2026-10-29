@@ -146,7 +146,7 @@
                     {% for mission in missions %}
                     <tr class="hover:bg-gray-50/60 transition">
                         <td class="py-3.5 px-4 font-medium text-gray-900">
-                            {% if request.user.is_superuser %}<a class="text-indigo-700 hover:underline" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}
+                            {% if perms.accounts.manage_users %}<a class="text-indigo-700 hover:underline" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}
                         </td>
                         <td class="py-3.5 px-4 font-medium text-gray-900">
                             <a class="text-indigo-700 hover:underline" href="{% url 'clients:detail' mission.site.client.pk %}">{{ mission.site.client.nom }}</a>
@@ -215,7 +215,7 @@
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                         <span class="text-gray-400 block text-[11px]">Superviseur</span>
-                        <strong class="text-gray-800 font-medium truncate block">{% if request.user.is_superuser %}<a class="text-indigo-700" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}</strong>
+                        <strong class="text-gray-800 font-medium truncate block">{% if perms.accounts.manage_users %}<a class="text-indigo-700" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}</strong>
                     </div>
                     <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                         <span class="text-gray-400 block text-[11px]">Formulaire</span>
