@@ -47,6 +47,16 @@ def navigation(request):
                 "icon": "home",
             })
 
+        if user.is_superuser:
+            auditor_url = _safe_reverse("accounts:auditor-list")
+            if auditor_url:
+                items.append({
+                    "label": "Auditeurs",
+                    "url": auditor_url,
+                    "is_active": current_path.startswith(auditor_url),
+                    "icon": "users",
+                })
+
         # Revue (seulement si permission validate_visits ou superuser)
         if user.is_superuser or user.has_perm("visits.validate_visits"):
             revue_url = _safe_reverse("revue:list")

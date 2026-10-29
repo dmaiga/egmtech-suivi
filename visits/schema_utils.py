@@ -113,7 +113,7 @@ def find_missing_required(schema, reponses, photo_counts):
                         skey = sub["key"]
                         if sub["type"] == "photo":
                             name = repeat_row_name(key, row_index, skey)
-                            if photo_counts.get(name, 0) < 1:
+                            if photo_counts.get(name, 0) < sub.get("min_photos", 1):
                                 missing.append(f"{field['label']} / {sub['label']}")
                         elif _is_empty(row.get(skey)):
                             missing.append(f"{field['label']} / {sub['label']}")
@@ -123,7 +123,7 @@ def find_missing_required(schema, reponses, photo_counts):
                 continue
 
             if ftype == "photo":
-                if photo_counts.get(key, 0) < 1:
+                if photo_counts.get(key, 0) < field.get("min_photos", 1):
                     missing.append(field["label"])
             elif _is_empty(reponses.get(key)):
                 missing.append(field["label"])
@@ -189,7 +189,7 @@ def build_render_model(schema, reponses, photos_by_field=None):
                     photos = photos_by_field.get(key, [])
                     entry["photos"] = photos
                     entry["is_empty"] = len(photos) == 0
-                    entry["is_missing"] = field.get("required", False) and len(photos) == 0
+                    entry["is_missing"] = field.get("required", False) and len(photos) < field.get("min_photos", 1)
                 else:
                     entry["is_empty"] = _is_empty(raw_val)
                     entry["is_missing"] = field.get("required", False) and entry["is_empty"]
@@ -220,7 +220,7 @@ def _build_row_entry(field, index, row, photos_by_field):
             photos = photos_by_field.get(name, [])
             subentry["photos"] = photos
             subentry["is_empty"] = len(photos) == 0
-            subentry["is_missing"] = sub.get("required", False) and len(photos) == 0
+            subentry["is_missing"] = sub.get("required", False) and len(photos) < sub.get("min_photos", 1)
         else:
             subentry["is_empty"] = _is_empty(raw_val)
             subentry["is_missing"] = sub.get("required", False) and subentry["is_empty"]

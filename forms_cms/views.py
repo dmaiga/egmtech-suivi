@@ -1,3 +1,4 @@
+import json
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,7 +13,7 @@ from .builder import FIELD_TYPE_LABELS, SUBFIELD_TYPE_LABELS, annotate_for_rende
 from .decorators import manage_forms_required
 from .forms import FormTemplateImportForm
 from .mixins import ManageFormsRequiredMixin
-from .models import AttachedForm, FormTemplate
+from .models import AttachedForm, ExpectedVisits, FormTemplate
 from .schema import validate_schema
 from .services import attach_template_to_client, set_expected_visits, toggle_attached_form
 
@@ -59,11 +60,12 @@ def _builder_context(parsed, template, errors, show_preview):
         "nom": parsed["nom"],
         "description": parsed["description"],
         "template_pk": parsed["template_pk"],
-        "sections": annotate_for_render(parsed["schema"]),
+        "sections": parsed["schema"].get("sections", []),
         "field_types": FIELD_TYPE_LABELS,
         "subfield_types": SUBFIELD_TYPE_LABELS,
         "errors": errors,
         "is_edit": template is not None,
+        "schema_data": parsed["schema"],
     }
     if show_preview:
         context["preview_sections"] = build_render_model(parsed["schema"], {})
@@ -75,11 +77,22 @@ def form_builder(request, pk=None):
     template = get_object_or_404(FormTemplate, pk=pk) if pk else None
 
     if request.method == "POST":
-        parsed = parse_builder_form(request.POST)
         action = request.POST.get("action", "")
-        apply_action(parsed["schema"], action, request.POST)
+        json_error = None
+        if "schema_json" in request.POST:
+            try:
+                schema = json.loads(request.POST.get("schema_json", ""))
+                if not isinstance(schema, dict):
+                    raise ValueError("Le schéma doit être un objet.")
+            except (ValueError, TypeError):
+                schema = {"sections": []}
+                json_error = "Le formulaire n'a pas pu être lu. Vos modifications n'ont pas été enregistrées."
+            parsed = {"nom": request.POST.get("nom", "").strip(), "description": request.POST.get("description", "").strip(), "template_pk": str(pk or ""), "schema": schema}
+        else:
+            parsed = parse_builder_form(request.POST)
+            apply_action(parsed["schema"], action, request.POST)
 
-        errors = []
+        errors = [json_error] if json_error else []
         if action == "save":
             if not parsed["nom"]:
                 errors.append("Le nom du formulaire est requis.")
@@ -103,8 +116,11 @@ def form_builder(request, pk=None):
                 messages.success(request, "Formulaire enregistré.")
                 return redirect("forms_cms:list")
 
-        show_preview = action == "preview" or bool(errors)
+        show_preview = action == "preview" and not errors and not validate_schema(parsed["schema"])
+        if action == "preview" and not show_preview and not errors:
+            errors.extend(validate_schema(parsed["schema"]))
         context = _builder_context(parsed, template, errors, show_preview)
+        context["editor_dirty"] = True
         return render(request, "forms_cms/builder.html", context)
 
     if template:
@@ -152,10 +168,21 @@ def form_template_toggle(request, pk):
 @require_POST
 def client_attach_form(request, client_pk):
     client = get_object_or_404(Client, pk=client_pk)
-    template = get_object_or_404(FormTemplate, pk=request.POST.get("template_id"), actif=True)
+    template_id = request.POST.get("template_id", "").strip()
+    destination = reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires"
+    if not template_id.isascii() or not template_id.isdigit() or len(template_id) > 18:
+        messages.error(request, "Sélectionnez un formulaire disponible avant de continuer.")
+        return redirect(destination)
+    template = FormTemplate.objects.filter(pk=int(template_id), actif=True).first()
+    if template is None:
+        messages.error(request, "Ce formulaire n'est plus disponible. Sélectionnez un formulaire actif.")
+        return redirect(destination)
+    if AttachedForm.objects.filter(client=client, template=template).exists():
+        messages.error(request, "Ce formulaire est déjà attaché à ce client.")
+        return redirect(destination)
     attach_template_to_client(request.user, client, template)
     messages.success(request, "Formulaire attaché au client.")
-    return redirect("clients:detail", pk=client_pk)
+    return redirect(destination)
 
 
 @manage_forms_required
@@ -174,7 +201,13 @@ def expected_visits_update(request, client_pk, pk):
     attached = get_object_or_404(AttachedForm, pk=pk, client_id=client_pk)
     for site in Site.objects.filter(client_id=client_pk):
         raw = request.POST.get(f"nombre_prevu_{site.pk}")
-        if raw is None or raw == "":
+        if raw is None:
+            continue
+        if raw == "":
+            expected = ExpectedVisits.objects.filter(site=site, attached_form=attached).first()
+            if expected:
+                log(request.user, "suppression_prevision_visites", expected, detail={"site_id": site.pk, "attached_form_id": attached.pk})
+                expected.delete()
             continue
         try:
             nombre_prevu = int(raw)

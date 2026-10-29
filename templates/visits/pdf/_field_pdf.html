@@ -9,10 +9,13 @@
         {% if value.lat %}{{ value.lat }}, {{ value.lng }}{% else %}—{% endif %}
     {% elif field.type == "photo" %}
         {% if entry.photos %}
+        <table class="photo-grid">
         {% for photo in entry.photos %}
-        <img class="photo" src="{{ photo.image.url }}">
-        <div class="photo-caption">{{ photo.legende }}</div>
+        {% if forloop.counter0|divisibleby:2 %}<tr>{% endif %}
+        <td><img class="photo" src="{{ photo.image.url }}"><div class="photo-caption">{{ photo.legende|default:field.label }}</div></td>
+        {% if forloop.counter|divisibleby:2 %}</tr>{% elif forloop.last %}<td></td></tr>{% endif %}
         {% endfor %}
+        </table>
         {% else %}
         Aucune photo.
         {% endif %}

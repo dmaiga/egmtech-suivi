@@ -55,6 +55,14 @@
                 {% endif %}
             </div>
 
+            <div class="border border-gray-200 rounded-xl p-4 space-y-4">
+                <label class="flex items-center gap-2 text-sm font-semibold text-gray-800"><input type="checkbox" id="create-account" name="create_account" {% if create_account %}checked{% endif %}> Créer aussi un accès client</label>
+                <div id="account-fields" {% if not create_account %}hidden{% endif %} class="space-y-4">
+                    <p class="text-xs text-gray-500">L’interlocuteur se connectera avec son adresse e-mail et son mot de passe.</p>
+                    {% for field in user_form %}<div><label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-gray-700">{{ field.label }} <span class="text-red-500">*</span></label>{{ field }}{% if field.errors %}<div class="text-sm text-red-700">{{ field.errors }}</div>{% endif %}</div>{% endfor %}
+                    {{ user_form.non_field_errors }}
+                </div>
+            </div>
             <div class="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
                 <a href="{% url 'clients:list' %}" class="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-xs hover:bg-gray-50 transition">
                     Annuler
@@ -66,4 +74,11 @@
         </form>
     </div>
 </div>
+<script>
+document.getElementById('create-account').addEventListener('change', function () {
+    document.getElementById('account-fields').hidden = !this.checked;
+    document.querySelectorAll('#account-fields input').forEach(function (input) { input.disabled = !document.getElementById('create-account').checked; });
+});
+document.getElementById('create-account').dispatchEvent(new Event('change'));
+</script>
 {% endblock %}

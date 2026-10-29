@@ -51,7 +51,9 @@ class VisibleClientsServiceTests(TestCase):
         self.client_user_a = _make_user("clientA", User.Role.CLIENT, client=self.client_a)
 
     def test_manager_sees_all_clients(self):
-        self.assertCountEqual(visible_clients(self.manager), [self.client_a, self.client_b])
+        self.assertCountEqual(visible_clients(self.manager), Client.objects.all())
+        self.assertIn(self.client_a, visible_clients(self.manager))
+        self.assertIn(self.client_b, visible_clients(self.manager))
 
     def test_client_user_sees_only_own_client(self):
         self.assertCountEqual(visible_clients(self.client_user_a), [self.client_a])
@@ -114,6 +116,18 @@ class SiteCreationTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Site.objects.filter(client=self.client_a, code="S1").exists())
+        self.assertEqual(response.headers["HX-Redirect"], reverse("clients:detail", args=[self.client_a.pk]))
+
+    def test_duplicate_site_code_shows_a_form_error(self):
+        Site.objects.create(client=self.client_a, code="S1", nom="Site existant")
+        response = self.client.post(reverse("clients:site-create", args=[self.client_a.pk]),
+                                    {"code": "S1", "nom": "Autre site", "ville": "Bamako"}, HTTP_HX_REQUEST="true")
+        self.assertContains(response, "Ce code est déjà utilisé", status_code=400)
+        self.assertEqual(Site.objects.filter(client=self.client_a, code="S1").count(), 1)
+
+    def test_site_create_without_htmx_redirects_to_client(self):
+        response = self.client.post(reverse("clients:site-create", args=[self.client_a.pk]), {"nom": "Site 2", "ville": "Bamako"})
+        self.assertRedirects(response, reverse("clients:detail", args=[self.client_a.pk]))
 
     def test_site_create_invalid_returns_400_without_creating(self):
         response = self.client.post(
@@ -123,6 +137,19 @@ class SiteCreationTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Site.objects.count(), 0)
+
+    def test_site_requires_city_and_preserves_name(self):
+        response = self.client.post(reverse("clients:site-create", args=[self.client_a.pk]),
+                                    {"nom": "Agence centrale", "ville": ""}, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Agence centrale", status_code=400)
+        self.assertTrue(response.context["site_form"].errors.get("ville"))
+
+    def test_client_page_provides_add_dialogs(self):
+        response = self.client.get(reverse("clients:detail", args=[self.client_a.pk]))
+        self.assertContains(response, 'id="site-dialog"')
+        self.assertContains(response, 'id="account-dialog"')
+        self.assertLess(response.content.index(b'id="id_nom"'), response.content.index(b'id="id_ville"'))
 
 
 class ClientUserAccountTests(TestCase):
@@ -135,16 +162,38 @@ class ClientUserAccountTests(TestCase):
         response = self.client.post(
             reverse("clients:user-create", args=[self.client_a.pk]),
             {
-                "username": "nouveau_client",
-                "email": "",
+                "first_name": "Awa", "last_name": "Diallo", "poste": "Directrice",
+                "email": "awa@example.com",
                 "password1": "UnMotDePasse123!",
                 "password2": "UnMotDePasse123!",
             },
         )
         self.assertEqual(response.status_code, 302)
-        created = User.objects.get(username="nouveau_client")
+        created = User.objects.get(email="awa@example.com")
         self.assertEqual(created.role, User.Role.CLIENT)
         self.assertEqual(created.client, self.client_a)
+        self.assertTrue(self.client_class().login(username="awa@example.com", password="UnMotDePasse123!"))
+
+    def test_create_client_with_access_and_duplicate_email_is_atomic(self):
+        payload = {"nom": "Nouvelle banque", "actif": "on", "create_account": "on",
+                   "account-first_name": "Awa", "account-last_name": "Diallo", "account-email": "awa@example.com",
+                   "account-poste": "Direction", "account-password1": "UnMotDePasse123!", "account-password2": "UnMotDePasse123!"}
+        response = self.client.post(reverse("clients:create"), payload)
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(email="awa@example.com")
+        self.assertEqual(user.client.nom, "Nouvelle banque")
+        self.assertTrue(self.client_class().login(username="AWA@example.com", password="UnMotDePasse123!"))
+        payload["nom"] = "Autre banque"
+        response = self.client.post(reverse("clients:create"), payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Client.objects.filter(nom="Autre banque").exists())
+
+    def test_multiple_sites_can_have_no_code(self):
+        url = reverse("clients:site-create", args=[self.client_a.pk])
+        for name in ["Agence A", "Agence B"]:
+            response = self.client.post(url, {"nom": name, "code": "", "ville": "Bamako"}, HTTP_HX_REQUEST="true")
+            self.assertEqual(response.status_code, 200)
+        self.assertEqual(Site.objects.filter(client=self.client_a, code__isnull=True).count(), 2)
 
     def test_revoke_disables_account_and_logs(self):
         from core.models import ActivityLog

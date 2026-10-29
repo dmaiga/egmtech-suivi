@@ -16,6 +16,7 @@ FIELD_TYPES = {
     "multichoice",
     "checkbox",
     "date",
+    "time",
     "gps",
     "photo",
     "signature",
@@ -77,7 +78,7 @@ def _validate_field(field, label, seen_keys, allow_repeat):
         errors.append(f"{label} : 'required' doit être un booléen.")
 
     field_type = field.get("type")
-    if field_type not in FIELD_TYPES:
+    if not isinstance(field_type, str) or field_type not in FIELD_TYPES:
         errors.append(f"{label} : type '{field_type}' invalide.")
         return errors
 
@@ -90,6 +91,11 @@ def _validate_field(field, label, seen_keys, allow_repeat):
         max_photos = field.get("max_photos")
         if not isinstance(max_photos, int) or isinstance(max_photos, bool) or max_photos < 1:
             errors.append(f"{label} : 'max_photos' doit être un entier >= 1.")
+        minimum = field.get("min_photos", 1)
+        if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 1:
+            errors.append(f"{label} : 'min_photos' doit être un entier >= 1.")
+        elif isinstance(max_photos, int) and not isinstance(max_photos, bool) and minimum > max_photos:
+            errors.append(f"{label} : 'min_photos' ne peut dépasser 'max_photos'.")
 
     if field_type == "repeat":
         if not allow_repeat:

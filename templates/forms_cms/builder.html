@@ -1,278 +1,46 @@
 {% extends "base.html" %}
-
-{% block title %}{% if is_edit %}Modifier le formulaire{% else %}Nouveau formulaire{% endif %}{% endblock %}
-
+{% load static %}
+{% block title %}Éditeur de formulaire{% endblock %}
 {% block content %}
-<div class="max-w-4xl w-full space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-gray-900">
-            {% if is_edit %}Modifier le formulaire{% else %}Nouveau formulaire{% endif %}
-        </h1>
-        <a href="{% url 'forms_cms:list' %}" class="text-indigo-600 hover:underline text-sm">Retour à la liste</a>
-    </div>
-
-    {% if is_edit %}
-    <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
-        Modifier ce formulaire n'affecte jamais les copies déjà attachées à un client.
-    </p>
-    {% endif %}
-
-    {% if errors %}
-    <ul class="bg-red-50 border border-red-200 rounded-md p-4 space-y-1">
-        {% for error in errors %}<li class="text-sm text-red-700">{{ error }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-
-    <form method="post"
-          action="{% if is_edit %}{% url 'forms_cms:builder-edit' template_pk %}{% else %}{% url 'forms_cms:builder-new' %}{% endif %}"
-          class="space-y-6">
+<div class="space-y-5">
+    <div class="flex flex-wrap items-center justify-between gap-3"><div><h1 class="text-2xl font-bold text-gray-900">Éditeur de formulaire</h1><p class="text-sm text-gray-500">Organisez les sections et les champs de votre formulaire.</p></div><a href="{% url 'forms_cms:list' %}" class="text-sm text-indigo-700">← Formulaires</a></div>
+    {% if is_edit %}<p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">Les formulaires déjà attachés aux clients ne sont pas modifiés.</p>{% endif %}
+    {% if errors %}<div role="alert" class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800"><p class="font-bold">Vérifiez les points suivants :</p><ul class="list-disc pl-5">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+    <p class="lg:hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">L’éditeur est disponible sur ordinateur. Ouvrez cette page sur un écran plus large.</p>
+    <form id="builder-form" method="post" class="hidden lg:block space-y-4" data-dirty="{{ editor_dirty|yesno:'true,false' }}" action="{% if is_edit %}{% url 'forms_cms:builder-edit' template_pk %}{% else %}{% url 'forms_cms:builder-new' %}{% endif %}">
         {% csrf_token %}
-        <input type="hidden" name="template_pk" value="{{ template_pk }}">
-        <input type="hidden" name="section_count" value="{{ sections|length }}">
-
-        <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-3">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Nom du formulaire</label>
-                <input type="text" name="nom" value="{{ nom }}" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Description</label>
-                <textarea name="description" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">{{ description }}</textarea>
-            </div>
-        </section>
-
-        {% for section in sections %}
-        <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-            <div class="flex items-center gap-2">
-                <input type="text" name="section__{{ section.index }}__title" value="{{ section.title }}" placeholder="Titre de la section"
-                       class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm font-medium">
-                <button type="submit" name="action" value="move_section:{{ section.index }}:up" {% if section.index == 0 %}disabled{% endif %}
-                        class="text-gray-500 hover:text-indigo-600 disabled:opacity-30 px-2">↑</button>
-                <button type="submit" name="action" value="move_section:{{ section.index }}:down" {% if section.is_last %}disabled{% endif %}
-                        class="text-gray-500 hover:text-indigo-600 disabled:opacity-30 px-2">↓</button>
-                <button type="submit" name="action" value="remove_section:{{ section.index }}" class="text-red-600 text-sm hover:underline">
-                    Supprimer la section
-                </button>
-            </div>
-
-            <input type="hidden" name="field_count__{{ section.index }}" value="{{ section.fields|length }}">
-
-            {% for entry in section.fields %}
-            <div class="border border-gray-200 rounded-lg p-3.5 bg-gray-50/40 space-y-2.5">
-                <div class="grid grid-cols-12 gap-2.5 items-end">
-                    <div class="col-span-12 sm:col-span-6">
-                        <label class="block text-xs font-semibold text-gray-800 mb-1">
-                            Question / Libellé affiché <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" name="field__{{ section.index }}__{{ entry.index }}__label" value="{{ entry.field.label }}"
-                               placeholder="Ex: Tension d'alimentation (V), État du coffret..."
-                               class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
-                    </div>
-                    <div class="col-span-6 sm:col-span-3">
-                        <label class="block text-xs font-semibold text-gray-700 mb-1">Type de réponse</label>
-                        <select name="field__{{ section.index }}__{{ entry.index }}__type" class="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm bg-white">
-                            {% for value, label in field_types.items %}
-                            <option value="{{ value }}" {% if value == entry.field.type %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-span-3 sm:col-span-2 pb-2">
-                        <label class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                            <input type="checkbox" name="field__{{ section.index }}__{{ entry.index }}__required" {% if entry.field.required %}checked{% endif %}
-                                   class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                            Obligatoire
-                        </label>
-                    </div>
-                    <div class="col-span-3 sm:col-span-1 flex justify-end gap-1 pb-1.5">
-                        <button type="submit" name="action" value="move_field:{{ section.index }}:{{ entry.index }}:up" {% if entry.index == 0 %}disabled{% endif %}
-                                class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 px-1 py-0.5 text-xs font-bold" title="Monter">↑</button>
-                        <button type="submit" name="action" value="move_field:{{ section.index }}:{{ entry.index }}:down" {% if entry.is_last %}disabled{% endif %}
-                                class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 px-1 py-0.5 text-xs font-bold" title="Descendre">↓</button>
-                        <button type="submit" name="action" value="remove_field:{{ section.index }}:{{ entry.index }}"
-                                class="text-red-400 hover:text-red-600 px-1 py-0.5 text-xs font-bold" title="Supprimer">✕</button>
-                    </div>
-                </div>
-
-                <!-- Paramètre technique (Clé) : replié / discret pour les non-techs -->
-                <details class="text-xs text-gray-500 pt-0.5 group">
-                    <summary class="cursor-pointer text-[11px] text-gray-400 hover:text-indigo-600 select-none inline-flex items-center gap-1">
-                        <svg class="w-3 h-3 group-open:rotate-90 transition-transform text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        <span>Paramètres avancés</span>
-                        <span class="text-gray-400 font-mono text-[10px]">({% if entry.field.key %}clé: {{ entry.field.key }}{% else %}clé automatique{% endif %})</span>
-                    </summary>
-                    <div class="mt-2 pl-4 max-w-sm">
-                        <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Identifiant technique (clé)</label>
-                        <input type="text" name="field__{{ section.index }}__{{ entry.index }}__key" value="{{ entry.field.key }}"
-                               placeholder="Laisser vide pour auto-générer"
-                               class="w-full border border-gray-300 rounded px-2.5 py-1 text-xs font-mono text-gray-700 bg-white">
-                        <p class="text-[10px] text-gray-400 mt-0.5">Généré automatiquement à partir de la question si vide.</p>
-                    </div>
-                </details>
-
-                {% if entry.field.type == "choice" or entry.field.type == "multichoice" %}
-                <div>
-                    <label class="block text-xs text-gray-500">Options (une par ligne)</label>
-                    <textarea name="field__{{ section.index }}__{{ entry.index }}__options" rows="3"
-                              class="w-full border border-gray-300 rounded-md px-2 py-1 text-sm">{{ entry.options_text }}</textarea>
-                </div>
-                {% endif %}
-
-                {% if entry.field.type == "photo" %}
-                <div class="max-w-xs">
-                    <label class="block text-xs text-gray-500">
-                        Nombre maximal de photos (la légende imprimée avec chaque photo est le libellé ci-dessus)
-                    </label>
-                    <input type="number" min="1" name="field__{{ section.index }}__{{ entry.index }}__max_photos" value="{{ entry.field.max_photos }}"
-                           class="w-full border border-gray-300 rounded-md px-2 py-1 text-sm">
-                </div>
-                {% endif %}
-
-                {% if entry.field.type == "repeat" %}
-                <div class="bg-gray-50 rounded-md p-3 space-y-3">
-                    <p class="text-xs font-medium text-gray-500">Sous-champs du groupe répétable</p>
-                    <input type="hidden" name="sub_count__{{ section.index }}__{{ entry.index }}" value="{{ entry.subfields|length }}">
-
-                    {% for sub in entry.subfields %}
-                    <div class="border border-gray-200 rounded-md p-2 bg-white space-y-2">
-                        <div class="grid grid-cols-12 gap-2.5 items-end">
-                            <div class="col-span-12 sm:col-span-6">
-                                <label class="block text-xs font-semibold text-gray-800 mb-1">
-                                    Sous-question / Libellé <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__label" value="{{ sub.field.label }}"
-                                       placeholder="Ex: Référence pièce, Photo état..."
-                                       class="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
-                            </div>
-                            <div class="col-span-6 sm:col-span-3">
-                                <label class="block text-xs font-semibold text-gray-700 mb-1">Type</label>
-                                <select name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__type"
-                                        class="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm bg-white">
-                                    {% for value, label in subfield_types.items %}
-                                    <option value="{{ value }}" {% if value == sub.field.type %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-span-3 sm:col-span-2 pb-2">
-                                <label class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                                    <input type="checkbox" name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__required" {% if sub.field.required %}checked{% endif %}
-                                           class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                    Obligatoire
-                                </label>
-                            </div>
-                            <div class="col-span-3 sm:col-span-1 flex justify-end gap-1 pb-1.5">
-                                <button type="submit" name="action" value="move_subfield:{{ section.index }}:{{ entry.index }}:{{ sub.index }}:up" {% if sub.index == 0 %}disabled{% endif %}
-                                        class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 px-1 py-0.5 text-xs font-bold">↑</button>
-                                <button type="submit" name="action" value="move_subfield:{{ section.index }}:{{ entry.index }}:{{ sub.index }}:down" {% if sub.is_last %}disabled{% endif %}
-                                        class="text-gray-400 hover:text-indigo-600 disabled:opacity-20 px-1 py-0.5 text-xs font-bold">↓</button>
-                                <button type="submit" name="action" value="remove_subfield:{{ section.index }}:{{ entry.index }}:{{ sub.index }}"
-                                        class="text-red-400 hover:text-red-600 px-1 py-0.5 text-xs font-bold" title="Supprimer">✕</button>
-                            </div>
-                        </div>
-
-                        <!-- Paramètre technique (Clé) replié -->
-                        <details class="text-xs text-gray-500 pt-0.5 group">
-                            <summary class="cursor-pointer text-[11px] text-gray-400 hover:text-indigo-600 select-none inline-flex items-center gap-1">
-                                <svg class="w-3 h-3 group-open:rotate-90 transition-transform text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                <span>Paramètres avancés</span>
-                                <span class="text-gray-400 font-mono text-[10px]">({% if sub.field.key %}clé: {{ sub.field.key }}{% else %}clé automatique{% endif %})</span>
-                            </summary>
-                            <div class="mt-2 pl-4 max-w-sm">
-                                <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Identifiant technique (clé)</label>
-                                <input type="text" name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__key" value="{{ sub.field.key }}"
-                                       placeholder="Laisser vide pour auto-générer"
-                                       class="w-full border border-gray-300 rounded px-2.5 py-1 text-xs font-mono text-gray-700 bg-white">
-                            </div>
-                        </details>
-
-                        {% if sub.field.type == "choice" or sub.field.type == "multichoice" %}
-                        <div>
-                            <label class="block text-xs text-gray-500">Options (une par ligne)</label>
-                            <textarea name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__options" rows="2"
-                                      class="w-full border border-gray-300 rounded-md px-2 py-1 text-sm">{{ sub.options_text }}</textarea>
-                        </div>
-                        {% endif %}
-                        {% if sub.field.type == "photo" %}
-                        <div class="max-w-xs">
-                            <label class="block text-xs text-gray-500">Nombre maximal de photos</label>
-                            <input type="number" min="1" name="subfield__{{ section.index }}__{{ entry.index }}__{{ sub.index }}__max_photos" value="{{ sub.field.max_photos }}"
-                                   class="w-full border border-gray-300 rounded-md px-2 py-1 text-sm">
-                        </div>
-                        {% endif %}
-
-                        <button type="submit" name="action" value="remove_subfield:{{ section.index }}:{{ entry.index }}:{{ sub.index }}"
-                                class="text-red-600 text-xs hover:underline">
-                            Supprimer le sous-champ
-                        </button>
-                    </div>
-                    {% endfor %}
-
-                    <div class="flex items-center gap-2">
-                        <select name="new_subfield_type__{{ section.index }}__{{ entry.index }}" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                            {% for value, label in subfield_types.items %}
-                            <option value="{{ value }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" name="action" value="add_subfield:{{ section.index }}:{{ entry.index }}" class="text-indigo-600 text-sm hover:underline">
-                            Ajouter un sous-champ
-                        </button>
-                    </div>
-                </div>
-                {% endif %}
-
-                <button type="submit" name="action" value="remove_field:{{ section.index }}:{{ entry.index }}" class="text-red-600 text-xs hover:underline">
-                    Supprimer le champ
-                </button>
-            </div>
-            {% endfor %}
-
-            <div class="flex items-center gap-2">
-                <select name="new_field_type__{{ section.index }}" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                    {% for value, label in field_types.items %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" name="action" value="add_field:{{ section.index }}" class="text-indigo-600 text-sm hover:underline">
-                    Ajouter un champ
-                </button>
-            </div>
-        </section>
-        {% endfor %}
-
-        <button type="submit" name="action" value="add_section" class="text-indigo-600 text-sm hover:underline">
-            + Ajouter une section
-        </button>
-
-        <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
-            <button type="submit" name="action" value="preview"
-                    class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
-                Aperçu
-            </button>
-            <button type="submit" name="action" value="save"
-                    class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                Enregistrer
-            </button>
+        <input type="hidden" name="schema_json" id="schema-json">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-2 gap-4">
+            <div><label for="builder-name" class="block text-sm font-semibold text-gray-800">Nom du formulaire <span class="text-red-600">*</span></label><input type="text" id="builder-name" name="nom" value="{{ nom }}" placeholder="Ex. : Audit technique CCTV BNDA" required maxlength="150" class="builder-meta-input"></div>
+            <div><label for="builder-description" class="block text-sm font-semibold text-gray-800">Description</label><input type="text" id="builder-description" name="description" value="{{ description }}" placeholder="Ex. : Contrôle des équipements du site" class="builder-meta-input"></div>
         </div>
+        <div class="grid grid-cols-2 gap-5 items-start">
+            <section class="bg-white border border-gray-200 rounded-xl p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-bold">Formulaire</h2><button type="button" id="add-section" class="text-sm text-indigo-700 font-semibold">+ Ajouter une section</button></div><div id="builder-sections" class="space-y-4"></div></section>
+            <section class="bg-white border border-gray-200 rounded-xl p-4"><h2 class="font-bold">Ajouter un champ</h2><p class="text-xs text-gray-500 mt-1 mb-2">Cliquez sur un type ou déposez-le dans une section.</p><p id="selected-section" class="text-xs text-indigo-700 mb-4" aria-live="polite"></p><div id="builder-palette" class="grid grid-cols-2 gap-2"></div></section>
+        </div>
+        <div class="flex justify-end gap-3 bg-white border rounded-xl p-4"><button type="submit" name="action" value="preview" class="border rounded-lg px-5 py-2 text-sm font-semibold">Aperçu</button><button type="submit" name="action" value="save" class="bg-indigo-600 text-white rounded-lg px-5 py-2 text-sm font-semibold">Enregistrer</button><a href="{% url 'forms_cms:list' %}" id="builder-quit" class="border rounded-lg px-5 py-2 text-sm font-semibold">Quitter</a></div>
     </form>
-
-    {% if preview_sections %}
-    <section class="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Aperçu du formulaire</h2>
-        {% for section in preview_sections %}
-        <h3 class="text-sm font-semibold text-gray-700 mt-4 mb-2">{{ section.title }}</h3>
-        {% for entry in section.entries %}
-        {% if entry.kind == "field" %}
-        {% include "portal/_field_readonly.html" %}
-        {% else %}
-        <div class="mb-4">
-            <p class="text-sm font-medium text-gray-700 mb-2">{{ entry.field.label }}</p>
-            <p class="text-sm text-gray-400">
-                Groupe répétable : une ligne de ce type apparaîtra à chaque ajout lors de la saisie.
-            </p>
-        </div>
-        {% endif %}
-        {% endfor %}
-        {% endfor %}
-    </section>
-    {% endif %}
+    <noscript><p class="text-red-700">Activez JavaScript pour utiliser l’éditeur de formulaire.</p></noscript>
+    {{ schema_data|json_script:"builder-schema" }}
+    {{ field_types|json_script:"builder-types" }}
+    <dialog id="field-dialog" class="rounded-xl p-0 shadow-xl w-full max-w-xl"><form method="dialog" id="field-editor" class="p-6 space-y-4"><h2 class="font-bold text-lg">Configurer le champ</h2><div id="field-editor-body" class="space-y-3"></div><div class="flex justify-end gap-3"><button value="cancel" class="border rounded-lg px-4 py-2">Annuler</button><button id="field-apply" value="apply" class="bg-indigo-600 text-white rounded-lg px-4 py-2">Appliquer</button></div></form></dialog>
+    {% if preview_sections %}<section class="bg-white border rounded-xl p-6"><h2 class="font-bold text-lg">Aperçu du formulaire</h2>{% for section in preview_sections %}<h3 class="font-semibold mt-5 mb-3">{{ section.title }}</h3>{% for entry in section.entries %}{% if entry.kind == 'field' %}{% include 'portal/_field_readonly.html' %}{% else %}<p class="text-sm text-gray-500">{{ entry.field.label }} — groupe répétable</p>{% endif %}{% endfor %}{% endfor %}</section>{% endif %}
 </div>
+<style>
+    #builder-form input.builder-meta-input {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        margin-top: 0.375rem;
+        padding: 0.625rem 0.75rem;
+        border: 1px solid #6b7280;
+        border-radius: 0.5rem;
+        background: #fff;
+        color: #111827;
+        font-size: 0.875rem;
+    }
+    #builder-form input.builder-meta-input::placeholder { color: #6b7280; opacity: 1; }
+    #builder-form input.builder-meta-input:focus { border-color: #4f46e5; outline: 2px solid #a5b4fc; outline-offset: 1px; }
+</style>
+<script src="{% static 'forms_cms/builder.js' %}"></script>
 {% endblock %}

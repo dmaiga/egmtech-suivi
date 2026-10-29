@@ -20,8 +20,10 @@ from django.contrib import admin
 from django.urls import include, path
 
 from accounts import views as accounts_views
+from core.views import private_media
 
 urlpatterns = [
+    path('private-media/<path:name>', private_media, name='private-media'),
     path('', accounts_views.root_redirect, name='root'),
     path('admin/', admin.site.urls),
     path('comptes/', include('accounts.urls')),
@@ -37,6 +39,5 @@ urlpatterns = [
 if settings.DEBUG:
     from django.contrib.staticfiles.urls import staticfiles_urlpatterns
     urlpatterns += staticfiles_urlpatterns()
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     if getattr(settings, 'STATIC_ROOT', None) and settings.STATIC_ROOT.exists():
         urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

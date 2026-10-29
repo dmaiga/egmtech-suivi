@@ -1,11 +1,46 @@
 from django.contrib import messages
 from django.contrib.auth.views import LoginView, LogoutView, redirect_to_login
-from django.shortcuts import redirect, render
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
 from visits.models import Mission, Visit
+from core.services import log
+from .forms import AuditorCreationForm
 from .models import User
+
+
+@login_required
+def auditor_list(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    auditors = User.objects.filter(role=User.Role.SUPERVISEUR).order_by("last_name", "first_name", "username")
+    return render(request, "accounts/auditor_list.html", {"page_obj": Paginator(auditors, 20).get_page(request.GET.get("page"))})
+
+
+@login_required
+def auditor_detail(request, pk):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    auditor = get_object_or_404(User, pk=pk, role=User.Role.SUPERVISEUR)
+    missions = Mission.objects.filter(superviseur=auditor).select_related("site", "site__client", "attached_form").order_by("-created_at")
+    return render(request, "accounts/auditor_detail.html", {"auditor": auditor, "missions": missions[:10], "mission_count": missions.count()})
+
+
+@login_required
+def auditor_create(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    form = AuditorCreationForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        auditor = form.save()
+        log(request.user, "creation_auditeur", auditor)
+        messages.success(request, f"Auditeur {auditor.get_full_name()} créé. Il peut maintenant recevoir des missions.")
+        return redirect("accounts:auditor-detail", pk=auditor.pk)
+    return render(request, "accounts/auditor_form.html", {"form": form})
 
 
 def _default_url_for(user):

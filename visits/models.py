@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.storage import get_upload_storage
 
@@ -47,6 +48,8 @@ class Visit(models.Model):
 
     mission = models.ForeignKey(Mission, on_delete=models.PROTECT, related_name="visits")
     auteur = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="visits")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="visites_creees")
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.BROUILLON)
     reponses = models.JSONField(default=dict, blank=True)
     date_debut = models.DateTimeField(null=True, blank=True)

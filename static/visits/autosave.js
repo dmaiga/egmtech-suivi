@@ -16,7 +16,7 @@
         function serialize() {
             var data = {};
             form.querySelectorAll('input, select, textarea').forEach(function (el) {
-                if (!el.name || el.type === 'file') return;
+                if (!el.name || el.type === 'file' || el.name === 'csrfmiddlewaretoken') return;
                 if (el.type === 'checkbox') {
                     if (!data[el.name]) data[el.name] = [];
                     if (el.checked) data[el.name].push(el.value || 'on');
@@ -70,16 +70,20 @@
             }
         }, 500);
 
-        restore();
+        var params = new URLSearchParams(window.location.search);
+        if (params.has('saved')) {
+            try { localStorage.removeItem(key); } catch (e) {}
+            params.delete('saved');
+            var query = params.toString();
+            history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+        } else {
+            restore();
+        }
         form.addEventListener('input', save);
         form.addEventListener('change', save);
 
         form.addEventListener('submit', function () {
-            try {
-                localStorage.removeItem(key);
-            } catch (e) {
-                // ignore
-            }
+            try { localStorage.setItem(key, JSON.stringify(serialize())); } catch (e) {}
         });
     });
 })();

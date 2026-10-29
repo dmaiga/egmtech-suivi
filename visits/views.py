@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -210,6 +211,12 @@ def mission_options(request):
     return render(request, "visits/_mission_options.html", {"sites": sites, "attached_forms": attached_forms})
 
 
+@role_required(User.Role.MANAGER)
+def mission_form_detail(request, pk):
+    attached = get_object_or_404(AttachedForm.objects.select_related("client"), pk=pk)
+    return render(request, "visits/attached_form_detail.html", {"attached": attached, "sections": attached.schema.get("sections", [])})
+
+
 @role_required(User.Role.SUPERVISEUR)
 def visit_start(request, mission_pk):
     mission = get_object_or_404(Mission, pk=mission_pk, superviseur=request.user)
@@ -220,13 +227,13 @@ def visit_start(request, mission_pk):
     )
     if visit is None:
         visit = Visit.objects.create(
-            mission=mission, auteur=request.user, statut=Visit.Statut.BROUILLON, date_debut=timezone.now()
+            mission=mission, auteur=request.user, created_by=request.user, statut=Visit.Statut.BROUILLON, date_debut=timezone.now()
         )
         log(request.user, "debut_visite", visit, detail={"mission_id": mission.pk})
     return redirect("visits:visit-edit", pk=visit.pk)
 
 
-def _visit_edit_context(visit, errors=None, user=None):
+def _visit_edit_context(visit, errors=None, user=None, show_validation_errors=False):
     ctx = get_visit_detail_context(visit, user=user)
 
     sections = ctx.get("sections", [])
@@ -244,7 +251,10 @@ def _visit_edit_context(visit, errors=None, user=None):
     progress_percent = int(round((completed_sections / total_sections) * 100)) if total_sections > 0 else 0
     ctx.update({
         "max_photo_size_mb": settings.VISITS_MAX_PHOTO_SIZE_BYTES // (1024 * 1024),
+        "photo_total": visit.photos.count(),
+        "max_photos_per_visit": settings.VISITS_MAX_PHOTOS_PER_VISIT,
         "errors": errors or [],
+        "show_validation_errors": show_validation_errors,
         "locked": not visit.peut_etre_modifiee(),
         "total_sections_count": total_sections,
         "completed_sections_count": completed_sections,
@@ -253,8 +263,8 @@ def _visit_edit_context(visit, errors=None, user=None):
     return ctx
 
 
-def _render_visit_edit(request, visit, errors=None, status=200):
-    return render(request, "visits/visit_edit.html", _visit_edit_context(visit, errors, user=request.user), status=status)
+def _render_visit_edit(request, visit, errors=None, status=200, show_validation_errors=False):
+    return render(request, "visits/visit_edit.html", _visit_edit_context(visit, errors, user=request.user, show_validation_errors=show_validation_errors), status=status)
 
 
 @role_required(User.Role.SUPERVISEUR)
@@ -296,8 +306,7 @@ def _photo_field_names_in_post(schema, post_data):
 def _apply_submission(request, visit):
     """Applique le POST à la visite (réponses, photos, GPS, signatures).
 
-    Retourne la liste des erreurs de fichiers (taille, quota) ; si non vide,
-    rien n'a été enregistré.
+    Enregistre les réponses et fichiers valides, puis retourne les erreurs de fichiers.
     """
 
     schema = visit.mission.attached_form.schema
@@ -327,8 +336,12 @@ def _apply_submission(request, visit):
                 continue
             new_photos.append((field_key, f))
 
-    if errors:
-        return errors
+    if sum(existing_counts.values()) + len(new_photos) > settings.VISITS_MAX_PHOTOS_PER_VISIT:
+        errors.append(
+            f"La visite ne peut pas contenir plus de {settings.VISITS_MAX_PHOTOS_PER_VISIT} photos au total. "
+            "Les nouvelles photos n'ont pas été ajoutées ; sélectionnez-en moins puis réessayez."
+        )
+        new_photos = []
 
     visit.reponses = reponses
 
@@ -360,7 +373,7 @@ def _apply_submission(request, visit):
             image=f,
         )
 
-    return []
+    return errors
 
 
 @role_required(User.Role.SUPERVISEUR)
@@ -375,7 +388,9 @@ def visit_save(request, pk):
         return _render_visit_edit(request, visit, errors=errors, status=400)
 
     messages.success(request, "Brouillon enregistré.")
-    return redirect("visits:visit-edit", pk=visit.pk)
+    step = request.POST.get("wizard_step", "")
+    suffix = f"&step={int(step)}" if step.isdigit() else ""
+    return redirect(f"{reverse('visits:visit-edit', args=[visit.pk])}?saved=1{suffix}")
 
 
 @role_required(User.Role.SUPERVISEUR)
@@ -397,7 +412,7 @@ def visit_submit(request, pk):
 
     if missing:
         errors = [f"Champ obligatoire manquant : {label}" for label in missing]
-        return _render_visit_edit(request, visit, errors=errors, status=400)
+        return _render_visit_edit(request, visit, errors=errors, status=400, show_validation_errors=True)
 
     visit.statut = Visit.Statut.SOUMISE
     visit.date_soumission = timezone.now()

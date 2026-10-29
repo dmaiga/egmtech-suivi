@@ -95,10 +95,16 @@
         <ul id="client-errors-list" class="list-disc list-inside space-y-1 text-red-800 font-medium pl-1 text-xs sm:text-sm"></ul>
     </div>
 
+    {% for photo in visit.photos.all %}
+    <form id="delete-photo-{{ photo.pk }}" method="post" action="{% url 'visits:photo-delete' photo.pk %}">{% csrf_token %}</form>
+    {% endfor %}
     <!-- Formulaire de saisie -->
-    <form id="visit-form" method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
-          data-draft-key="visit-draft-{{ visit.pk }}" data-max-photo-mb="{{ max_photo_size_mb }}">
+    <form id="visit-form" novalidate method="post" action="{% url 'visits:visit-save' visit.pk %}" enctype="multipart/form-data" class="space-y-6"
+          data-draft-key="visit-draft-{{ visit.pk }}" data-max-photo-mb="{{ max_photo_size_mb }}" data-step="{% firstof request.POST.current_step request.GET.step '0' %}">
         {% csrf_token %}
+        <input type="hidden" name="current_step" id="wizard-current-step" value="0">
+        <div id="wizard-progress" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-900" aria-live="polite"><span id="wizard-label"></span><p class="text-xs mt-1">Vous pouvez continuer même si une information manque. Les réponses et photos sont enregistrées à chaque étape.</p></div>
+        <p class="text-xs text-gray-600" aria-live="polite">Photos enregistrées pour cette visite : <strong>{{ photo_total }} / {{ max_photos_per_visit }}</strong>. Les nouvelles photos sont comptées après enregistrement.</p>
         <input type="hidden" name="gps_device_lat" id="gps_device_lat" value="{{ visit.gps_latitude|default:'' }}">
         <input type="hidden" name="gps_device_lng" id="gps_device_lng" value="{{ visit.gps_longitude|default:'' }}">
 
@@ -207,8 +213,9 @@
                         <canvas class="js-signature-canvas w-full h-44 sm:h-52 border-2 border-dashed border-gray-300 rounded-xl bg-white touch-none block"
                                 width="600" height="200"
                                 data-target="signature_superviseur_data"></canvas>
-                        <input type="hidden" name="signature_superviseur_data" id="signature_superviseur_data">
+                        <input type="hidden" name="signature_superviseur_data" id="signature_superviseur_data" data-saved="{{ visit.signature_superviseur|yesno:'true,false' }}">
                     </div>
+                    {% if visit.signature_superviseur %}<p class="text-sm text-gray-600">Une signature est déjà enregistrée. Signez à nouveau pour la remplacer.</p>{% endif %}
                     <div class="flex items-center justify-between text-xs text-gray-500 pt-1">
                         <span>Signez au doigt ou stylet pour certifier les observations.</span>
                         <button type="button"
@@ -259,6 +266,10 @@
             </div>
         </section>
 
+        <div id="wizard-navigation" class="hidden flex flex-wrap gap-2">
+            <button type="submit" name="wizard_step" value="0" id="wizard-prev" formaction="{% url 'visits:visit-save' visit.pk %}" class="px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-700 font-semibold">← Précédent</button>
+            <button type="submit" name="wizard_step" value="1" id="wizard-next" formaction="{% url 'visits:visit-save' visit.pk %}" class="px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold">Enregistrer et continuer →</button>
+        </div>
         <!-- Barre d'actions collée en bas de l'écran (Sticky Bottom Bar) -->
         <div class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 shadow-xl">
             <div class="max-w-3xl mx-auto flex items-center gap-3">
@@ -325,119 +336,60 @@
             var targetId = input.dataset.targetPreview;
             var previewContainer = document.getElementById(targetId);
             var legend = input.dataset.legend || 'Photo';
-            var counter = input.closest('.js-field-group')?.querySelector('.js-count-val');
-            var maxPhotos = parseInt(input.dataset.maxPhotos || '1');
 
             if (!previewContainer || !input.files) return;
 
-            // Retirer les anciens aperçus temporaires
-            previewContainer.querySelectorAll('.js-temp-preview').forEach(function (el) { el.remove(); });
-
             var files = Array.from(input.files);
-            var existingCount = previewContainer.querySelectorAll(':scope > div:not(.js-temp-preview)').length;
-            var totalCount = existingCount + files.length;
-            if (counter) counter.textContent = totalCount;
+            if (!files.length) return;
+            // Garder chaque sélection dans sa propre entrée pour ne pas perdre
+            // les photos déjà prises lorsque l'appareil photo est rouvert.
+            input.dataset.used = 'true';
+            var freshInput = input.cloneNode();
+            freshInput.removeAttribute('id');
+            freshInput.removeAttribute('data-used');
+            freshInput.value = '';
+            input.parentNode.insertBefore(freshInput, input.nextSibling);
+            var selectionCards = [];
 
             files.forEach(function (file) {
                 var reader = new FileReader();
                 reader.onload = function (e) {
+                    if (!input.isConnected) return;
                     var card = document.createElement('div');
                     card.className = 'js-temp-preview relative bg-white border-2 border-indigo-300 rounded-xl p-2 shadow-sm flex flex-col justify-between animate-fadeIn';
                     card.innerHTML = `
                         <div class="aspect-square w-full rounded-lg overflow-hidden bg-gray-100 mb-2 relative">
-                            <img src="${e.target.result}" alt="${legend}" class="w-full h-full object-cover">
+                            <img class="w-full h-full object-cover">
                             <span class="absolute top-1 left-1 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">Nouvelle</span>
                         </div>
-                        <div class="text-[11px] font-semibold text-gray-800 truncate mb-2" title="${legend}">
-                            ${legend}
-                        </div>
+                        <div class="js-photo-label text-[11px] font-semibold text-gray-800 truncate mb-2"></div>
                         <div class="flex items-center justify-between border-t border-gray-100 pt-1.5">
                             <span class="text-[10px] text-emerald-600 font-medium">Prête à l'envoi</span>
                             <button type="button" class="text-[11px] text-rose-600 font-medium hover:underline js-remove-temp">
-                                Supprimer
+                                ${files.length > 1 ? 'Retirer cette sélection' : 'Retirer'}
                             </button>
                         </div>
                     `;
+                    card.querySelector('img').src = e.target.result;
+                    card.querySelector('img').alt = legend;
+                    card.querySelector('.js-photo-label').textContent = legend;
                     card.querySelector('.js-remove-temp').addEventListener('click', function () {
-                        card.remove();
-                        input.value = '';
-                        if (counter) counter.textContent = existingCount;
+                        input.remove();
+                        selectionCards.forEach(function (item) { item.remove(); });
                     });
+                    selectionCards.push(card);
                     previewContainer.appendChild(card);
                 };
                 reader.readAsDataURL(file);
             });
         });
 
-        // Validation résumé et scroll au clic sur Soumettre
-        var submitBtn = document.getElementById('btn-submit-visit');
-        var form = document.getElementById('visit-form');
-        if (submitBtn && form) {
-            submitBtn.addEventListener('click', function (e) {
-                var missingFields = [];
-                var firstInvalid = null;
-
-                // Vérification des champs requis
-                document.querySelectorAll('.js-field-group[data-required="true"]').forEach(function (group) {
-                    var isFilled = false;
-                    var label = group.querySelector('label')?.innerText.replace('*', '').trim() || 'Champ';
-                    var textInput = group.querySelector('input[type="text"], input[type="number"], input[type="date"], select');
-                    var checkbox = group.querySelector('input[type="checkbox"]');
-                    var photoPreviews = group.querySelectorAll('#preview_' + group.dataset.fieldName + ' > div');
-                    var signatureInput = group.querySelector('input[type="hidden"][id$="__data"]');
-
-                    if (textInput && textInput.value.trim() !== '') isFilled = true;
-                    if (checkbox && checkbox.checked) isFilled = true;
-                    if (photoPreviews && photoPreviews.length > 0) isFilled = true;
-                    if (signatureInput && signatureInput.value.trim() !== '') isFilled = true;
-
-                    if (!isFilled) {
-                        missingFields.push(label);
-                        group.classList.add('ring-2', 'ring-rose-400', 'p-2', 'rounded-xl');
-                        if (!firstInvalid) firstInvalid = group;
-                        // Déplier la section parente si repliée
-                        var secBody = group.closest('.js-section-body');
-                        if (secBody && secBody.classList.contains('hidden')) {
-                            secBody.classList.remove('hidden');
-                        }
-                    } else {
-                        group.classList.remove('ring-2', 'ring-rose-400', 'p-2', 'rounded-xl');
-                    }
-                });
-
-                // Vérifier la signature du superviseur
-                var supSigData = document.getElementById('signature_superviseur_data');
-                if (supSigData && !supSigData.value) {
-                    missingFields.push('Signature du superviseur');
-                    var sigSec = document.getElementById('section-signatures');
-                    if (sigSec) {
-                        sigSec.querySelector('.js-section-body')?.classList.remove('hidden');
-                        if (!firstInvalid) firstInvalid = sigSec;
-                    }
-                }
-
-                if (missingFields.length > 0) {
-                    e.preventDefault();
-                    var summary = document.getElementById('client-errors-summary');
-                    var list = document.getElementById('client-errors-list');
-                    if (summary && list) {
-                        list.innerHTML = '';
-                        missingFields.forEach(function (name) {
-                            var li = document.createElement('li');
-                            li.textContent = 'Champ obligatoire manquant : ' + name;
-                            list.appendChild(li);
-                        });
-                        summary.classList.remove('hidden');
-                        summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }
-            });
-        }
     </script>
     <script src="{% static 'visits/geolocation.js' %}"></script>
     <script src="{% static 'visits/signature-pad.js' %}"></script>
     <script src="{% static 'visits/photo-compress.js' %}"></script>
     <script src="{% static 'visits/autosave.js' %}"></script>
+    <script src="{% static 'visits/wizard.js' %}"></script>
     {% endif %}
 </div>
 {% endblock %}

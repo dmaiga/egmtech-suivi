@@ -183,7 +183,7 @@
                                         <div class="{% if entry.statut == 'complet' %}bg-emerald-500{% elif entry.statut == 'en_cours' %}bg-blue-600{% else %}bg-gray-400{% endif %} h-2 rounded-full transition-all duration-300" style="width: {{ entry.pourcentage }}%;"></div>
                                     </div>
                                     <span class="text-xs font-bold text-gray-700 whitespace-nowrap">
-                                        {{ entry.fait }} / {{ entry.prevu }}
+                                        {{ entry.fait }} / {{ entry.prevu|default_if_none:"Non défini" }}
                                     </span>
                                 </div>
                             </td>
@@ -204,7 +204,7 @@
                                 {% else %}
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
                                     <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                                    <span>Pas encore visité</span>
+                                    <span>{{ entry.statut_label }}</span>
                                 </span>
                                 {% endif %}
                             </td>
@@ -239,14 +239,14 @@
                         {% else %}
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
                             <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                            <span>Pas encore visité</span>
+                            <span>{{ entry.statut_label }}</span>
                         </span>
                         {% endif %}
                     </div>
                     <div class="space-y-1">
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-gray-500">Avancement :</span>
-                            <span class="font-bold text-gray-800">{{ entry.fait }} / {{ entry.prevu }} fait{{ entry.fait|pluralize }}</span>
+                            <span class="font-bold text-gray-800">{{ entry.fait }} / {{ entry.prevu|default_if_none:"Non défini" }} fait{{ entry.fait|pluralize }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                             <div class="{% if entry.statut == 'complet' %}bg-emerald-500{% elif entry.statut == 'en_cours' %}bg-blue-600{% else %}bg-gray-400{% endif %} h-2 rounded-full transition-all duration-300" style="width: {{ entry.pourcentage }}%;"></div>

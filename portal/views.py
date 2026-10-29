@@ -63,19 +63,25 @@ def dashboard(request):
         for attached_form in forms_list:
             key = (site.pk, attached_form.pk)
             stats = stats_map.get(key)
-            prevu = expected_map.get(key, 0)
+            prevu = expected_map.get(key)
             fait = stats["fait"] if stats else 0
             dernier_passage = stats["dernier_passage"] if stats else None
 
             total_faites += fait
-            total_prevues += prevu
+            total_prevues += prevu or 0
 
-            if prevu > 0:
+            if prevu is not None and prevu > 0:
                 pourcentage = min(100, int(round((fait / prevu) * 100)))
             else:
                 pourcentage = 100 if fait > 0 else 0
 
-            if fait >= prevu and prevu > 0:
+            if prevu is None:
+                statut_key = "non_defini"
+                statut_label = "Prévision non définie"
+            elif prevu == 0:
+                statut_key = "aucune_prevue"
+                statut_label = "Aucune visite prévue"
+            elif fait >= prevu and prevu > 0:
                 statut_key = "complet"
                 statut_label = "Complet"
             elif fait > 0:
@@ -152,16 +158,22 @@ def site_detail(request, pk):
     previsions = []
     total_reste = 0
     for af in attached_forms:
-        prevu = expected_map.get(af.pk, 0)
+        prevu = expected_map.get(af.pk)
         fait = stats_map.get(af.pk, 0)
-        reste = max(0, prevu - fait)
+        reste = max(0, prevu - fait) if prevu is not None else 0
         total_reste += reste
-        if prevu > 0:
+        if prevu is not None and prevu > 0:
             pourcentage = min(100, int(round(fait / prevu * 100)))
         else:
             pourcentage = 100 if fait > 0 else 0
 
-        if fait >= prevu and prevu > 0:
+        if prevu is None:
+            statut_key = "non_defini"
+            statut_label = "Prévision non définie"
+        elif prevu == 0:
+            statut_key = "aucune_prevue"
+            statut_label = "Aucune visite prévue"
+        elif fait >= prevu and prevu > 0:
             statut_key = "complet"
             statut_label = "Complet"
         elif fait > 0:
@@ -186,6 +198,8 @@ def site_detail(request, pk):
         "visits": visits,
         "previsions": previsions,
         "total_reste": total_reste,
+        "previsions_incompletes": any(item["prevu"] is None for item in previsions),
+        "previsions_positives": any((item["prevu"] or 0) > 0 for item in previsions),
     }
     return render(request, "portal/site_detail.html", context)
 

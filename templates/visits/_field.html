@@ -7,12 +7,6 @@
             <span class="text-red-500 font-bold" title="Champ obligatoire">*</span>
             {% endif %}
         </label>
-        {% if field.type == "photo" %}
-        <span class="js-photo-counter inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold {% if entry.is_missing %}bg-rose-100 text-rose-800 border border-rose-300{% else %}bg-gray-100 text-gray-700 border border-gray-200{% endif %}">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
-            <span class="js-count-val">{{ entry.photos|length }}</span> sur {{ field.max_photos|default:1 }}
-        </span>
-        {% endif %}
     </div>
 
     {% if field.type == "text" %}
@@ -22,7 +16,7 @@
            value="{{ value|default:'' }}"
            {% if field.required %}required{% endif %}
            placeholder="Saisir {{ field.label|lower }}..."
-           class="w-full border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
+           class="w-full border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
 
     {% elif field.type == "number" %}
     <input type="number"
@@ -33,7 +27,7 @@
            value="{{ value|default:'' }}"
            {% if field.required %}required{% endif %}
            placeholder="0"
-           class="w-full border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
+           class="w-full border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
 
     {% elif field.type == "date" %}
     <input type="date"
@@ -41,13 +35,18 @@
            name="{{ name }}"
            value="{{ value|default:'' }}"
            {% if field.required %}required{% endif %}
-           class="w-full sm:w-auto border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
+           class="w-full sm:w-auto border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
+
+    {% elif field.type == "time" %}
+    <input type="time" id="id_{{ name }}" name="{{ name }}" value="{{ value|default:'' }}"
+           {% if field.required %}required{% endif %}
+           class="w-full sm:w-auto border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
 
     {% elif field.type == "choice" %}
     <select id="id_{{ name }}"
             name="{{ name }}"
             {% if field.required %}required{% endif %}
-            class="w-full border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
+            class="w-full border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300{% endif %} rounded-xl px-4 py-3 text-base sm:text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition">
         <option value="">— Sélectionner une option —</option>
         {% for opt in field.options %}
         <option value="{{ opt }}" {% if opt == value %}selected{% endif %}>{{ opt }}</option>
@@ -55,7 +54,7 @@
     </select>
 
     {% elif field.type == "multichoice" %}
-    <div class="space-y-2 bg-gray-50/80 p-3.5 rounded-xl border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/10{% else %}border-gray-200{% endif %}">
+    <div class="space-y-2 bg-gray-50/80 p-3.5 rounded-xl border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/10{% else %}border-gray-200{% endif %}">
         {% for opt in field.options %}
         <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition cursor-pointer text-sm font-medium text-gray-700">
             <input type="checkbox"
@@ -71,7 +70,7 @@
     </div>
 
     {% elif field.type == "checkbox" %}
-    <label class="flex items-center gap-3 p-3.5 bg-gray-50/80 rounded-xl border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500{% else %}border-gray-200{% endif %} hover:bg-white transition cursor-pointer">
+    <label class="flex items-center gap-3 p-3.5 bg-gray-50/80 rounded-xl border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500{% else %}border-gray-200{% endif %} hover:bg-white transition cursor-pointer">
         <input type="checkbox"
                name="{{ name }}"
                {% if value %}checked{% endif %}
@@ -84,7 +83,7 @@
         <input type="text"
                readonly
                id="{{ name }}__display"
-               class="flex-1 border {% if entry.is_missing %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300 bg-gray-50{% endif %} rounded-xl px-4 py-3 text-sm font-mono text-gray-700"
+               class="flex-1 border {% if entry.is_missing and show_validation_errors %}border-red-500 ring-1 ring-red-500 bg-red-50/20{% else %}border-gray-300 bg-gray-50{% endif %} rounded-xl px-4 py-3 text-sm font-mono text-gray-700"
                value="{% if value.lat %}{{ value.lat }}, {{ value.lng }}{% endif %}"
                placeholder="Position GPS non relevée">
         <input type="hidden" name="{{ name }}__lat" id="{{ name }}__lat" value="{{ value.lat|default:'' }}">
@@ -100,29 +99,35 @@
     </div>
 
     {% elif field.type == "photo" %}
-    <div class="space-y-3">
-        <!-- Input natif masqué avec capture caméra mobile -->
+    <div class="space-y-3 js-photo-widget">
+        <!-- Entrées distinctes : capture native et sélection dans la galerie. -->
         <input type="file"
                id="id_{{ name }}"
                name="{{ name }}"
                accept="image/*"
                capture="environment"
-               multiple
-               class="js-photo-compress js-photo-native hidden"
+               class="js-photo-compress js-photo-native js-photo-camera hidden"
                data-target-preview="preview_{{ name }}"
                data-max-photos="{{ field.max_photos|default:1 }}"
                data-legend="{{ field.label }}">
+        <input type="file" name="{{ name }}" accept="image/*" multiple
+               class="js-photo-compress js-photo-native js-photo-gallery hidden"
+               data-target-preview="preview_{{ name }}" data-legend="{{ field.label }}">
 
         <!-- Gros bouton Prendre une photo pour smartphone -->
         <div class="flex flex-col sm:flex-row gap-2">
             <button type="button"
-                    onclick="document.getElementById('id_{{ name }}').click()"
+                    onclick="this.closest('.js-photo-widget').querySelector('.js-photo-camera:not([data-used])').click()"
                     class="flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 bg-indigo-50 hover:bg-indigo-100 border-2 border-dashed border-indigo-300 rounded-xl text-indigo-700 font-semibold text-sm transition shadow-sm active:scale-[0.99]">
                 <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>Prendre une photo (Appareil photo)</span>
+                <span>Prendre une photo</span>
+            </button>
+            <button type="button" onclick="this.closest('.js-photo-widget').querySelector('.js-photo-gallery:not([data-used])').click()"
+                    class="flex-1 py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl text-gray-700 font-semibold text-sm">
+                Choisir dans la galerie
             </button>
         </div>
 
@@ -138,17 +143,9 @@
                     {{ photo.legende }}
                 </div>
                 <div class="flex items-center justify-between gap-1 border-t border-gray-100 pt-1.5">
-                    <button type="button"
-                            onclick="document.getElementById('id_{{ name }}').click()"
-                            class="text-[11px] text-indigo-600 font-medium hover:underline">
-                        Remplacer
-                    </button>
-                    <form method="post" action="{% url 'visits:photo-delete' photo.pk %}" onsubmit="return confirm('Supprimer définitivement cette photo ?');" class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="text-[11px] text-rose-600 font-medium hover:underline">
+                        <button type="submit" form="delete-photo-{{ photo.pk }}" onclick="return confirm('Supprimer définitivement cette photo ?');" class="text-[11px] text-rose-600 font-medium hover:underline">
                             Supprimer
                         </button>
-                    </form>
                 </div>
             </div>
             {% endfor %}
@@ -158,7 +155,7 @@
     {% elif field.type == "signature" %}
     <div class="space-y-2">
         <div class="relative">
-            <canvas class="js-signature-canvas w-full h-44 sm:h-52 border-2 border-dashed {% if entry.is_missing %}border-red-400 bg-red-50/10{% else %}border-gray-300 bg-white{% endif %} rounded-xl touch-none block"
+            <canvas class="js-signature-canvas w-full h-44 sm:h-52 border-2 border-dashed {% if entry.is_missing and show_validation_errors %}border-red-400 bg-red-50/10{% else %}border-gray-300 bg-white{% endif %} rounded-xl touch-none block"
                     width="600"
                     height="200"
                     data-target="id_{{ name }}__data"></canvas>
@@ -177,7 +174,7 @@
     {% endif %}
 
     <!-- Affichage d'erreur spécifique sous le champ -->
-    {% if entry.is_missing %}
+    {% if entry.is_missing and show_validation_errors %}
     <p class="text-xs text-rose-600 font-medium flex items-center gap-1.5 pt-0.5">
         <svg class="w-3.5 h-3.5 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />

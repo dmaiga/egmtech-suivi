@@ -3,6 +3,7 @@
 {% block title %}Confirmation de soumission - {{ mission.attached_form.nom }}{% endblock %}
 
 {% block content %}
+<script>try { localStorage.removeItem('visit-draft-{{ visit.pk }}'); } catch (e) {}</script>
 <div class="max-w-2xl w-full mx-auto space-y-6 py-4">
     <!-- En-tête succès -->
     <div class="bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 text-center shadow-sm">

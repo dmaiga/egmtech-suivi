@@ -12,22 +12,26 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-6_3+b=6-!ylm+3g$0hue%_zl78sr&+akk-2p07d^jx(u01u0io'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured('DJANGO_SECRET_KEY est requise dans le fichier .env ou les variables d’environnement.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
 
 # Application definition
 
@@ -77,6 +81,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'egmtech_suivi_terrain.wsgi.application'
 
 AUTH_USER_MODEL = 'accounts.User'
+AUTHENTICATION_BACKENDS = ['accounts.backends.ClientEmailBackend']
 
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = '/app/'
@@ -141,7 +146,7 @@ else:
 
 # Media / fichiers uploadés : stockage configurable ici uniquement.
 # Les apps doivent passer par core.storage.get_upload_storage(), jamais par un chemin en dur.
-MEDIA_URL = 'media/'
+MEDIA_URL = '/private-media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 STORAGES = {
@@ -155,6 +160,9 @@ STORAGES = {
 
 # Taille maximale (en octets) d'une photo uploadée lors d'une visite, rejetée au-delà côté serveur.
 VISITS_MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024
+VISITS_MAX_PHOTOS_PER_VISIT = 150
+# Le formulaire BNDA peut accepter plus de 100 photos dans une soumission.
+DATA_UPLOAD_MAX_NUMBER_FILES = 250
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

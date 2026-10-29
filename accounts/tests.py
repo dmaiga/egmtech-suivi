@@ -180,3 +180,60 @@ class AppHomeTests(TestCase):
         response = self.client.get(reverse("app-home"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("accounts:login"), response.url)
+
+
+class AuditorCreationTests(TestCase):
+    def setUp(self):
+        self.admin = UserModel.objects.create_superuser(username="admin_create", password="pass12345", email="")
+        self.manager = _make_user("manager_create", User.Role.MANAGER)
+        self.auditor = _make_user("auditor_existing", User.Role.SUPERVISEUR)
+        self.url = reverse("accounts:auditor-create")
+
+    def test_admin_can_create_auditor_and_assign_missions(self):
+        from visits.forms import MissionForm
+        from core.models import ActivityLog
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("app-home")), "Auditeurs")
+        response = self.client.post(self.url, {
+            "username": "nouvel.auditeur", "first_name": "Awa", "last_name": "Diallo",
+            "email": "awa@example.com", "password1": "Solide-4729!", "password2": "Solide-4729!",
+            "role": "manager", "is_superuser": "on", "is_staff": "on",
+        })
+        user = UserModel.objects.get(username="nouvel.auditeur")
+        self.assertRedirects(response, reverse("accounts:auditor-detail", args=[user.pk]))
+        self.assertEqual(user.role, User.Role.SUPERVISEUR)
+        self.assertFalse(user.is_superuser)
+        self.assertFalse(user.is_staff)
+        self.assertTrue(user.check_password("Solide-4729!"))
+        self.assertIn(user, MissionForm().fields["superviseur"].queryset)
+        self.assertTrue(ActivityLog.objects.filter(user=self.admin, action="creation_auditeur").exists())
+
+    def test_invalid_form_does_not_create_user(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(self.url, {"username": "invalide", "first_name": "Awa", "last_name": "Diallo", "password1": "abc", "password2": "different"})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(UserModel.objects.filter(username="invalide").exists())
+        self.assertTrue(response.context["form"].errors)
+
+    def test_non_admin_cannot_create_accounts(self):
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        for user in (self.manager, self.auditor):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(self.url).status_code, 403)
+            self.assertEqual(self.client.post(self.url, {}).status_code, 403)
+
+    def test_list_and_detail_are_restricted_and_only_show_auditors(self):
+        listing = reverse("accounts:auditor-list")
+        detail = reverse("accounts:auditor-detail", args=[self.auditor.pk])
+        self.assertEqual(self.client.get(listing).status_code, 302)
+        for user in (self.manager, self.auditor):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(listing).status_code, 403)
+            self.assertEqual(self.client.get(detail).status_code, 403)
+        self.client.force_login(self.admin)
+        response = self.client.get(listing)
+        self.assertContains(response, "auditor_existing")
+        self.assertContains(response, "Créer un auditeur")
+        self.assertNotContains(response, "manager_create")
+        self.assertContains(self.client.get(detail), "auditor_existing")
+        self.assertEqual(self.client.get(reverse("accounts:auditor-detail", args=[self.manager.pk])).status_code, 404)

@@ -146,19 +146,19 @@
                     {% for mission in missions %}
                     <tr class="hover:bg-gray-50/60 transition">
                         <td class="py-3.5 px-4 font-medium text-gray-900">
-                            {{ mission.superviseur.get_full_name|default:mission.superviseur.username }}
+                            {% if request.user.is_superuser %}<a class="text-indigo-700 hover:underline" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}
                         </td>
                         <td class="py-3.5 px-4 font-medium text-gray-900">
-                            {{ mission.site.client.nom }}
+                            <a class="text-indigo-700 hover:underline" href="{% url 'clients:detail' mission.site.client.pk %}">{{ mission.site.client.nom }}</a>
                         </td>
                         <td class="py-3.5 px-4 text-gray-600">
-                            <div>{{ mission.site.nom }}</div>
+                            <div><a class="text-indigo-700 hover:underline" href="{% url 'clients:site-detail' mission.site.client.pk mission.site.pk %}">{{ mission.site.nom }}</a></div>
                             {% if mission.site.ville %}
                             <div class="text-xs text-gray-400">{{ mission.site.ville }}</div>
                             {% endif %}
                         </td>
                         <td class="py-3.5 px-4 text-gray-600">
-                            {{ mission.attached_form.nom }}
+                            <a class="text-indigo-700 hover:underline" href="{% url 'visits:attached-form-detail' mission.attached_form.pk %}">{{ mission.attached_form.nom }}</a>
                         </td>
                         <td class="py-3.5 px-4 whitespace-nowrap">
                             {% if mission.latest_visit %}
@@ -197,8 +197,8 @@
             <div class="p-4 space-y-3">
                 <div class="flex items-start justify-between gap-2">
                     <div>
-                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">{{ mission.site.client.nom }}</span>
-                        <h3 class="font-bold text-gray-900 text-base">{{ mission.site.nom }}</h3>
+                        <a href="{% url 'clients:detail' mission.site.client.pk %}" class="text-xs font-semibold text-indigo-700 uppercase tracking-wider block">{{ mission.site.client.nom }}</a>
+                        <h3 class="font-bold text-gray-900 text-base"><a href="{% url 'clients:site-detail' mission.site.client.pk mission.site.pk %}">{{ mission.site.nom }}</a></h3>
                         {% if mission.site.ville %}
                         <p class="text-xs text-gray-500">{{ mission.site.ville }}</p>
                         {% endif %}
@@ -215,11 +215,11 @@
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                         <span class="text-gray-400 block text-[11px]">Superviseur</span>
-                        <strong class="text-gray-800 font-medium truncate block">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</strong>
+                        <strong class="text-gray-800 font-medium truncate block">{% if request.user.is_superuser %}<a class="text-indigo-700" href="{% url 'accounts:auditor-detail' mission.superviseur.pk %}">{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}</a>{% else %}{{ mission.superviseur.get_full_name|default:mission.superviseur.username }}{% endif %}</strong>
                     </div>
                     <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                         <span class="text-gray-400 block text-[11px]">Formulaire</span>
-                        <strong class="text-gray-800 font-medium truncate block">{{ mission.attached_form.nom }}</strong>
+                        <strong class="text-gray-800 font-medium truncate block"><a class="text-indigo-700" href="{% url 'visits:attached-form-detail' mission.attached_form.pk %}">{{ mission.attached_form.nom }}</a></strong>
                     </div>
                 </div>
                 {% if mission.latest_visit and mission.latest_visit.statut == "soumise" and perms.visits.validate_visits %}

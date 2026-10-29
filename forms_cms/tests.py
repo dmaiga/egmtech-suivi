@@ -167,6 +167,32 @@ class AttachedFormCopyTests(TestCase):
         self.assertTrue(attached.actif)
 
 
+class ClientAttachValidationTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username="admin_attach", password="test-pass-123")
+        self.client.force_login(self.admin)
+        self.client_obj = Client.objects.create(nom="Banque de test")
+        self.template = FormTemplate.objects.create(nom="Audit test", schema=copy.deepcopy(VALID_SCHEMA), actif=True)
+        self.url = reverse("forms_cms:client-attach", args=[self.client_obj.pk])
+
+    def test_missing_invalid_or_inactive_selection_returns_message(self):
+        for value in ("", "abc", "999999999"):
+            response = self.client.post(self.url, {"template_id": value}, follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "formulaire")
+        self.template.actif = False
+        self.template.save()
+        response = self.client.post(self.url, {"template_id": self.template.pk}, follow=True)
+        self.assertContains(response, "plus disponible")
+        self.assertFalse(AttachedForm.objects.filter(client=self.client_obj).exists())
+
+    def test_duplicate_is_rejected_without_creating_second_attachment(self):
+        self.client.post(self.url, {"template_id": self.template.pk})
+        response = self.client.post(self.url, {"template_id": self.template.pk}, follow=True)
+        self.assertContains(response, "déjà attaché")
+        self.assertEqual(AttachedForm.objects.filter(client=self.client_obj, template=self.template).count(), 1)
+
+
 class ExpectedVisitsTests(TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)

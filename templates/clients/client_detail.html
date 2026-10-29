@@ -86,8 +86,11 @@
 
             <!-- Formulaire d'ajout de site -->
             <div class="pt-4 border-t border-gray-100">
-                <h3 class="text-sm font-bold text-gray-900 mb-3">Ajouter un site</h3>
+                <button type="button" data-open-dialog="site-dialog" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">+ Ajouter un site</button>
+                <dialog id="site-dialog" aria-labelledby="site-dialog-title" class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl p-6 backdrop:bg-black/50">
+                <div class="flex items-center justify-between mb-4"><h3 id="site-dialog-title" class="text-lg font-bold text-gray-900">Ajouter un site</h3><button type="button" data-close-dialog aria-label="Fermer" class="text-gray-600 text-xl">×</button></div>
                 {% include "clients/_site_form.html" %}
+                </dialog>
             </div>
         </div>
     </div>
@@ -101,7 +104,7 @@
             <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
                 <div>
                     <h2 class="text-base font-bold text-gray-900">Formulaires attachés et prévisions</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Configurez le nombre de passages prévus par formulaire et par site.</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Indiquez les visites prévues par site : 1 pour un audit unique, 0 pour aucune visite prévue ; vide signifie non défini.</p>
                 </div>
                 <a href="{% url 'forms_cms:list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
                     Gérer la bibliothèque des formulaires →
@@ -140,7 +143,7 @@
                                     type="number" min="0"
                                     id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
                                     name="nombre_prevu_{{ site.pk }}"
-                                    value="{{ nombre_prevu }}"
+                                    value="{{ nombre_prevu|default_if_none:'' }}" placeholder="—"
                                     class="w-16 border border-gray-300 rounded px-2 py-1 text-xs text-right font-mono"
                                 >
                             </div>
@@ -167,20 +170,24 @@
 
             <!-- Attacher un nouveau modèle de formulaire -->
             <div class="mt-6 pt-5 border-t border-gray-100">
-                <h3 class="text-sm font-bold text-gray-900 mb-2">Attacher un nouveau formulaire disponible</h3>
+                <button type="button" data-open-dialog="form-dialog" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">+ Attacher un formulaire</button>
+                <dialog id="form-dialog" aria-labelledby="form-dialog-title" class="w-full max-w-xl rounded-2xl shadow-xl p-6 backdrop:bg-black/50">
+                <div class="flex items-center justify-between mb-4"><h3 id="form-dialog-title" class="text-lg font-bold text-gray-900">Attacher un formulaire</h3><button type="button" data-close-dialog aria-label="Fermer" class="text-gray-600 text-xl">×</button></div>
                 <form method="post" action="{% url 'forms_cms:client-attach' client.pk %}" class="flex items-center gap-3 flex-wrap">
                     {% csrf_token %}
-                    <select name="template_id" class="border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500">
+                    <select name="template_id" required {% if not available_templates %}disabled{% endif %} class="border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Sélectionner un formulaire</option>
                         {% for template in available_templates %}
                         <option value="{{ template.pk }}">{{ template.nom }}</option>
                         {% empty %}
                         <option value="" disabled>Tous les formulaires sont déjà attachés ou aucun actif</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" class="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
+                    <button type="submit" {% if not available_templates %}disabled{% endif %} class="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition">
                         Attacher le formulaire
                     </button>
                 </form>
+                </dialog>
             </div>
         </div>
     </div>
@@ -204,10 +211,11 @@
                 <div class="p-3.5 bg-white flex items-center justify-between hover:bg-gray-50/50 transition">
                     <div class="flex items-center gap-3">
                         <span class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold inline-flex items-center justify-center">
-                            {{ user.username|slice:":1"|upper }}
+                            {{ user.first_name|default:"?"|slice:":1"|upper }}
                         </span>
                         <div>
-                            <span class="text-sm font-semibold text-gray-900">{{ user.username }}</span>
+                            <span class="text-sm font-semibold text-gray-900">{{ user.get_full_name|default:"Nom non renseigné" }}</span>
+                            <span class="block text-xs text-gray-500">{{ user.poste|default:"Poste non renseigné" }} · {{ user.email|default:"E-mail non renseigné" }}</span>
                             {% if not user.is_active %}
                             <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
                                 Révoqué
@@ -235,68 +243,17 @@
                 {% endfor %}
             </div>
 
-            <!-- Formulaire de création de compte client -->
-            <div class="pt-4 border-t border-gray-100 max-w-lg bg-slate-50/70 border border-gray-200 rounded-xl p-5">
-                <h3 class="text-sm font-bold text-gray-900 mb-1">Créer un nouvel accès client</h3>
-                <p class="text-xs text-gray-500 mb-4">Créez un compte dédié pour permettre à ce client d'accéder à son portail de consultation des rapports.</p>
-
+            <button type="button" data-open-dialog="account-dialog" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">+ Ajouter un accès client</button>
+            <dialog id="account-dialog" aria-labelledby="account-dialog-title" class="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl p-6 backdrop:bg-black/50">
+                <div class="flex items-center justify-between mb-4"><h3 id="account-dialog-title" class="text-lg font-bold text-gray-900">Ajouter un accès client</h3><button type="button" data-close-dialog aria-label="Fermer" class="text-gray-600 text-xl">×</button></div>
+                <p class="text-xs text-gray-500 my-3">Le client se connectera avec son adresse e-mail et son mot de passe.</p>
                 <form method="post" action="{% url 'clients:user-create' client.pk %}" class="space-y-4">
                     {% csrf_token %}
-                    <div>
-                        <label for="{{ user_form.username.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
-                            Identifiant de connexion <span class="text-red-500">*</span>
-                        </label>
-                        {{ user_form.username }}
-                        {% if user_form.username.errors %}
-                        <p class="text-[11px] text-red-600 mt-1 font-medium">{{ user_form.username.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-
-                    <div>
-                        <label for="{{ user_form.email.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
-                            Adresse email (optionnelle)
-                        </label>
-                        {{ user_form.email }}
-                        {% if user_form.email.errors %}
-                        <p class="text-[11px] text-red-600 mt-1 font-medium">{{ user_form.email.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label for="{{ user_form.password1.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
-                                Mot de passe <span class="text-red-500">*</span>
-                            </label>
-                            {{ user_form.password1 }}
-                            {% if user_form.password1.errors %}
-                            <p class="text-[11px] text-red-600 mt-1 font-medium">{{ user_form.password1.errors.0 }}</p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ user_form.password2.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1">
-                                Confirmer mot de passe <span class="text-red-500">*</span>
-                            </label>
-                            {{ user_form.password2 }}
-                            {% if user_form.password2.errors %}
-                            <p class="text-[11px] text-red-600 mt-1 font-medium">{{ user_form.password2.errors.0 }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    {% if user_form.non_field_errors %}
-                    <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                        {{ user_form.non_field_errors }}
-                    </div>
-                    {% endif %}
-
-                    <div class="pt-2">
-                        <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                            Créer le compte portail
-                        </button>
-                    </div>
+                    {% for field in user_form %}<div><label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-gray-700">{{ field.label }} <span class="text-red-500">*</span></label>{{ field }}{% if field.errors %}<div class="text-sm text-red-700">{{ field.errors }}</div>{% endif %}</div>{% endfor %}
+                    {{ user_form.non_field_errors }}
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">Créer l’accès</button>
                 </form>
-            </div>
+            </dialog>
         </div>
     </div>
 
@@ -319,5 +276,22 @@ function switchTab(tabName) {
         activeBtn.classList.add('border-indigo-600', 'text-indigo-600', 'font-semibold');
     }
 }
+{% if show_access_tab %}switchTab('acces');{% endif %}
+const requestedTab = new URLSearchParams(window.location.search).get('onglet');
+if (['sites', 'formulaires', 'acces'].includes(requestedTab)) switchTab(requestedTab);
+document.querySelectorAll('[data-open-dialog]').forEach(function (button) {
+    button.addEventListener('click', function () { document.getElementById(button.dataset.openDialog).showModal(); });
+});
+document.querySelectorAll('[data-close-dialog]').forEach(function (button) {
+    button.addEventListener('click', function () { button.closest('dialog').close(); });
+});
+{% if site_form.errors %}document.getElementById('site-dialog').showModal();{% endif %}
+{% if user_form.errors %}document.getElementById('account-dialog').showModal();{% endif %}
+document.body.addEventListener('htmx:beforeSwap', function (event) {
+    if (event.detail.xhr.status === 400 && event.detail.target.id === 'site-form-container') {
+        event.detail.shouldSwap = true;
+        event.detail.isError = false;
+    }
+});
 </script>
 {% endblock %}

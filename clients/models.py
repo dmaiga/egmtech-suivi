@@ -14,7 +14,7 @@ class Client(models.Model):
 
 class Site(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="sites")
-    code = models.CharField(max_length=50)
+    code = models.CharField(max_length=50, blank=True, null=True)
     nom = models.CharField(max_length=150)
     ville = models.CharField(max_length=100, blank=True)
     quartier = models.CharField(max_length=100, blank=True)

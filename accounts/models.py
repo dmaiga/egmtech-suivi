@@ -28,6 +28,7 @@ class User(AbstractUser):
         related_name="users",
         help_text="Obligatoire pour un compte client.",
     )
+    poste = models.CharField(max_length=150, blank=True)
 
     class Meta:
         constraints = [

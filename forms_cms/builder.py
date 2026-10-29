@@ -20,6 +20,7 @@ FIELD_TYPE_LABELS = {
     "multichoice": "Choix multiple",
     "checkbox": "Case à cocher",
     "date": "Date",
+    "time": "Heure",
     "gps": "Position GPS",
     "photo": "Photo",
     "signature": "Signature",

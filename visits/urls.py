@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.mission_list, name="mission-list"),
     path("nouveau/", views.mission_create, name="mission-create"),
     path("options/", views.mission_options, name="mission-options"),
+    path("formulaires/<int:pk>/", views.mission_form_detail, name="attached-form-detail"),
     path("<int:mission_pk>/commencer/", views.visit_start, name="visit-start"),
     path("visites/<int:pk>/", views.visit_edit, name="visit-edit"),
     path("mes-visites/", views.my_visits, name="my-visits"),

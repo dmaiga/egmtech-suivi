@@ -1,6 +1,8 @@
 from django.contrib import messages
 from django.db.models import Count, Sum
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -86,10 +88,27 @@ class ClientCreateView(ManagerRequiredMixin, CreateView):
     form_class = ClientForm
     template_name = "clients/client_form.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["create_account"] = self.request.POST.get("create_account") == "on"
+        context.setdefault("user_form", ClientUserCreationForm(self.request.POST if context["create_account"] else None, prefix="account"))
+        return context
+
     def form_valid(self, form):
-        response = super().form_valid(form)
+        create_account = self.request.POST.get("create_account") == "on"
+        user_form = ClientUserCreationForm(self.request.POST, prefix="account") if create_account else None
+        if user_form and not user_form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, user_form=user_form))
+        with transaction.atomic():
+            self.object = form.save()
+            if user_form:
+                user = user_form.save(commit=False)
+                user.role = User.Role.CLIENT
+                user.client = self.object
+                user.save()
+                log(self.request.user, "creation_compte_client", user, detail={"client_id": self.object.pk})
         messages.success(self.request, f"Client '{self.object.nom}' créé avec succès.")
-        return response
+        return redirect(self.get_success_url())
 
     def get_success_url(self):
         return reverse("clients:detail", args=[self.object.pk])
@@ -115,7 +134,7 @@ class ClientDetailView(ManagerRequiredMixin, DetailView):
             attached_forms_data.append(
                 {
                     "form": attached_form,
-                    "sites": [(site, previsions.get(site.pk, 0)) for site in sites],
+                    "sites": [(site, previsions.get(site.pk)) for site in sites],
                 }
             )
         context["attached_forms_data"] = attached_forms_data
@@ -145,6 +164,12 @@ class SiteUpdateView(ManagerRequiredMixin, UpdateView):
 
 
 @role_required(User.Role.MANAGER)
+def site_detail(request, client_pk, pk):
+    site = get_object_or_404(Site.objects.select_related("client"), pk=pk, client_id=client_pk)
+    return render(request, "clients/site_detail.html", {"site": site})
+
+
+@role_required(User.Role.MANAGER)
 @require_POST
 def site_create(request, client_pk):
     client = get_object_or_404(Client, pk=client_pk)
@@ -152,20 +177,26 @@ def site_create(request, client_pk):
     if form.is_valid():
         site = form.save(commit=False)
         site.client = client
-        site.save()
-        log(request.user, "creation_site", site, detail={"client_id": client.pk})
-        messages.success(request, f"Site '{site.nom}' créé.")
-        return render(
-            request,
-            "clients/_site_create_success.html",
-            {"client": client, "site": site, "site_form": SiteForm()},
-        )
-    return render(
-        request,
-        "clients/_site_form.html",
-        {"client": client, "site_form": form},
-        status=400,
-    )
+        if site.code and Site.objects.filter(client=client, code=site.code).exists():
+            form.add_error("code", "Ce code est déjà utilisé pour un site de ce client.")
+        else:
+            site.save()
+            log(request.user, "creation_site", site, detail={"client_id": client.pk})
+            messages.success(request, f"Site '{site.nom}' créé.")
+            destination = reverse("clients:detail", args=[client.pk])
+            if request.headers.get("HX-Request") == "true":
+                response = HttpResponse(status=200)
+                response["HX-Redirect"] = destination
+                return response
+            return redirect(destination)
+    if request.headers.get("HX-Request") == "true":
+        return render(request, "clients/_site_form.html", {"client": client, "site_form": form}, status=400)
+    view = ClientDetailView()
+    view.setup(request, pk=client.pk)
+    view.object = client
+    context = view.get_context_data()
+    context["site_form"] = form
+    return render(request, "clients/client_detail.html", context, status=400)
 
 
 @role_required(User.Role.MANAGER)
@@ -191,15 +222,13 @@ def client_user_create(request, client_pk):
         user.save()
         log(request.user, "creation_compte_client", user, detail={"client_id": client.pk})
         messages.success(request, "Compte client créé.")
-        return redirect("clients:detail", pk=client.pk)
+        return redirect(reverse("clients:detail", args=[client.pk]) + "?onglet=acces")
 
-    context = {
-        "client": client,
-        "sites": client.sites.all(),
-        "site_form": SiteForm(),
-        "client_users": client.users.filter(role=User.Role.CLIENT),
-        "user_form": form,
-    }
+    view = ClientDetailView()
+    view.setup(request, pk=client.pk)
+    view.object = client
+    context = view.get_context_data()
+    context.update({"user_form": form, "show_access_tab": True})
     return render(request, "clients/client_detail.html", context, status=400)
 
 
