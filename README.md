@@ -8,8 +8,8 @@ Stack : Django 5.2 (LTS), SQLite, templates serveur + HTMX + Tailwind (CDN). Auc
 
 | Usage | Guide | Données |
 |---|---|---|
-| **Démonstration / test** | [DEMO.md](DEMO.md) | Fictives (`seed_demo`) |
-| **Production réelle** | [EXPLOITATION.md](EXPLOITATION.md) | Vraies (`installer_formulaire_bnda`) |
+| **Démonstration / test** | [DEMO.md](docs/DEMO.md) | Fictives (`seed_demo`) |
+| **Production réelle** | [EXPLOITATION.md](docs/EXPLOITATION.md) | Vraies (`installer_formulaire_bnda`) |
 
 Ne jamais mélanger : `seed_demo` crée des comptes au mot de passe connu (`demo1234`). Il ne doit jamais être lancé sur une base réelle.
 
@@ -53,7 +53,7 @@ Chaque rôle est redirigé vers son espace : manager `/app/`, auditeur `/app/mis
 python manage.py seed_demo --reset
 ```
 
-Détails, comptes et déroulé dans [DEMO.md](DEMO.md).
+Détails, comptes et déroulé dans [DEMO.md](docs/DEMO.md).
 
 ## Production réelle en une commande
 
@@ -62,7 +62,7 @@ python manage.py createsuperuser
 python manage.py installer_formulaire_bnda
 ```
 
-Détails (création des comptes, client, sites, sauvegardes, passation) dans [EXPLOITATION.md](EXPLOITATION.md).
+Détails (création des comptes, client, sites, sauvegardes, passation) dans [EXPLOITATION.md](docs/EXPLOITATION.md).
 
 ## Tests
 
