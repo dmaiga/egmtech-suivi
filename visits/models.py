@@ -96,6 +96,9 @@ class VisitPhoto(models.Model):
     field_key = models.CharField(max_length=255, help_text="Clé du champ, ex: 'cameras__0__photo_camera'.")
     legende = models.CharField(max_length=255, blank=True)
     image = models.ImageField(upload_to="visites/photos/", storage=get_upload_storage)
+    miniature = models.ImageField(
+        upload_to="visites/miniatures/", storage=get_upload_storage, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -103,3 +106,63 @@ class VisitPhoto(models.Model):
 
     def __str__(self):
         return f"Photo {self.field_key} - visite {self.visit_id}"
+
+    @property
+    def vignette_url(self):
+        """Miniature si elle existe (anciennes photos : image d'origine)."""
+        return (self.miniature or self.image).url
+
+
+class Echange(models.Model):
+    """Conversation entre un client et les managers, éventuellement liée à une visite publiée."""
+
+    class Statut(models.TextChoices):
+        OUVERT = "ouvert", "Ouvert"
+        CLOS = "clos", "Clos"
+
+    client = models.ForeignKey("clients.Client", on_delete=models.CASCADE, related_name="echanges")
+    visit = models.OneToOneField(
+        Visit, on_delete=models.CASCADE, related_name="echange", null=True, blank=True
+    )
+    sujet = models.CharField(max_length=200)
+    statut = models.CharField(max_length=10, choices=Statut.choices, default=Statut.OUVERT)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    dernier_message_le = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-dernier_message_le"]
+
+    def __str__(self):
+        return f"{self.sujet} ({self.get_statut_display()})"
+
+
+class EchangeMessage(models.Model):
+    echange = models.ForeignKey(Echange, on_delete=models.CASCADE, related_name="messages")
+    auteur = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="messages_echange"
+    )
+    texte = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    lu_le = models.DateTimeField(null=True, blank=True, help_text="Lu par l'autre partie.")
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        return f"Message {self.pk} - échange {self.echange_id}"
+
+
+class EchangeFichier(models.Model):
+    """Pièce jointe d'un message d'échange (image optimisée avec miniature, ou document)."""
+
+    message = models.ForeignKey(EchangeMessage, on_delete=models.CASCADE, related_name="fichiers")
+    fichier = models.FileField(upload_to="echanges/", storage=get_upload_storage)
+    miniature = models.ImageField(
+        upload_to="echanges/miniatures/", storage=get_upload_storage, blank=True
+    )
+    nom_original = models.CharField(max_length=200)
+    est_image = models.BooleanField(default=False)
+    taille = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.nom_original

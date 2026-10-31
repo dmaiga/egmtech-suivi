@@ -158,8 +158,15 @@ STORAGES = {
     },
 }
 
-# Taille maximale (en octets) d'une photo uploadée lors d'une visite, rejetée au-delà côté serveur.
-VISITS_MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024
+# Taille maximale (en octets) d'une photo envoyée par l'appareil, rejetée au-delà côté serveur.
+# L'image est ensuite redimensionnée et recompressée (voir core/images.py) avant stockage.
+VISITS_MAX_PHOTO_SIZE_BYTES = 30 * 1024 * 1024
+IMAGE_MAX_SIDE = 1920
+IMAGE_JPEG_QUALITY = 80
+IMAGE_THUMB_SIDE = 320
+# Pièces jointes des échanges client / manager.
+ECHANGES_MAX_FICHIER_BYTES = 30 * 1024 * 1024
+ECHANGES_MAX_FICHIERS = 5
 VISITS_MAX_PHOTOS_PER_VISIT = 150
 # Le formulaire BNDA peut accepter plus de 100 photos dans une soumission.
 DATA_UPLOAD_MAX_NUMBER_FILES = 250

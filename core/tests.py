@@ -136,7 +136,7 @@ class NavigationContextProcessorTests(TestCase):
         data = navigation(req)
         labels = [item["label"] for item in data["nav_items"]]
 
-        self.assertEqual(labels, ["Avancement", "Visites"])
+        self.assertEqual(labels, ["Avancement", "Visites", "Messages"])
         self.assertNotIn("Accueil", labels)
         self.assertNotIn("Revue", labels)
         self.assertNotIn("Missions", labels)

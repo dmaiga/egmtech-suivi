@@ -4,6 +4,7 @@ import zipfile
 from io import BytesIO
 
 from django.conf import settings
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -12,7 +13,8 @@ from accounts.models import User
 from clients.models import Client, Site
 from core.models import ActivityLog
 from forms_cms.models import AttachedForm, FormTemplate
-from visits.models import Mission, Visit
+from visits import echanges as echanges_service
+from visits.models import Echange, EchangeFichier, Mission, Visit
 
 SCHEMA = {
     "sections": [
@@ -384,3 +386,220 @@ class PortalSobrietyAndVocabularyTests(TestCase):
         response = self.client.get(reverse("portal:visit-list"))
         # Les non-clients doivent être redirigés ou interdits (role_required)
         self.assertIn(response.status_code, [302, 403])
+
+
+class EchangeTests(TestCase):
+    def setUp(self):
+        self.client_a, self.user_a = make_client_user("Client A", "client_a")
+        self.client_b, self.user_b = make_client_user("Client B", "client_b")
+        _, _, _, self.visit = make_mission_and_visit(self.client_a, Visit.Statut.PUBLIEE)
+        _, _, _, self.visit_validee = make_mission_and_visit(self.client_a, Visit.Statut.VALIDEE)
+        self.nouveau = reverse("portal:echange-nouveau")
+        self.manager = User.objects.create_user(username="mgr_rep", password="x", role=User.Role.MANAGER)
+        self.manager.user_permissions.add(Permission.objects.get(codename="validate_visits"))
+
+    def _client_ecrit_sur_rapport(self, texte="Question 1"):
+        self.client.force_login(self.user_a)
+        self.client.post(self.nouveau, {"visite": self.visit.pk, "sujet": "Rapport", "texte": texte})
+        return Echange.objects.get(visit=self.visit)
+
+    def test_fil_depuis_rapport_et_non_lus(self):
+        echange = self._client_ecrit_sur_rapport()
+        self.assertEqual(echanges_service.nb_non_lus_manager(), 1)
+        mgr_url = reverse("revue:echange", args=[echange.pk])
+        self.client.force_login(self.manager)
+        self.client.get(mgr_url)
+        self.assertEqual(echanges_service.nb_non_lus_manager(), 0)
+        self.client.post(mgr_url, {"texte": "Réponse 1"})
+        self.assertEqual(echanges_service.nb_non_lus_client(self.client_a), 1)
+        self.client.force_login(self.user_a)
+        res = self.client.get(reverse("portal:echange-detail", args=[echange.pk]))
+        self.assertContains(res, "Réponse 1")
+        self.assertEqual(echanges_service.nb_non_lus_client(self.client_a), 0)
+
+    def test_client_demarre_discussion_sans_rapport(self):
+        self.client.force_login(self.user_a)
+        res = self.client.post(self.nouveau, {"sujet": "Question générale", "texte": "Bonjour"})
+        echange = Echange.objects.get()
+        self.assertIsNone(echange.visit)
+        self.assertEqual(echange.client, self.client_a)
+        self.assertRedirects(res, reverse("portal:echange-detail", args=[echange.pk]))
+        self.assertContains(self.client.get(reverse("portal:echange-list")), "Question générale")
+        # sujet ou message vide => rien créé
+        self.client.post(self.nouveau, {"sujet": "", "texte": "x"})
+        self.assertEqual(Echange.objects.count(), 1)
+
+    def test_manager_demarre_message_sans_reponse(self):
+        self.client.force_login(self.manager)
+        url = reverse("revue:echange-nouveau")
+        res = self.client.post(url, {"client": self.client_a.pk, "sujet": "Information", "texte": "Bonjour client"})
+        echange = Echange.objects.get()
+        self.assertRedirects(res, reverse("revue:echange", args=[echange.pk]))
+        self.assertEqual(echanges_service.nb_non_lus_client(self.client_a), 1)
+        self.assertEqual(echanges_service.nb_non_lus_client(self.client_b), 0)
+        self.client.force_login(self.user_a)
+        self.assertContains(self.client.get(reverse("portal:echange-detail", args=[echange.pk])), "Bonjour client")
+        self.client.force_login(self.user_b)
+        self.assertEqual(self.client.get(reverse("portal:echange-detail", args=[echange.pk])).status_code, 404)
+
+    def test_inbox_filtres_et_statut(self):
+        echange = self._client_ecrit_sur_rapport("Bonjour")
+        self.client.force_login(self.manager)
+        inbox = reverse("revue:inbox")
+        self.assertContains(self.client.get(inbox), self.client_a.nom)
+        self.assertContains(self.client.get(inbox, {"client": self.client_b.pk}), "Aucun échange")
+        self.assertContains(self.client.get(inbox, {"non_lus": "1"}), "1 nouveau")
+        self.client.post(reverse("revue:echange-statut", args=[echange.pk]))
+        self.assertContains(self.client.get(inbox), "Aucun échange")
+        self.assertContains(self.client.get(inbox, {"statut": "clos"}), self.client_a.nom)
+        self.client.force_login(self.user_a)
+        self.client.post(reverse("portal:echange-detail", args=[echange.pk]), {"texte": "Encore"})
+        echange.refresh_from_db()
+        self.assertEqual(echange.statut, "ouvert")
+
+    def test_cloisonnement_client(self):
+        echange = self._client_ecrit_sur_rapport("SECRET_FIL")
+        self.client.force_login(self.user_b)
+        res = self.client.get(reverse("portal:echange-list"))
+        self.assertNotContains(res, "SECRET_FIL")
+        self.assertNotContains(res, "Rapport")
+        detail = reverse("portal:echange-detail", args=[echange.pk])
+        self.assertEqual(self.client.get(detail).status_code, 404)
+        self.assertEqual(self.client.post(detail, {"texte": "Intrus"}).status_code, 404)
+        # ne peut pas ouvrir une discussion sur le rapport d'un autre client
+        res = self.client.post(self.nouveau, {"visite": self.visit.pk, "sujet": "s", "texte": "t"})
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(echange.messages.count(), 1)
+
+    def test_visite_non_publiee_refusee(self):
+        self.client.force_login(self.user_a)
+        res = self.client.post(self.nouveau, {"visite": self.visit_validee.pk, "sujet": "s", "texte": "t"})
+        self.assertEqual(res.status_code, 404)
+        self.client.force_login(self.manager)
+        res = self.client.post(
+            reverse("revue:echange-nouveau"), {"visite": self.visit_validee.pk, "sujet": "s", "texte": "t"}
+        )
+        self.assertEqual(res.status_code, 404)
+
+    def test_depublication_masque_et_bloque(self):
+        echange = self._client_ecrit_sur_rapport()
+        self.visit.statut = Visit.Statut.DEPUBLIEE
+        self.visit.save()
+        self.client.force_login(self.user_a)
+        self.assertEqual(self.client.get(reverse("portal:echange-detail", args=[echange.pk])).status_code, 404)
+        self.assertEqual(echanges_service.nb_non_lus_client(self.client_a), 0)
+        self.client.force_login(self.manager)
+        mgr_url = reverse("revue:echange", args=[echange.pk])
+        self.assertEqual(self.client.get(mgr_url).status_code, 200)
+        self.assertEqual(self.client.post(mgr_url, {"texte": "x"}).status_code, 403)
+
+    def test_roles_non_autorises(self):
+        echange = self._client_ecrit_sur_rapport()
+        n = echange.messages.count()
+        self.client.force_login(self.visit.mission.superviseur)
+        self.assertEqual(self.client.get(reverse("revue:inbox")).status_code, 403)
+        self.assertIn(self.client.get(self.nouveau).status_code, [302, 403])
+        self.client.force_login(self.user_a)
+        for name, args in [("revue:inbox", []), ("revue:echange", [echange.pk]), ("revue:echange-nouveau", [])]:
+            self.assertEqual(self.client.post(reverse(name, args=args), {"texte": "x"}).status_code, 403)
+        self.assertEqual(self.client.post(reverse("revue:echange-statut", args=[echange.pk])).status_code, 403)
+        self.assertEqual(echange.messages.count(), n)
+
+    def test_boutons_menu_et_dashboard(self):
+        self.client.force_login(self.user_a)
+        res = self.client.get(reverse("portal:visit-detail", args=[self.visit.pk]))
+        self.assertContains(res, self.nouveau + f"?visite={self.visit.pk}")
+        self.assertContains(res, reverse("portal:echange-list"))
+        self.client.force_login(self.manager)
+        self.assertContains(self.client.get(reverse("app-home")), "Messages des clients")
+
+    def test_menu_revue_pas_actif_sur_messages(self):
+        self.client.force_login(self.manager)
+        res = self.client.get(reverse("revue:inbox"))
+        actifs = [i["label"] for i in res.context["nav_items"] if i["is_active"]]
+        self.assertEqual(actifs, ["Messages"])
+        res = self.client.get(reverse("revue:list"))
+        actifs = [i["label"] for i in res.context["nav_items"] if i["is_active"]]
+        self.assertEqual(actifs, ["Revue"])
+
+
+def _gros_png(largeur=4000, hauteur=3000):
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.effect_noise((largeur, hauteur), 80).convert("RGB").save(buf, "PNG")
+    return buf.getvalue()
+
+
+class PiecesJointesTests(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        override = override_settings(MEDIA_ROOT=self.tmp.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.client_a, self.user_a = make_client_user("Client A", "client_a")
+        self.client_b, self.user_b = make_client_user("Client B", "client_b")
+        self.manager = User.objects.create_user(username="mgr_pj", password="x", role=User.Role.MANAGER)
+        self.manager.user_permissions.add(Permission.objects.get(codename="validate_visits"))
+        self.url = reverse("portal:echange-nouveau")
+
+    def _envoyer(self, *fichiers, texte="Voir pièce"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_login(self.user_a)
+        return self.client.post(
+            self.url,
+            {"sujet": "Photo", "texte": texte, "fichiers": [SimpleUploadedFile(n, c) for n, c in fichiers]},
+        )
+
+    def test_image_compressee_avec_miniature(self):
+        from PIL import Image
+
+        brut = _gros_png()
+        self._envoyer(("grande.png", brut))
+        pj = EchangeFichier.objects.get()
+        self.assertTrue(pj.est_image)
+        self.assertLess(pj.fichier.size, len(brut) / 3)
+        with Image.open(pj.fichier.path) as img:
+            self.assertLessEqual(max(img.size), 1920)
+        with Image.open(pj.miniature.path) as img:
+            self.assertLessEqual(max(img.size), 320)
+        self.assertNotIn("grande", pj.fichier.name)
+        self.assertEqual(pj.nom_original, "grande.png")
+
+    def test_document_accepte_et_fichiers_dangereux_refuses(self):
+        self._envoyer(("rapport.pdf", b"%PDF-1.4 test"))
+        self.assertEqual(EchangeFichier.objects.filter(est_image=False).count(), 1)
+        n = Echange.objects.count()
+        self._envoyer(("evil.html", b"<script>"))
+        self._envoyer(("faux.png", b"pas une image"))
+        self.assertEqual(Echange.objects.count(), n)
+        self.assertEqual(EchangeFichier.objects.count(), 1)
+
+    def test_message_avec_pj_seule_et_limite_nombre(self):
+        self._envoyer(("a.txt", b"x"), texte="")
+        self.assertEqual(EchangeFichier.objects.count(), 1)
+        n = Echange.objects.count()
+        self._envoyer(*[(f"{i}.txt", b"x") for i in range(6)])
+        self.assertEqual(Echange.objects.count(), n)
+
+    def test_acces_pj_cloisonne(self):
+        self._envoyer(("grande.png", _gros_png(800, 600)))
+        pj = EchangeFichier.objects.get()
+        for user, statut in [(self.user_a, 200), (self.manager, 200), (self.user_b, 404)]:
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(pj.fichier.url).status_code, statut)
+            self.assertEqual(self.client.get(pj.miniature.url).status_code, statut)
+        self.client.logout()
+        self.assertEqual(self.client.get(pj.fichier.url).status_code, 302)
+
+    def test_document_servi_en_telechargement(self):
+        self._envoyer(("rapport.pdf", b"%PDF-1.4 test"))
+        pj = EchangeFichier.objects.get()
+        self.client.force_login(self.user_a)
+        res = self.client.get(pj.fichier.url)
+        self.assertIn("attachment", res["Content-Disposition"])
+        self.assertIn("rapport.pdf", res["Content-Disposition"])

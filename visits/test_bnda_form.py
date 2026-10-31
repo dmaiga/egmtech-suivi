@@ -14,6 +14,19 @@ from visits.models import Mission, Visit
 from visits.schema_utils import find_missing_required
 
 
+
+def _jpeg_minuscule():
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), "gray").save(buf, "JPEG")
+    return buf.getvalue()
+
+
+JPEG = _jpeg_minuscule()
+
 class PhotoMinimumTests(SimpleTestCase):
     def test_minimum_is_checked_when_submitting(self):
         schema = {"sections": [{"title": "Photos", "fields": [
@@ -59,7 +72,7 @@ class BndaVisitFlowTests(TestCase):
         self.assertIsNotNone(self.visit.created_at)
 
     def test_failed_submission_preserves_responses_and_valid_photos(self):
-        files = [SimpleUploadedFile(f"photo{i}.jpg", b"photo", content_type="image/jpeg") for i in range(7)]
+        files = [SimpleUploadedFile(f"photo{i}.jpg", JPEG, content_type="image/jpeg") for i in range(7)]
         response = self.client.post(reverse("visits:visit-submit", args=[self.visit.pk]), {
             "auditeur": "Auditeur terrain", "heure_audit": "14:35", "photos_enregistreur": files,
         })
@@ -73,7 +86,7 @@ class BndaVisitFlowTests(TestCase):
     def test_file_error_does_not_discard_text(self):
         with override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=2):
             response = self.client.post(reverse("visits:visit-save", args=[self.visit.pk]), {
-                "auditeur": "Texte conservé", "photos_enregistreur": SimpleUploadedFile("photo.jpg", b"large"),
+                "auditeur": "Texte conservé", "photos_enregistreur": SimpleUploadedFile("photo.jpg", JPEG),
             })
         self.assertEqual(response.status_code, 400)
         self.visit.refresh_from_db()
@@ -92,14 +105,14 @@ class BndaVisitFlowTests(TestCase):
         url = reverse("visits:visit-save", args=[self.visit.pk])
         response = self.client.post(url, {
             "auditeur": "Awa",
-            "photos_cameras": SimpleUploadedFile("camera.jpg", b"image", content_type="image/jpeg"),
-            "photos_baie": SimpleUploadedFile("baie.jpg", b"image", content_type="image/jpeg"),
+            "photos_cameras": SimpleUploadedFile("camera.jpg", JPEG, content_type="image/jpeg"),
+            "photos_baie": SimpleUploadedFile("baie.jpg", JPEG, content_type="image/jpeg"),
         })
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.visit.photos.count(), 2)
         response = self.client.post(url, {
             "auditeur": "Awa Diallo",
-            "photos_enregistreur": SimpleUploadedFile("enregistreur.jpg", b"image", content_type="image/jpeg"),
+            "photos_enregistreur": SimpleUploadedFile("enregistreur.jpg", JPEG, content_type="image/jpeg"),
         })
         self.assertContains(response, "plus de 2 photos au total", status_code=400)
         self.visit.refresh_from_db()
@@ -116,8 +129,8 @@ class BndaVisitFlowTests(TestCase):
         self.assertContains(response, 'capture="environment"')
         self.assertContains(response, "js-photo-camera")
         self.assertContains(response, "Choisir dans la galerie")
-        files = [SimpleUploadedFile("camera1.jpg", b"photo1", content_type="image/jpeg"),
-                 SimpleUploadedFile("camera2.jpg", b"photo2", content_type="image/jpeg")]
+        files = [SimpleUploadedFile("camera1.jpg", JPEG, content_type="image/jpeg"),
+                 SimpleUploadedFile("camera2.jpg", JPEG, content_type="image/jpeg")]
         response = self.client.post(reverse("visits:visit-save", args=[self.visit.pk]), {"photos_cameras": files})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.visit.photos.filter(field_key="photos_cameras").count(), 2)

@@ -324,7 +324,22 @@ def get_visit_detail_context(visit, user=None, is_portal=False, show_revue_actio
             except Exception:
                 pdf_url = ""
 
+    echange = getattr(visit, "echange", None)
+    echange_url = ""
+    if is_portal and visit.statut == "publiee":
+        echange_url = (
+            reverse("portal:echange-detail", args=[echange.pk]) if echange
+            else reverse("portal:echange-nouveau") + f"?visite={visit.pk}"
+        )
+    elif show_revue_actions and visit.statut == "publiee":
+        echange_url = (
+            reverse("revue:echange", args=[echange.pk]) if echange
+            else reverse("revue:echange-nouveau") + f"?visite={visit.pk}"
+        )
+
     return {
+        "echange_url": echange_url,
+        "echange_nb": echange.messages.count() if echange else 0,
         "visit": visit,
         "mission": mission,
         "site": site,

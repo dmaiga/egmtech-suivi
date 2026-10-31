@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl w-full mx-auto space-y-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Messages</h1>
+            <p class="text-sm text-gray-500 mt-1">Échanges avec les clients, liés ou non à un rapport.</p>
+        </div>
+        <a href="{% url 'revue:echange-nouveau' %}" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">Nouveau message</a>
+    </div>
+
+    <form method="get" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 flex flex-wrap items-end gap-3">
+        <label class="text-xs font-medium text-gray-500">Client
+            <select name="client" class="mt-1 block rounded-lg border border-gray-300 text-sm p-2">
+                <option value="">Tous</option>
+                {% for c in clients %}<option value="{{ c.pk }}" {% if filter_client == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-xs font-medium text-gray-500">Statut
+            <select name="statut" class="mt-1 block rounded-lg border border-gray-300 text-sm p-2">
+                <option value="ouvert" {% if filter_statut == "ouvert" %}selected{% endif %}>Ouverts</option>
+                <option value="clos" {% if filter_statut == "clos" %}selected{% endif %}>Clos</option>
+                <option value="tous" {% if filter_statut == "tous" %}selected{% endif %}>Tous</option>
+            </select>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 pb-2">
+            <input type="checkbox" name="non_lus" value="1" {% if filter_non_lus %}checked{% endif %}> Non lus uniquement
+        </label>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">Filtrer</button>
+    </form>
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm divide-y divide-gray-100">
+        {% for e in echanges %}
+        <a href="{% url 'revue:echange' e.pk %}" class="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ e.client.nom }} &bull; {{ e.sujet }}</p>
+                <p class="text-xs text-gray-500 truncate">{% if e.visit %}Rapport : {{ e.visit.mission.site.nom }}{% else %}Sans rapport{% endif %} &middot; dernier message le {{ e.dernier_message_le|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if e.non_lus %}<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">{{ e.non_lus }} nouveau{{ e.non_lus|pluralize:"x" }}</span>{% endif %}
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium border {% if e.statut == "ouvert" %}bg-emerald-50 text-emerald-700 border-emerald-200{% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">{{ e.get_statut_display }}</span>
+            </div>
+        </a>
+        {% empty %}
+        <p class="px-5 py-10 text-center text-sm text-gray-400">Aucun échange.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

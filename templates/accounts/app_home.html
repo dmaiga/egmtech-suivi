@@ -112,6 +112,22 @@
 
     </div>
 
+    {% if perms.visits.validate_visits %}
+    <!-- Messages clients -->
+    <a href="{% url 'revue:inbox' %}" class="flex items-center justify-between gap-4 bg-white border {% if messages_non_lus %}border-rose-300{% else %}border-gray-200{% endif %} rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-sm transition">
+        <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl {% if messages_non_lus %}bg-rose-50 text-rose-600{% else %}bg-gray-50 text-gray-500{% endif %} flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5m-9 6l2.5-3H19a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14z"/></svg>
+            </span>
+            <div>
+                <p class="text-sm font-bold text-gray-900">Messages des clients</p>
+                <p class="text-xs text-gray-500">{{ messages_non_lus }} message{{ messages_non_lus|pluralize }} non lu{{ messages_non_lus|pluralize }} &middot; {{ echanges_ouverts }} échange{{ echanges_ouverts|pluralize }} ouvert{{ echanges_ouverts|pluralize }}</p>
+            </div>
+        </div>
+        <span class="text-xs font-semibold text-indigo-600">Ouvrir la boîte de réception &rarr;</span>
+    </a>
+    {% endif %}
+
     <!-- ====================================================================== -->
     <!-- 2. DERNIÈRES VISITES SOUMISES                                          -->
     <!-- ====================================================================== -->

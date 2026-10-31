@@ -1,13 +1,15 @@
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from accounts.decorators import role_required
 from accounts.models import User
 from clients.models import Site
 from core.services import log
 from forms_cms.models import AttachedForm, ExpectedVisits
+from visits import echanges as echanges_service
 from visits.models import Visit
 from visits.pdf import (
     build_visits_zip,
@@ -303,6 +305,85 @@ def visit_detail(request, pk):
 
     context = get_visit_detail_context(visit, user=request.user, is_portal=True)
     return render(request, "portal/visit_detail.html", context)
+
+
+@role_required(User.Role.CLIENT)
+def echange_list(request):
+    context = {"echanges": echanges_service.echanges_client(request.user.client)}
+    return render(request, "echanges/portal_list.html", context)
+
+
+@role_required(User.Role.CLIENT)
+def echange_nouveau(request):
+    client = request.user.client
+    visit = None
+    visite_id = request.GET.get("visite") or request.POST.get("visite")
+    if visite_id and str(visite_id).isdigit():
+        visit = get_object_or_404(
+            Visit.objects.select_related("mission__site", "mission__attached_form"),
+            pk=visite_id,
+            statut=Visit.Statut.PUBLIEE,
+            mission__site__client=client,
+        )
+        if hasattr(visit, "echange"):
+            return redirect("portal:echange-detail", pk=visit.echange.pk)
+
+    erreur = ""
+    if request.method == "POST":
+        sujet = request.POST.get("sujet", "").strip()[:200]
+        texte = request.POST.get("texte", "").strip()
+        fichiers, erreurs = echanges_service.preparer_fichiers(request.FILES.getlist("fichiers"))
+        if not (sujet and (texte or fichiers)):
+            erreur = "Le sujet et le message sont obligatoires."
+        elif erreurs:
+            erreur = " ".join(erreurs)
+        else:
+            echange = echanges_service.creer_echange(client, request.user, sujet, texte, visit=visit, fichiers=fichiers)
+            log(request.user, "commentaire_client_visite", echange, detail={"client_id": client.pk})
+            return redirect("portal:echange-detail", pk=echange.pk)
+
+    context = {
+        "visit": visit,
+        "erreur": erreur,
+        "is_portal": True,
+        "back_url": reverse("portal:echange-list"),
+        "sujet": request.POST.get("sujet") or (echanges_service.sujet_par_defaut(visit) if visit else ""),
+        "texte": request.POST.get("texte", ""),
+    }
+    return render(request, "echanges/new.html", context)
+
+
+@role_required(User.Role.CLIENT)
+def echange_detail(request, pk):
+    echange = get_object_or_404(
+        echanges_service.echanges_client(request.user.client), pk=pk
+    )
+    erreur = ""
+    texte_saisi = ""
+    if request.method == "POST":
+        texte_saisi = request.POST.get("texte", "").strip()
+        fichiers, erreurs = echanges_service.preparer_fichiers(request.FILES.getlist("fichiers"))
+        if erreurs:
+            erreur = " ".join(erreurs)
+        elif texte_saisi or fichiers:
+            echanges_service.envoyer_message(echange, request.user, texte_saisi, fichiers)
+            log(request.user, "commentaire_client_visite", echange, detail={"client_id": echange.client_id})
+            return redirect("portal:echange-detail", pk=echange.pk)
+    echanges_service.marquer_lus(echange, cote_client=True)
+    context = {
+        "erreur": erreur,
+        "texte_saisi": texte_saisi,
+        "echange": echange,
+        "visit": echange.visit,
+        "messages_echange": echange.messages.select_related("auteur").prefetch_related("fichiers"),
+        "can_post": True,
+        "post_url": reverse("portal:echange-detail", args=[echange.pk]),
+        "statut_url": "",
+        "visit_url": reverse("portal:visit-detail", args=[echange.visit_id]) if echange.visit_id else "",
+        "back_url": reverse("portal:echange-list"),
+        "is_portal": True,
+    }
+    return render(request, "echanges/thread.html", context)
 
 
 def _pdf_response(content, filename):

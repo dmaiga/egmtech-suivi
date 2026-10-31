@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Nouvelle discussion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl w-full mx-auto space-y-4">
+    <a href="{{ back_url }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800">&larr; Retour aux messages</a>
+    <form method="post" enctype="multipart/form-data" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
+        {% csrf_token %}
+        <h1 class="text-lg font-bold text-gray-900">{% if is_portal %}Nouvelle discussion{% else %}Nouveau message{% endif %}</h1>
+        {% if visit %}
+        <input type="hidden" name="visite" value="{{ visit.pk }}">
+        <p class="text-sm text-gray-600">À propos du rapport : <span class="font-semibold">{{ visit.mission.attached_form.nom }}</span> &bull; {{ visit.mission.site.nom }}</p>
+        {% endif %}
+        {% if erreur %}<p class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">{{ erreur }}</p>{% endif %}
+        {% if not is_portal and not visit %}
+        <label class="block text-sm font-medium text-gray-700">Client
+            <select name="client" required class="mt-1 block w-full rounded-lg border border-gray-300 p-2 text-sm">
+                <option value="">Choisir un client</option>
+                {% for c in clients %}<option value="{{ c.pk }}" {% if selected_client == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+            </select>
+        </label>
+        {% endif %}
+        <label class="block text-sm font-medium text-gray-700">Sujet
+            <input type="text" name="sujet" value="{{ sujet }}" required maxlength="200" class="mt-1 block w-full rounded-lg border border-gray-300 p-2 text-sm">
+        </label>
+        <label class="block text-sm font-medium text-gray-700">Message
+            <textarea name="texte" rows="5" class="mt-1 block w-full rounded-lg border border-gray-300 p-2 text-sm">{{ texte }}</textarea>
+        </label>
+        <label class="block text-xs text-gray-500">Pièces jointes (images, PDF, Word, Excel — 5 max)
+            <input type="file" name="fichiers" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" class="mt-1 block w-full text-xs">
+        </label>
+        <div class="text-right">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">Envoyer</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

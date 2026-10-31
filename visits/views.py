@@ -15,12 +15,14 @@ from django.views.decorators.http import require_POST
 from accounts.decorators import role_required
 from accounts.models import User
 from clients.models import Client, Site
+from core.images import optimiser_image
 from core.services import log
 from forms_cms.models import AttachedForm
 
 from .decorators import validate_visits_required
 from .forms import MissionForm
-from .models import Mission, Visit, VisitPhoto
+from . import echanges as echanges_service
+from .models import Echange, Mission, Visit, VisitPhoto
 from .pdf import (
     build_visits_zip,
     render_visit_pdf,
@@ -366,11 +368,17 @@ def _apply_submission(request, visit):
     visit.save()
 
     for field_key, f in new_photos:
+        try:
+            image, miniature = optimiser_image(f)
+        except ValueError:
+            errors.append(f"« {f.name} » n'est pas une image valide.")
+            continue
         VisitPhoto.objects.create(
             visit=visit,
             field_key=field_key,
             legende=photo_label_for_field(schema, field_key),
-            image=f,
+            image=image,
+            miniature=miniature,
         )
 
     return errors
@@ -634,6 +642,120 @@ def revue_detail(request, pk):
     if request.headers.get("HX-Request"):
         return render(request, "visits/_visit_detail.html", context)
     return render(request, "visits/revue_detail.html", context)
+
+
+@validate_visits_required
+def echange_inbox(request):
+    statut = request.GET.get("statut", Echange.Statut.OUVERT)
+    client_id = request.GET.get("client", "").strip()
+    non_lus = request.GET.get("non_lus") == "1"
+
+    qs = echanges_service.echanges_manager()
+    if statut in Echange.Statut.values:
+        qs = qs.filter(statut=statut)
+    if client_id.isdigit():
+        qs = qs.filter(client_id=client_id)
+    if non_lus:
+        qs = qs.filter(non_lus__gt=0)
+
+    context = {
+        "echanges": qs,
+        "clients": Client.objects.order_by("nom"),
+        "filter_statut": statut,
+        "filter_client": client_id,
+        "filter_non_lus": non_lus,
+    }
+    return render(request, "echanges/inbox.html", context)
+
+
+@validate_visits_required
+def echange_nouveau(request):
+    visit = None
+    visite_id = request.GET.get("visite") or request.POST.get("visite")
+    if visite_id and str(visite_id).isdigit():
+        visit = get_object_or_404(
+            Visit.objects.select_related("mission__site__client", "mission__attached_form"),
+            pk=visite_id,
+            statut=Visit.Statut.PUBLIEE,
+        )
+        if hasattr(visit, "echange"):
+            return redirect("revue:echange", pk=visit.echange.pk)
+
+    clients = Client.objects.order_by("nom")
+    erreur = ""
+    if request.method == "POST":
+        sujet = request.POST.get("sujet", "").strip()[:200]
+        texte = request.POST.get("texte", "").strip()
+        client = visit.mission.site.client if visit else clients.filter(pk=request.POST.get("client") or 0).first()
+        fichiers, erreurs = echanges_service.preparer_fichiers(request.FILES.getlist("fichiers"))
+        if not (client and sujet and (texte or fichiers)):
+            erreur = "Client, sujet et message sont obligatoires."
+        elif erreurs:
+            erreur = " ".join(erreurs)
+        else:
+            echange = echanges_service.creer_echange(client, request.user, sujet, texte, visit=visit, fichiers=fichiers)
+            log(request.user, "message_manager", echange, detail={"client_id": client.pk})
+            return redirect("revue:echange", pk=echange.pk)
+
+    context = {
+        "visit": visit,
+        "clients": clients,
+        "erreur": erreur,
+        "is_portal": False,
+        "back_url": reverse("revue:inbox"),
+        "sujet": request.POST.get("sujet") or (echanges_service.sujet_par_defaut(visit) if visit else ""),
+        "texte": request.POST.get("texte", ""),
+        "selected_client": request.POST.get("client", ""),
+    }
+    return render(request, "echanges/new.html", context)
+
+
+@validate_visits_required
+def echange_detail(request, pk):
+    echange = get_object_or_404(
+        Echange.objects.select_related("client", "visit__mission__site", "visit__mission__attached_form"),
+        pk=pk,
+    )
+    can_post = echanges_service.echange_accessible(echange)
+    erreur = ""
+    texte_saisi = ""
+    if request.method == "POST":
+        if not can_post:
+            raise PermissionDenied("La visite n'est pas publiée.")
+        texte_saisi = request.POST.get("texte", "").strip()
+        fichiers, erreurs = echanges_service.preparer_fichiers(request.FILES.getlist("fichiers"))
+        if erreurs:
+            erreur = " ".join(erreurs)
+        elif texte_saisi or fichiers:
+            echanges_service.envoyer_message(echange, request.user, texte_saisi, fichiers)
+            log(request.user, "message_manager", echange, detail={"client_id": echange.client_id})
+            return redirect("revue:echange", pk=echange.pk)
+    echanges_service.marquer_lus(echange, cote_client=False)
+    context = {
+        "erreur": erreur,
+        "texte_saisi": texte_saisi,
+        "echange": echange,
+        "visit": echange.visit,
+        "messages_echange": echange.messages.select_related("auteur").prefetch_related("fichiers"),
+        "can_post": can_post,
+        "post_url": reverse("revue:echange", args=[echange.pk]),
+        "statut_url": reverse("revue:echange-statut", args=[echange.pk]),
+        "visit_url": reverse("revue:detail", args=[echange.visit_id]) if echange.visit_id else "",
+        "back_url": reverse("revue:inbox"),
+        "is_portal": False,
+    }
+    return render(request, "echanges/thread.html", context)
+
+
+@validate_visits_required
+@require_POST
+def echange_statut(request, pk):
+    echange = get_object_or_404(Echange, pk=pk)
+    echange.statut = (
+        Echange.Statut.OUVERT if echange.statut == Echange.Statut.CLOS else Echange.Statut.CLOS
+    )
+    echange.save(update_fields=["statut"])
+    return redirect("revue:echange", pk=pk)
 
 
 @validate_visits_required

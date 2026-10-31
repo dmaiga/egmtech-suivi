@@ -54,6 +54,19 @@ def make_client_site_form():
     return client_obj, site, attached
 
 
+
+def _jpeg_minuscule():
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), "gray").save(buf, "JPEG")
+    return buf.getvalue()
+
+
+JPEG = _jpeg_minuscule()
+
 class MissionVisibilityTests(TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
@@ -175,7 +188,7 @@ class VisitSubmissionTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-@override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=100, MEDIA_ROOT=tempfile.mkdtemp())
+@override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=2000, MEDIA_ROOT=tempfile.mkdtemp())
 class PhotoSizeLimitTests(TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
@@ -189,7 +202,7 @@ class PhotoSizeLimitTests(TestCase):
         self.visit = Visit.objects.get(mission=self.mission)
 
     def test_photo_trop_lourde_est_rejetee(self):
-        gros_fichier = SimpleUploadedFile("photo.jpg", b"x" * 200, content_type="image/jpeg")
+        gros_fichier = SimpleUploadedFile("photo.jpg", b"x" * 3000, content_type="image/jpeg")
         response = self.client.post(
             reverse("visits:visit-save", args=[self.visit.pk]),
             {"photo_site": gros_fichier},
@@ -198,7 +211,7 @@ class PhotoSizeLimitTests(TestCase):
         self.assertEqual(VisitPhoto.objects.count(), 0)
 
     def test_photo_dans_la_limite_est_acceptee(self):
-        petit_fichier = SimpleUploadedFile("photo.jpg", b"x" * 50, content_type="image/jpeg")
+        petit_fichier = SimpleUploadedFile("photo.jpg", JPEG, content_type="image/jpeg")
         response = self.client.post(
             reverse("visits:visit-save", args=[self.visit.pk]),
             {"photo_site": petit_fichier},
@@ -210,11 +223,11 @@ class PhotoSizeLimitTests(TestCase):
         for _ in range(2):
             self.client.post(
                 reverse("visits:visit-save", args=[self.visit.pk]),
-                {"photo_site": SimpleUploadedFile("photo.jpg", b"x" * 50, content_type="image/jpeg")},
+                {"photo_site": SimpleUploadedFile("photo.jpg", JPEG, content_type="image/jpeg")},
             )
         response = self.client.post(
             reverse("visits:visit-save", args=[self.visit.pk]),
-            {"photo_site": SimpleUploadedFile("photo.jpg", b"x" * 50, content_type="image/jpeg")},
+            {"photo_site": SimpleUploadedFile("photo.jpg", JPEG, content_type="image/jpeg")},
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(VisitPhoto.objects.count(), 2)

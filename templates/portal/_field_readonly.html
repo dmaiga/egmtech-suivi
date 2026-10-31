@@ -18,7 +18,7 @@
     <div class="flex flex-wrap gap-3 mt-1">
         {% for photo in entry.photos %}
         <figure class="text-center">
-            <img src="{{ photo.image.url }}" alt="{{ photo.legende }}" class="h-24 w-24 object-cover rounded-md border border-gray-200">
+            <img src="{{ photo.vignette_url }}" alt="{{ photo.legende }}" class="h-24 w-24 object-cover rounded-md border border-gray-200">
             <figcaption class="text-xs text-gray-500 mt-1">{{ photo.legende }}</figcaption>
         </figure>
         {% endfor %}

@@ -1,6 +1,7 @@
 from django.urls import NoReverseMatch, reverse
 
 from accounts.models import User
+from visits import echanges as echanges_service
 
 
 def _safe_reverse(name):
@@ -64,8 +65,22 @@ def navigation(request):
                 items.append({
                     "label": "Revue",
                     "url": revue_url,
-                    "is_active": current_path.startswith(revue_url),
+                    "is_active": (
+                        current_path.startswith(revue_url)
+                        and not current_path.startswith(_safe_reverse("revue:inbox") or "\0")
+                    ),
                     "icon": "clipboard-check",
+                })
+
+        if user.is_superuser or user.has_perm("visits.validate_visits"):
+            messages_url = _safe_reverse("revue:inbox")
+            if messages_url:
+                items.append({
+                    "label": "Messages",
+                    "url": messages_url,
+                    "is_active": current_path.startswith(messages_url),
+                    "icon": "chat",
+                    "badge": echanges_service.nb_non_lus_manager(),
                 })
 
         # Missions
@@ -144,6 +159,15 @@ def navigation(request):
                 "url": visits_url,
                 "is_active": current_path.startswith("/portail/visites/"),
                 "icon": "clipboard-check",
+            })
+        messages_url = _safe_reverse("portal:echange-list")
+        if messages_url and user.client_id:
+            items.append({
+                "label": "Messages",
+                "url": messages_url,
+                "is_active": current_path.startswith(messages_url),
+                "icon": "chat",
+                "badge": echanges_service.nb_non_lus_client(user.client),
             })
 
     return {

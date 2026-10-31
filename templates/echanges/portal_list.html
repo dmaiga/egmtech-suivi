@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl w-full mx-auto space-y-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Messages</h1>
+            <p class="text-sm text-gray-500 mt-1">Vos échanges avec l'équipe EGM.</p>
+        </div>
+        <a href="{% url 'portal:echange-nouveau' %}" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">Nouvelle discussion</a>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm divide-y divide-gray-100">
+        {% for e in echanges %}
+        <a href="{% url 'portal:echange-detail' e.pk %}" class="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ e.sujet }}</p>
+                <p class="text-xs text-gray-500">{% if e.visit %}Rapport : {{ e.visit.mission.site.nom }} &middot; {% endif %}Dernier message le {{ e.dernier_message_le|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if e.non_lus %}<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">{{ e.non_lus }} nouveau{{ e.non_lus|pluralize:"x" }}</span>{% endif %}
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium border {% if e.statut == "ouvert" %}bg-emerald-50 text-emerald-700 border-emerald-200{% else %}bg-gray-100 text-gray-600 border-gray-200{% endif %}">{{ e.get_statut_display }}</span>
+            </div>
+        </a>
+        {% empty %}
+        <p class="px-5 py-10 text-center text-sm text-gray-400">Aucun échange pour le moment.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

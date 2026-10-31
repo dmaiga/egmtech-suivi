@@ -7,7 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from visits.models import Mission, Visit
+from visits import echanges as echanges_service
+from visits.models import Echange, Mission, Visit
 from core.services import log
 from .forms import AuditorCreationForm
 from .models import User
@@ -113,5 +114,7 @@ def app_home(request):
         "missions_en_cours": missions_en_cours,
         "visites_publiees_mois": visites_publiees_mois,
         "dernieres_soumises": dernieres_soumises,
+        "messages_non_lus": echanges_service.nb_non_lus_manager(),
+        "echanges_ouverts": Echange.objects.filter(statut=Echange.Statut.OUVERT).count(),
     }
     return render(request, "accounts/app_home.html", context)

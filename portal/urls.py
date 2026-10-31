@@ -10,6 +10,9 @@ urlpatterns = [
     path("sites/<int:pk>/export/", views.site_export, name="site-export"),
     path("visites/", views.visit_list, name="visit-list"),
     path("visites/<int:pk>/", views.visit_detail, name="visit-detail"),
+    path("messages/", views.echange_list, name="echange-list"),
+    path("messages/nouveau/", views.echange_nouveau, name="echange-nouveau"),
+    path("messages/<int:pk>/", views.echange_detail, name="echange-detail"),
     path("visites/<int:pk>/pdf/", views.visit_pdf, name="visit-pdf"),
     path("export/", views.client_export, name="client-export"),
 ]

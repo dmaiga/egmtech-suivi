@@ -137,7 +137,7 @@
             {% for photo in entry.photos %}
             <div class="relative bg-white border border-gray-200 rounded-xl p-2 shadow-sm flex flex-col justify-between group">
                 <div class="aspect-square w-full rounded-lg overflow-hidden bg-gray-100 mb-2">
-                    <img src="{{ photo.image.url }}" alt="{{ photo.legende }}" class="w-full h-full object-cover">
+                    <img src="{{ photo.vignette_url }}" alt="{{ photo.legende }}" class="w-full h-full object-cover">
                 </div>
                 <div class="text-[11px] font-semibold text-gray-700 truncate mb-2" title="{{ photo.legende }}">
                     {{ photo.legende }}
