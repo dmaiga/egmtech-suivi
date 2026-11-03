@@ -292,3 +292,20 @@ class AuditorCreationTests(TestCase):
         client_user = _make_user("client_user", User.Role.CLIENT)
         self.assertNotContains(response, "client_user")
         self.assertEqual(self.client.get(reverse("accounts:auditor-detail", args=[client_user.pk])).status_code, 404)
+
+
+class SeedUserProdTests(TestCase):
+    def test_creates_auditors_once_without_overwriting(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        call_command("seed_user_prod", password="initial", stdout=StringIO())
+        self.assertEqual(UserModel.objects.filter(role=User.Role.SUPERVISEUR).count(), 5)
+        self.assertTrue(self.client.login(username="oumar.toure@egmtech.co", password="initial"))
+        user = UserModel.objects.get(email="boubacar.sy@egmtech.co")
+        user.set_password("change")
+        user.save()
+        call_command("seed_user_prod", password="initial", stdout=StringIO())
+        self.assertEqual(UserModel.objects.filter(role=User.Role.SUPERVISEUR).count(), 5)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("change"))
