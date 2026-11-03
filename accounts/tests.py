@@ -253,21 +253,36 @@ class AuditorCreationTests(TestCase):
         self.assertFalse(UserModel.objects.filter(first_name="Awa").exists())
         self.assertTrue(response.context["form"].errors)
 
-    def test_non_admin_cannot_create_accounts(self):
+    def test_auditor_cannot_create_accounts(self):
         self.assertEqual(self.client.get(self.url).status_code, 302)
-        for user in (self.manager, self.auditor):
-            self.client.force_login(user)
-            self.assertEqual(self.client.get(self.url).status_code, 403)
-            self.assertEqual(self.client.post(self.url, {}).status_code, 403)
+        self.client.force_login(self.auditor)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.assertEqual(self.client.post(self.url, {}).status_code, 403)
+
+    def test_manager_without_permission_creates_auditors_and_managers(self):
+        self.assertFalse(self.manager.has_perm("accounts.manage_users"))
+        self.client.force_login(self.manager)
+        self.assertContains(self.client.get(reverse("app-home")), "Auditeurs")
+        base = {"last_name": "N", "password1": "Solide-4729!", "password2": "Solide-4729!"}
+        response = self.client.post(self.url, {**base, "first_name": "Sup", "email": "sup@example.com", "role": "superviseur"})
+        sup = UserModel.objects.get(email="sup@example.com")
+        self.assertRedirects(response, reverse("accounts:auditor-detail", args=[sup.pk]))
+        self.assertEqual(sup.role, User.Role.SUPERVISEUR)
+        self.client.post(self.url, {**base, "first_name": "Chef", "email": "chef@example.com", "role": "manager"})
+        chef = UserModel.objects.get(email="chef@example.com")
+        self.assertEqual(chef.role, User.Role.MANAGER)
+        self.assertTrue(chef.has_perm("visits.validate_visits"))
 
     def test_list_and_detail_are_restricted_and_only_show_auditors(self):
         listing = reverse("accounts:auditor-list")
         detail = reverse("accounts:auditor-detail", args=[self.auditor.pk])
         self.assertEqual(self.client.get(listing).status_code, 302)
-        for user in (self.manager, self.auditor):
-            self.client.force_login(user)
-            self.assertEqual(self.client.get(listing).status_code, 403)
-            self.assertEqual(self.client.get(detail).status_code, 403)
+        self.client.force_login(self.auditor)
+        self.assertEqual(self.client.get(listing).status_code, 403)
+        self.assertEqual(self.client.get(detail).status_code, 403)
+        self.client.force_login(self.manager)
+        self.assertContains(self.client.get(listing), "auditor_existing")
+        self.assertContains(self.client.get(detail), "auditor_existing")
         self.client.force_login(self.admin)
         response = self.client.get(listing)
         self.assertContains(response, "auditor_existing")

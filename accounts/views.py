@@ -15,7 +15,8 @@ from .models import User
 
 
 def _can_manage_users(user):
-    return user.is_superuser or user.has_perm("accounts.manage_users")
+    """Tout manager crée des comptes manager et auditeur, sans dépendre de l'administrateur."""
+    return user.is_superuser or user.is_manager() or user.has_perm("accounts.manage_users")
 
 
 @login_required

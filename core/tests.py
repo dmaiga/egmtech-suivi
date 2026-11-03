@@ -47,7 +47,7 @@ class NavigationContextProcessorTests(TestCase):
         self.assertEqual(data["nav_items"], [])
         self.assertEqual(data["user_role_label"], "")
 
-    def test_only_admin_sees_auditor_creation_in_navigation(self):
+    def test_admin_and_managers_see_auditor_creation_in_navigation(self):
         admin = User.objects.create_superuser(username="admin_nav", password="password")
         req = self.factory.get(reverse("accounts:auditor-create"))
         req.user = admin
@@ -55,6 +55,8 @@ class NavigationContextProcessorTests(TestCase):
         self.assertEqual(item["url"], reverse("accounts:auditor-list"))
         self.assertTrue(item["is_active"])
         req.user = User.objects.create_user(username="manager_nav", role=User.Role.MANAGER)
+        self.assertIn("Auditeurs", [item["label"] for item in navigation(req)["nav_items"]])
+        req.user = User.objects.create_user(username="sup_nav", role=User.Role.SUPERVISEUR)
         self.assertNotIn("Auditeurs", [item["label"] for item in navigation(req)["nav_items"]])
 
     def test_manager_without_special_permissions_sees_base_manager_menu(self):
