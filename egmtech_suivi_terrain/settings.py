@@ -36,6 +36,14 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS',
 # Origines complètes (avec https://) autorisées pour les formulaires POST derrière un domaine public.
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
 
+# À activer seulement une fois le certificat SSL valide : redirection HTTPS et cookies sécurisés.
+if os.environ.get('DJANGO_HTTPS', 'false').lower() == 'true':
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS : les navigateurs refusent ensuite le HTTP pendant cette durée. Commencer petit (3600).
+    SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '0'))
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -55,6 +63,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Sert les fichiers statiques en production (DEBUG=false), sans configuration Apache.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -136,16 +146,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# Dossier de destination pour python manage.py collectstatic
-if os.environ.get('DJANGO_STATIC_ROOT'):
-    STATIC_ROOT = Path(os.environ['DJANGO_STATIC_ROOT'])
-elif (BASE_DIR / 'public').is_dir():
-    STATIC_ROOT = BASE_DIR / 'public' / 'static'
-else:
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Dossier de destination pour python manage.py collectstatic, servi ensuite par WhiteNoise.
+STATIC_ROOT = Path(os.environ.get('DJANGO_STATIC_ROOT', BASE_DIR / 'staticfiles'))
 
 # Media / fichiers uploadés : stockage configurable ici uniquement.
 # Les apps doivent passer par core.storage.get_upload_storage(), jamais par un chemin en dur.
@@ -157,7 +162,7 @@ STORAGES = {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
     },
     'staticfiles': {
-        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 
