@@ -1,16 +1,45 @@
+import unicodedata
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.models import User
-from clients.models import Client
+from clients.models import Client, Site
 from forms_cms.models import ExpectedVisits, FormTemplate
 from forms_cms.services import attach_template_to_client, set_expected_visits
 
 
+# Agences BNDA : (nom du site, ville).
+AGENCES = [
+    ("Générale Bâtiment", "Bamako"), ("Agence de l'Hippodrome", "Bamako"), ("Médine", "Bamako"),
+    ("Ngolonina", "Bamako"), ("Grand Marché", "Bamako"), ("Marché Rose", "Bamako"),
+    ("Bamako Coura", "Bamako"), ("Sébénicoro", "Bamako"), ("Bacodjicoroni", "Bamako"),
+    ("Kalaban Coro", "Bamako"), ("Kalaban Coura", "Bamako"), ("Niamacoro", "Bamako"),
+    ("Faladjè", "Bamako"), ("Missabougou", "Bamako"), ("Badalabougou", "Bamako"),
+    ("Kati", "Kati"), ("Kayes Plateau", "Kayes"), ("Kayes Khasso", "Kayes"),
+    ("Kéniéba", "Kéniéba"), ("Kita", "Kita"), ("Koulikoro", "Koulikoro"),
+    ("Fana", "Fana"), ("Dioïla", "Dioïla"), ("Baroueli", "Baroueli"),
+    ("Ségou Centre", "Ségou"), ("Ségou Pélengana", "Ségou"), ("Niono", "Niono"),
+    ("Bla", "Bla"), ("Mpessoba", "Mpessoba"), ("Koutiala", "Koutiala"),
+    ("Koutiala Koko", "Koutiala"), ("Yorosso", "Yorosso"), ("San", "San"),
+    ("Sévaré", "Mopti"), ("Mopti", "Mopti"), ("Bandiagara", "Bandiagara"),
+    ("Tombouctou", "Tombouctou"), ("Gao", "Gao"), ("Ouélessébougou", "Ouélessébougou"),
+    ("Bougouni", "Bougouni"), ("Yanfolila", "Yanfolila"), ("Niéna", "Niéna"),
+    ("Kolondiéba", "Kolondiéba"), ("Kadiolo", "Kadiolo"), ("Sikasso Wayerma", "Sikasso"),
+    ("Sikasso Médine", "Sikasso"), ("Zégoua", "Zégoua"),
+]
+
+
+def _cle(nom):
+    """Compare les noms sans tenir compte des accents, de la casse ni des apostrophes typographiques."""
+    nom = unicodedata.normalize("NFKD", nom.replace("’", "'"))
+    return " ".join("".join(c for c in nom if not unicodedata.combining(c)).lower().split())
+
+
 class Command(BaseCommand):
     help = (
-        "Attache le formulaire « Audit CCTV BNDA » au client BNDA (une seule fois) et prévoit une visite "
-        "par agence. Ne crée ni site ni mission : le dispatching aux auditeurs reste au manager. "
+        "Crée les agences BNDA absentes, attache le formulaire « Audit CCTV BNDA » au client BNDA "
+        "(une seule fois) et prévoit une visite par agence. Ne crée aucune mission : le dispatching aux auditeurs reste au manager. "
         "Sans danger à relancer : une prévision existante n'est pas modifiée."
     )
 
@@ -33,6 +62,16 @@ class Command(BaseCommand):
             raise CommandError("Utilisateur introuvable : préciser --par <e-mail>.")
 
         with transaction.atomic():
+            # Une agence déjà saisie (même avec d'autres accents ou majuscules) n'est pas recréée.
+            noms = {_cle(nom) for nom in client.sites.values_list("nom", flat=True)}
+            sites_crees = 0
+            for nom, ville in AGENCES:
+                if _cle(nom) not in noms:
+                    Site.objects.create(client=client, nom=nom, ville=ville)
+                    noms.add(_cle(nom))
+                    sites_crees += 1
+            self.stdout.write(self.style.SUCCESS(f"{sites_crees} agence(s) créée(s) chez {client.nom}."))
+
             attached = client.attached_forms.filter(template=template, actif=True).first()
             if attached is None:
                 attached = attach_template_to_client(user, client, template)
