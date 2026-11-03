@@ -1,26 +1,49 @@
 <div class="space-y-4">
     <div>
-        <label for="id_site" class="block text-sm font-medium text-gray-700 mb-1">Site <span class="text-red-500">*</span></label>
-        <select id="id_site" name="site" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
-            <option value="">Sélectionner un site...</option>
-            {% for site in sites %}
-            <option value="{{ site.pk }}">{{ site.nom }}{% if site.ville %} ({{ site.ville }}){% endif %}</option>
-            {% endfor %}
-        </select>
-        {% if not sites and request.GET.client_id %}
-        <p class="text-xs text-amber-600 mt-1">Aucun site disponible pour ce client.</p>
-        {% endif %}
-    </div>
-    <div>
         <label for="id_attached_form" class="block text-sm font-medium text-gray-700 mb-1">Formulaire attaché <span class="text-red-500">*</span></label>
         <select id="id_attached_form" name="attached_form" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
             <option value="">Sélectionner un formulaire...</option>
             {% for attached_form in attached_forms %}
-            <option value="{{ attached_form.pk }}">{{ attached_form.nom }}</option>
+            <option value="{{ attached_form.pk }}" {% if selected_form == attached_form.pk|stringformat:"s" or attached_forms|length == 1 %}selected{% endif %}>{{ attached_form.nom }}</option>
             {% endfor %}
         </select>
-        {% if not attached_forms and request.GET.client_id %}
+        {% if not attached_forms and client_selectionne %}
         <p class="text-xs text-amber-600 mt-1">Aucun formulaire actif rattaché à ce client.</p>
+        {% endif %}
+    </div>
+
+    <div data-sites>
+        <div class="flex items-center justify-between mb-1">
+            <span class="block text-sm font-medium text-gray-700">Sites <span class="text-red-500">*</span></span>
+            {% if groupes %}<span class="text-xs text-gray-500"><span data-sites-count>0</span> sélectionné(s)</span>{% endif %}
+        </div>
+        {% if groupes %}
+        <input type="search" data-sites-search onkeydown="if (event.key === 'Enter') event.preventDefault();" placeholder="Rechercher un site ou une ville..."
+               class="w-full mb-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+        <div class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {% for ville, sites in groupes %}
+            <fieldset data-sites-group class="px-3 py-2">
+                <div class="flex items-center justify-between py-1">
+                    <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">{{ ville }} <span class="font-normal text-gray-400">({{ sites|length }})</span></span>
+                    <button type="button" data-sites-toggle class="text-xs font-semibold text-indigo-600 hover:underline">Tout cocher</button>
+                </div>
+                {% for site in sites %}
+                <label data-site-row data-search="{{ site.nom|lower }} {{ ville|lower }}" class="flex items-start gap-2 py-1.5 text-sm text-gray-800 cursor-pointer">
+                    <input type="checkbox" name="sites" value="{{ site.pk }}" {% if site.pk|stringformat:"s" in selected_sites %}checked{% endif %}
+                           class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <span>
+                        {{ site.nom }}
+                        {% if site.deja_assigne %}<span class="block text-[11px] text-amber-700">Déjà assigné : {{ site.deja_assigne }}</span>{% endif %}
+                    </span>
+                </label>
+                {% endfor %}
+            </fieldset>
+            {% endfor %}
+        </div>
+        {% elif client_selectionne %}
+        <p class="text-xs text-amber-600 mt-1">Aucun site disponible pour ce client.</p>
+        {% else %}
+        <p class="text-xs text-gray-400 mt-1">Sélectionnez d'abord un client.</p>
         {% endif %}
     </div>
 </div>

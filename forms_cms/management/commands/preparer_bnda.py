@@ -1,10 +1,9 @@
-import unicodedata
-
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.models import User
 from clients.models import Client, Site
+from clients.services import cle_nom
 from forms_cms.models import ExpectedVisits, FormTemplate
 from forms_cms.services import attach_template_to_client, set_expected_visits
 
@@ -28,12 +27,6 @@ AGENCES = [
     ("Kolondiéba", "Kolondiéba"), ("Kadiolo", "Kadiolo"), ("Sikasso Wayerma", "Sikasso"),
     ("Sikasso Médine", "Sikasso"), ("Zégoua", "Zégoua"),
 ]
-
-
-def _cle(nom):
-    """Compare les noms sans tenir compte des accents, de la casse ni des apostrophes typographiques."""
-    nom = unicodedata.normalize("NFKD", nom.replace("’", "'"))
-    return " ".join("".join(c for c in nom if not unicodedata.combining(c)).lower().split())
 
 
 class Command(BaseCommand):
@@ -63,12 +56,12 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             # Une agence déjà saisie (même avec d'autres accents ou majuscules) n'est pas recréée.
-            noms = {_cle(nom) for nom in client.sites.values_list("nom", flat=True)}
+            noms = {cle_nom(nom) for nom in client.sites.values_list("nom", flat=True)}
             sites_crees = 0
             for nom, ville in AGENCES:
-                if _cle(nom) not in noms:
+                if cle_nom(nom) not in noms:
                     Site.objects.create(client=client, nom=nom, ville=ville)
-                    noms.add(_cle(nom))
+                    noms.add(cle_nom(nom))
                     sites_crees += 1
             self.stdout.write(self.style.SUCCESS(f"{sites_crees} agence(s) créée(s) chez {client.nom}."))
 

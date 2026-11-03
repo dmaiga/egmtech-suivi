@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 from accounts.decorators import role_required
 from accounts.models import User
 from clients.models import Client, Site
+from clients.services import sites_par_localite
 from core.images import optimiser_image
 from core.services import log
 from forms_cms.models import AttachedForm
@@ -154,63 +155,64 @@ def mission_list(request):
     return render(request, "visits/mission_list.html", context)
 
 
+def _mission_options_context(client_id, selected_sites=(), selected_form=""):
+    """Sites du client groupés par localité, avec les auditeurs déjà assignés à chacun."""
+
+    sites = list(Site.objects.filter(client_id=client_id)) if client_id else []
+    assignes = {}
+    for mission in Mission.objects.filter(site__in=sites).select_related("superviseur"):
+        nom = mission.superviseur.get_full_name() or mission.superviseur.username
+        assignes.setdefault(mission.site_id, set()).add(nom)
+    for site in sites:
+        site.deja_assigne = ", ".join(sorted(assignes.get(site.pk, ())))
+    return {
+        "groupes": sites_par_localite(sites),
+        "client_selectionne": bool(client_id),
+        "attached_forms": AttachedForm.objects.filter(client_id=client_id, actif=True) if client_id else AttachedForm.objects.none(),
+        "selected_sites": {str(pk) for pk in selected_sites},
+        "selected_form": str(selected_form or ""),
+    }
+
+
 @role_required(User.Role.MANAGER)
 def mission_create(request):
     if request.method == "POST":
         form = MissionForm(request.POST)
         if form.is_valid():
-            mission = form.save(commit=False)
-            mission.created_by = request.user
-            mission.save()
-            log(
-                request.user,
-                "creation_mission",
-                mission,
-                detail={"superviseur_id": mission.superviseur_id, "site_id": mission.site_id},
-            )
-            messages.success(request, "Mission créée avec succès.")
+            missions = form.save_missions(request.user)
+            for mission in missions:
+                log(
+                    request.user,
+                    "creation_mission",
+                    mission,
+                    detail={"superviseur_id": mission.superviseur_id, "site_id": mission.site_id},
+                )
+            messages.success(request, f"{len(missions)} mission(s) créée(s) avec succès.")
             return redirect("visits:mission-list")
         status_code = 400
+        selected_client_id = request.POST.get("client_id", "")
+        options = _mission_options_context(
+            selected_client_id, request.POST.getlist("sites"), request.POST.get("attached_form")
+        )
     else:
         form = MissionForm()
         status_code = 200
-
-    selected_client_id = request.POST.get("client_id") if request.method == "POST" else None
-    if selected_client_id:
-        sites = Site.objects.filter(client_id=selected_client_id)
-        attached_forms = AttachedForm.objects.filter(client_id=selected_client_id, actif=True)
-    elif form.is_bound and form.data.get("site"):
-        site_obj = Site.objects.filter(pk=form.data.get("site")).first()
-        if site_obj:
-            selected_client_id = str(site_obj.client_id)
-            sites = Site.objects.filter(client_id=site_obj.client_id)
-            attached_forms = AttachedForm.objects.filter(client_id=site_obj.client_id, actif=True)
-        else:
-            sites = Site.objects.none()
-            attached_forms = AttachedForm.objects.none()
-    else:
-        sites = Site.objects.none()
-        attached_forms = AttachedForm.objects.none()
+        selected_client_id = ""
+        options = _mission_options_context(None)
 
     context = {
         "form": form,
         "superviseurs": User.objects.filter(role=User.Role.SUPERVISEUR, is_active=True),
         "clients": Client.objects.filter(actif=True),
         "selected_client_id": selected_client_id,
-        "sites": sites,
-        "attached_forms": attached_forms,
+        **options,
     }
     return render(request, "visits/mission_form.html", context, status=status_code)
 
 
 @role_required(User.Role.MANAGER)
 def mission_options(request):
-    client_id = request.GET.get("client_id")
-    sites = Site.objects.filter(client_id=client_id) if client_id else Site.objects.none()
-    attached_forms = (
-        AttachedForm.objects.filter(client_id=client_id, actif=True) if client_id else AttachedForm.objects.none()
-    )
-    return render(request, "visits/_mission_options.html", {"sites": sites, "attached_forms": attached_forms})
+    return render(request, "visits/_mission_options.html", _mission_options_context(request.GET.get("client_id")))
 
 
 @role_required(User.Role.MANAGER)

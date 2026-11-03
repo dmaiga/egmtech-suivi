@@ -113,20 +113,68 @@ class MissionCreationTests(TestCase):
     def test_creation_mission_valide(self):
         response = self.client.post(
             reverse("visits:mission-create"),
-            {"superviseur": self.sup.pk, "site": self.site.pk, "attached_form": self.attached.pk},
+            {"superviseur": self.sup.pk, "sites": [self.site.pk], "attached_form": self.attached.pk},
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Mission.objects.count(), 1)
+
+    def test_plusieurs_sites_en_une_fois(self):
+        site2 = Site.objects.create(client=self.client_obj, code="S2", nom="Site 2")
+        response = self.client.post(
+            reverse("visits:mission-create"),
+            {"superviseur": self.sup.pk, "sites": [self.site.pk, site2.pk], "attached_form": self.attached.pk},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            set(Mission.objects.filter(superviseur=self.sup).values_list("site_id", flat=True)), {self.site.pk, site2.pk}
+        )
+        self.assertEqual(ActivityLog.objects.filter(action="creation_mission").count(), 2)
+
+    def test_aucun_site_refuse(self):
+        response = self.client.post(
+            reverse("visits:mission-create"), {"superviseur": self.sup.pk, "attached_form": self.attached.pk}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Mission.objects.count(), 0)
 
     def test_formulaire_dun_autre_client_refuse(self):
         autre_client = Client.objects.create(nom="Client B")
         autre_site = Site.objects.create(client=autre_client, code="S1", nom="Site B1")
         response = self.client.post(
             reverse("visits:mission-create"),
-            {"superviseur": self.sup.pk, "site": autre_site.pk, "attached_form": self.attached.pk},
+            {"superviseur": self.sup.pk, "sites": [autre_site.pk], "attached_form": self.attached.pk},
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Mission.objects.count(), 0)
+
+    def test_un_site_dun_autre_client_bloque_tout_le_lot(self):
+        autre_site = Site.objects.create(client=Client.objects.create(nom="Client B"), code="S1", nom="Site B1")
+        response = self.client.post(
+            reverse("visits:mission-create"),
+            {"superviseur": self.sup.pk, "sites": [self.site.pk, autre_site.pk], "attached_form": self.attached.pk},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Mission.objects.count(), 0)
+
+    def test_options_groupent_les_sites_par_localite_bamako_dabord(self):
+        self.site.ville = "Ségou"
+        self.site.save()
+        Site.objects.create(client=self.client_obj, code="S2", nom="Médine", ville="Bamako")
+        Site.objects.create(client=self.client_obj, code="S3", nom="Badalabougou", ville="Bamako")
+        Site.objects.create(client=self.client_obj, code="S4", nom="Kati", ville="Kati")
+        Site.objects.create(client=self.client_obj, code="S5", nom="Sans ville")
+        Site.objects.create(client=Client.objects.create(nom="Client B"), code="X", nom="Autre", ville="Bamako")
+        Mission.objects.create(superviseur=self.sup, site=self.site, attached_form=self.attached, created_by=self.manager)
+        response = self.client.get(reverse("visits:mission-options"), {"client_id": self.client_obj.pk})
+        groupes = [(ville, [s.nom for s in sites]) for ville, sites in response.context["groupes"]]
+        self.assertEqual(groupes, [
+            ("Bamako", ["Badalabougou", "Médine"]),
+            ("Kati", ["Kati"]),
+            ("Ségou", ["Site 1"]),
+            ("Sans localité", ["Sans ville"]),
+        ])
+        self.assertContains(response, "Déjà assigné : sup")
+        self.assertNotContains(response, "Autre")
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
