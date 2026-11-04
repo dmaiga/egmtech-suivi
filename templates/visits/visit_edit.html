@@ -266,18 +266,25 @@
             </div>
         </section>
 
-        <div id="wizard-navigation" class="hidden flex flex-wrap gap-2">
-            <button type="submit" name="wizard_step" value="0" id="wizard-prev" formaction="{% url 'visits:visit-save' visit.pk %}" class="px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-700 font-semibold">← Précédent</button>
-            <button type="submit" name="wizard_step" value="1" id="wizard-next" formaction="{% url 'visits:visit-save' visit.pk %}" class="px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold">Enregistrer et continuer →</button>
-        </div>
-        <!-- Barre d'actions collée en bas de l'écran (Sticky Bottom Bar) -->
-        <div class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 shadow-xl">
+        <!-- Navigation du wizard, collée en bas de l'écran : une seule rangée de boutons.
+             Sans JavaScript, seul « Soumettre la visite » est visible (toutes les sections affichées). -->
+        <div id="wizard-navigation" class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-3 sm:p-4 shadow-xl">
             <div class="max-w-3xl mx-auto flex items-center gap-3">
-                <button type="submit"
-                        id="btn-save-draft"
+                <button type="button" id="wizard-quit"
+                        data-confirm="Êtes-vous sûr de vouloir quitter cette visite ?"
+                        data-href="{% url 'visits:mission-list' %}"
+                        class="hidden flex-1 py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold text-sm sm:text-base rounded-xl shadow-xs transition active:scale-[0.99] text-center">
+                    Quitter
+                </button>
+                <button type="submit" name="wizard_step" value="0" id="wizard-prev"
                         formaction="{% url 'visits:visit-save' visit.pk %}"
-                        class="flex-1 py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold text-sm sm:text-base rounded-xl shadow-xs transition active:scale-[0.99] text-center">
-                    Enregistrer le brouillon
+                        class="hidden flex-1 py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold text-sm sm:text-base rounded-xl shadow-xs transition active:scale-[0.99] text-center">
+                    ← Précédent
+                </button>
+                <button type="submit" name="wizard_step" value="1" id="wizard-next"
+                        formaction="{% url 'visits:visit-save' visit.pk %}"
+                        class="hidden flex-1 py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm sm:text-base rounded-xl shadow-sm transition active:scale-[0.99] text-center">
+                    Enregistrer et continuer →
                 </button>
                 <button type="submit"
                         id="btn-submit-visit"
@@ -286,6 +293,18 @@
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                     Soumettre la visite
                 </button>
+            </div>
+        </div>
+
+        <!-- Écran de chargement affiché pendant l'envoi (photos parfois lourdes) -->
+        <div id="wizard-loading" class="hidden fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="status" aria-live="assertive">
+            <div class="bg-white rounded-2xl shadow-xl p-6 max-w-xs w-full text-center space-y-3">
+                <svg class="animate-spin w-10 h-10 mx-auto text-indigo-600" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <p class="font-semibold text-gray-900">Enregistrement en cours…</p>
+                <p class="text-xs text-gray-600">L'envoi des photos peut prendre un moment. Ne fermez pas la page.</p>
             </div>
         </div>
     </form>

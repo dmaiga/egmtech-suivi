@@ -975,7 +975,11 @@ class SupervisorScreensTests(TestCase):
         # Signatures et boutons collés en bas
         self.assertContains(response, "Signature du superviseur")
         self.assertContains(response, "Effacer")
-        self.assertContains(response, "Enregistrer le brouillon")
+        self.assertNotContains(response, "Enregistrer le brouillon")
+        self.assertContains(response, "Quitter")
+        self.assertContains(response, "Êtes-vous sûr de vouloir quitter cette visite ?")
+        self.assertContains(response, "Enregistrer et continuer")
+        self.assertContains(response, "wizard-loading")
         self.assertContains(response, "Soumettre la visite")
 
     def test_bandeau_de_rejet_visible_en_saisie(self):
