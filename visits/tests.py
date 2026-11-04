@@ -466,6 +466,19 @@ class ManagerPdfExportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.content.startswith(b"%PDF"))
 
+    def test_pdf_dune_visite_validee_avant_publication(self):
+        self.visit.statut = Visit.Statut.VALIDEE
+        self.visit.save(update_fields=["statut"])
+        response = self.client.get(reverse("visits:visit-pdf", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_pdf_refuse_pour_une_visite_soumise(self):
+        self.visit.statut = Visit.Statut.SOUMISE
+        self.visit.save(update_fields=["statut"])
+        response = self.client.get(reverse("visits:visit-pdf", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 404)
+
     def test_pdf_refuse_pour_une_visite_non_publiee(self):
         self.visit.statut = Visit.Statut.BROUILLON
         self.visit.save(update_fields=["statut"])

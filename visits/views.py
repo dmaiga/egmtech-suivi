@@ -846,15 +846,11 @@ def _zip_response(content, filename):
 
 @role_required(User.Role.MANAGER, User.Role.SUPERVISEUR)
 def visit_pdf(request, pk):
+    # PDF disponible dès la validation (avant publication au client), comme le lien affiché.
+    visits = Visit.objects.filter(statut__in=[Visit.Statut.VALIDEE, Visit.Statut.PUBLIEE])
     if request.user.role == User.Role.SUPERVISEUR:
-        visit = get_object_or_404(
-            Visit,
-            pk=pk,
-            auteur=request.user,
-            statut__in=[Visit.Statut.VALIDEE, Visit.Statut.PUBLIEE],
-        )
-    else:
-        visit = get_object_or_404(Visit, pk=pk, statut=Visit.Statut.PUBLIEE)
+        visits = visits.filter(auteur=request.user)
+    visit = get_object_or_404(visits, pk=pk)
     return _pdf_response(render_visit_pdf(visit), visit_pdf_filename(visit))
 
 
