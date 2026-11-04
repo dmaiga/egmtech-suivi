@@ -2,6 +2,8 @@ import tempfile
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.signals import request_finished
+from django.db import close_old_connections
 from django.test import TestCase, override_settings
 
 from clients.models import Client, Site
@@ -31,6 +33,16 @@ class PrivateMediaTests(TestCase):
         self.visit = Visit.objects.create(mission=mission, auteur=self.auditor)
         self.photo = VisitPhoto.objects.create(visit=self.visit, field_key="photo", image=SimpleUploadedFile("photo.jpg", b"test", content_type="image/jpeg"))
 
+    @staticmethod
+    def _release(response):
+        # response.close() émet request_finished : sous PostgreSQL, close_old_connections
+        # fermerait la connexion au milieu de la transaction du test.
+        request_finished.disconnect(close_old_connections)
+        try:
+            response.close()
+        finally:
+            request_finished.connect(close_old_connections)
+
     def test_access_respects_visit_owner_client_and_publication(self):
         url = self.photo.image.url
         self.assertEqual(self.client.get(url).status_code, 302)
@@ -38,12 +50,12 @@ class PrivateMediaTests(TestCase):
             self.client.force_login(user)
             response = self.client.get(url)
             self.assertEqual(response.status_code, status)
-            response.close()
+            self._release(response)
         self.visit.statut = Visit.Statut.PUBLIEE
         self.visit.save()
         self.client.force_login(self.client_user)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        response.close()
+        self._release(response)
         self.client.force_login(self.other_user)
         self.assertEqual(self.client.get(url).status_code, 404)
