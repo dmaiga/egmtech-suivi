@@ -1275,3 +1275,68 @@ class SupervisorMyVisitsTests(TestCase):
         # Lien vers la visite pour les missions exécutées
         self.assertContains(response, reverse("my-visit-detail", args=[self.v_soumise.pk]))
 
+
+
+class MissionDetachTests(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
+        self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
+        _, self.site, self.attached = make_client_site_form()
+        self.mission = Mission.objects.create(
+            superviseur=self.sup, site=self.site, attached_form=self.attached, created_by=self.manager
+        )
+        self.url = reverse("visits:mission-detach", args=[self.mission.pk])
+
+    def test_manager_detache_une_mission_non_commencee(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse("visits:mission-list"))
+        self.assertFalse(Mission.objects.filter(pk=self.mission.pk).exists())
+        self.assertTrue(ActivityLog.objects.filter(action="detachement_mission", object_id=str(self.mission.pk)).exists())
+
+    def test_detachement_supprime_le_brouillon_et_ses_photos(self):
+        visit = Visit.objects.create(mission=self.mission, auteur=self.sup)
+        VisitPhoto.objects.create(visit=visit, field_key="photo_site", image=SimpleUploadedFile("a.jpg", JPEG))
+        self.client.force_login(self.manager)
+        self.client.post(self.url)
+        self.assertFalse(Mission.objects.filter(pk=self.mission.pk).exists())
+        self.assertFalse(Visit.objects.filter(pk=visit.pk).exists())
+        self.assertFalse(VisitPhoto.objects.filter(visit_id=visit.pk).exists())
+
+    def test_detachement_refuse_si_visite_soumise(self):
+        for statut in (Visit.Statut.SOUMISE, Visit.Statut.A_CORRIGER, Visit.Statut.VALIDEE, Visit.Statut.PUBLIEE):
+            with self.subTest(statut=statut):
+                Visit.objects.filter(mission=self.mission).delete()
+                Visit.objects.create(mission=self.mission, auteur=self.sup, statut=statut)
+                self.client.force_login(self.manager)
+                self.client.post(self.url)
+                self.assertTrue(Mission.objects.filter(pk=self.mission.pk).exists())
+
+    def test_auditeur_ne_peut_pas_detacher(self):
+        self.client.force_login(self.sup)
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Mission.objects.filter(pk=self.mission.pk).exists())
+
+    def test_client_ne_peut_pas_detacher(self):
+        client_user = User.objects.create_user(
+            username="cli", password="x", role=User.Role.CLIENT, client=self.site.client
+        )
+        self.client.force_login(client_user)
+        response = self.client.post(self.url)
+        self.assertIn(response.status_code, (302, 403))
+        self.assertTrue(Mission.objects.filter(pk=self.mission.pk).exists())
+
+    def test_get_refuse(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(Mission.objects.filter(pk=self.mission.pk).exists())
+
+    def test_bouton_affiche_seulement_si_detachable(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertContains(response, self.url)
+        Visit.objects.create(mission=self.mission, auteur=self.sup, statut=Visit.Statut.SOUMISE)
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertNotContains(response, self.url)

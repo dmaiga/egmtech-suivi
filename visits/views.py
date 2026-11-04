@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -117,6 +118,7 @@ def mission_list(request):
 
     for m in page_obj.object_list:
         m.latest_visit = m.ordered_visits[0] if getattr(m, "ordered_visits", None) else None
+        m.detachable = all(v.statut == Visit.Statut.BROUILLON for v in m.ordered_visits)
 
     context = {
         "missions": page_obj,
@@ -208,6 +210,31 @@ def mission_create(request):
         **options,
     }
     return render(request, "visits/mission_form.html", context, status=status_code)
+
+
+@role_required(User.Role.MANAGER)
+@require_POST
+def mission_detach(request, pk):
+    """Retire une assignation créée par erreur, tant qu'aucune visite n'a été soumise."""
+
+    mission = get_object_or_404(Mission.objects.select_related("superviseur", "site"), pk=pk)
+    if not mission.peut_etre_detachee():
+        messages.error(request, "Impossible de détacher : une visite a déjà été soumise pour cette mission.")
+        return redirect("visits:mission-list")
+    with transaction.atomic():
+        brouillons = list(mission.visits.all())
+        detail = {
+            "superviseur_id": mission.superviseur_id,
+            "site_id": mission.site_id,
+            "attached_form_id": mission.attached_form_id,
+            "brouillons_supprimes": [v.pk for v in brouillons],
+        }
+        log(request.user, "detachement_mission", mission, detail=detail)
+        for visit in brouillons:
+            visit.delete()
+        mission.delete()
+    messages.success(request, f"Mission détachée : {mission.superviseur.get_full_name() or mission.superviseur.username} — {mission.site.nom}.")
+    return redirect("visits:mission-list")
 
 
 @role_required(User.Role.MANAGER)

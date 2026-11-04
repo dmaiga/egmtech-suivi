@@ -7,6 +7,7 @@ app_name = "visits"
 urlpatterns = [
     path("", views.mission_list, name="mission-list"),
     path("nouveau/", views.mission_create, name="mission-create"),
+    path("<int:pk>/detacher/", views.mission_detach, name="mission-detach"),
     path("options/", views.mission_options, name="mission-options"),
     path("formulaires/<int:pk>/", views.mission_form_detail, name="attached-form-detail"),
     path("<int:mission_pk>/commencer/", views.visit_start, name="visit-start"),

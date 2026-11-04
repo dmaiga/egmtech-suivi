@@ -27,6 +27,10 @@ class Mission(models.Model):
     def __str__(self):
         return f"{self.superviseur} @ {self.site} - {self.attached_form.nom}"
 
+    def peut_etre_detachee(self):
+        """Détachable tant qu'aucune visite n'a dépassé le stade de brouillon."""
+        return not self.visits.exclude(statut=Visit.Statut.BROUILLON).exists()
+
     def clean(self):
         super().clean()
         if self.attached_form_id and self.site_id and self.attached_form.client_id != self.site.client_id:
