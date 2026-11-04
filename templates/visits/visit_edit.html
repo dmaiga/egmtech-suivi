@@ -140,6 +140,7 @@
             <!-- Corps de la section -->
             <div class="p-5 sm:p-6 space-y-6 js-section-body">
                 {% for entry in section.entries %}
+                    {% if entry.visible_si %}<div class="js-conditional{% if entry.hidden %} hidden{% endif %}" data-champ="{{ entry.visible_si.champ }}" data-valeur="{{ entry.visible_si.valeur }}">{% endif %}
                     {% if entry.kind == "field" %}
                         {% include "visits/_field.html" %}
                     {% else %}
@@ -181,6 +182,7 @@
                             </div>
                         </div>
                     {% endif %}
+                    {% if entry.visible_si %}</div>{% endif %}
                 {% endfor %}
             </div>
         </section>
@@ -409,6 +411,7 @@
     <script src="{% static 'visits/photo-compress.js' %}"></script>
     <script src="{% static 'visits/autosave.js' %}"></script>
     <script src="{% static 'visits/wizard.js' %}"></script>
+    <script src="{% static 'visits/conditions.js' %}"></script>
     {% endif %}
 </div>
 {% endblock %}

@@ -49,7 +49,10 @@ class JsonEditorTests(TestCase):
         self.assertNotEqual(attached.schema["sections"][0]["title"], "Identification du site")
         fields = [f for section in schema["sections"] for f in section["fields"]]
         self.assertEqual(next(f for f in fields if f["key"] == "heure_audit")["type"], "time")
-        self.assertEqual(next(f for f in fields if f["key"] == "photos_cameras")["min_photos"], 10)
+        cameras = next(f for f in fields if f["key"] == "cameras")
+        self.assertEqual(next(f for f in cameras["fields"] if f["key"] == "photos_camera")["min_photos"], 3)
+        peripheriques = next(f for f in fields if f["key"] == "peripheriques")
+        self.assertEqual(peripheriques["visible_si"], {"champ": "stockage_externe", "valeur": "Oui"})
 
     def test_invalid_json_is_rejected_without_modification(self):
         old = copy.deepcopy(self.template.schema)

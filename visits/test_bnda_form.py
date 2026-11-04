@@ -74,19 +74,19 @@ class BndaVisitFlowTests(TestCase):
     def test_failed_submission_preserves_responses_and_valid_photos(self):
         files = [SimpleUploadedFile(f"photo{i}.jpg", JPEG, content_type="image/jpeg") for i in range(7)]
         response = self.client.post(reverse("visits:visit-submit", args=[self.visit.pk]), {
-            "auditeur": "Auditeur terrain", "heure_audit": "14:35", "photos_enregistreur": files,
+            "auditeur": "Auditeur terrain", "heure_audit": "14:35", "photos_pieces": files,
         })
         self.assertEqual(response.status_code, 400)
         self.visit.refresh_from_db()
         self.assertEqual(self.visit.reponses["auditeur"], "Auditeur terrain")
         self.assertEqual(self.visit.reponses["heure_audit"], "14:35")
-        self.assertEqual(self.visit.photos.filter(field_key="photos_enregistreur").count(), 7)
+        self.assertEqual(self.visit.photos.filter(field_key="photos_pieces").count(), 7)
         self.assertContains(response, "Ce champ obligatoire doit être renseigné.", status_code=400)
 
     def test_file_error_does_not_discard_text(self):
         with override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=2):
             response = self.client.post(reverse("visits:visit-save", args=[self.visit.pk]), {
-                "auditeur": "Texte conservé", "photos_enregistreur": SimpleUploadedFile("photo.jpg", JPEG),
+                "auditeur": "Texte conservé", "photos_pieces": SimpleUploadedFile("photo.jpg", JPEG),
             })
         self.assertEqual(response.status_code, 400)
         self.visit.refresh_from_db()
@@ -105,14 +105,14 @@ class BndaVisitFlowTests(TestCase):
         url = reverse("visits:visit-save", args=[self.visit.pk])
         response = self.client.post(url, {
             "auditeur": "Awa",
-            "photos_cameras": SimpleUploadedFile("camera.jpg", JPEG, content_type="image/jpeg"),
+            "photos_pieces": SimpleUploadedFile("camera.jpg", JPEG, content_type="image/jpeg"),
             "photos_baie": SimpleUploadedFile("baie.jpg", JPEG, content_type="image/jpeg"),
         })
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.visit.photos.count(), 2)
         response = self.client.post(url, {
             "auditeur": "Awa Diallo",
-            "photos_enregistreur": SimpleUploadedFile("enregistreur.jpg", JPEG, content_type="image/jpeg"),
+            "photos_cables": SimpleUploadedFile("enregistreur.jpg", JPEG, content_type="image/jpeg"),
         })
         self.assertContains(response, "plus de 2 photos au total", status_code=400)
         self.visit.refresh_from_db()
@@ -131,9 +131,13 @@ class BndaVisitFlowTests(TestCase):
         self.assertContains(response, "Choisir dans la galerie")
         files = [SimpleUploadedFile("camera1.jpg", JPEG, content_type="image/jpeg"),
                  SimpleUploadedFile("camera2.jpg", JPEG, content_type="image/jpeg")]
-        response = self.client.post(reverse("visits:visit-save", args=[self.visit.pk]), {"photos_cameras": files})
+        response = self.client.post(reverse("visits:visit-save", args=[self.visit.pk]), {
+            "cameras__indices": "0", "cameras__0__marque_camera": "Hikvision", "cameras__0__photos_camera": files,
+        })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(self.visit.photos.filter(field_key="photos_cameras").count(), 2)
+        self.assertEqual(self.visit.photos.filter(field_key="cameras__0__photos_camera").count(), 2)
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.reponses["cameras"], [{"_index": "0", "marque_camera": "Hikvision"}])
 
     def test_pdf_with_multiple_photos_is_generated(self):
         import io
@@ -144,7 +148,7 @@ class BndaVisitFlowTests(TestCase):
         data = io.BytesIO()
         Image.new("RGB", (100, 80), "blue").save(data, format="JPEG")
         for index in range(7):
-            VisitPhoto.objects.create(visit=self.visit, field_key="photos_cameras", legende=f"Caméra {index}",
+            VisitPhoto.objects.create(visit=self.visit, field_key="photos_pieces", legende=f"Caméra {index}",
                                       image=SimpleUploadedFile(f"photo{index}.jpg", data.getvalue(), content_type="image/jpeg"))
         pdf = render_visit_pdf(self.visit)
         reader = PdfReader(io.BytesIO(pdf))

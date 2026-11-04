@@ -1,4 +1,6 @@
-def bnda_schema():
+def bnda_schema_v1():
+    """Version initiale (figée) : utilisée par la migration 0004 et la conversion v1 -> v2."""
+
     def field(key, label, kind="text", required=True, **extra):
         return {"key": key, "label": label, "type": kind, "required": required, **extra}
 
@@ -58,4 +60,44 @@ def bnda_schema():
                 item["max_photos"] = 150
                 if item["key"] in labels:
                     item["label"] = labels[item["key"]]
+    return schema
+
+
+def bnda_schema():
+    """Version actuelle : chaque équipement est une ligne avec ses propres photos."""
+
+    def field(key, label, kind="text", required=True, **extra):
+        return {"key": key, "label": label, "type": kind, "required": required, **extra}
+
+    def photos(key, label, minimum=1, required=True):
+        return field(key, label, "photo", required=required, min_photos=minimum, max_photos=150)
+
+    schema = bnda_schema_v1()
+    cctv = next(s for s in schema["sections"] if s["title"] == "Infrastructure CCTV")
+    cctv["fields"] = [
+        field("nombre_cameras", "Nombre total de caméras", "number"),
+        field("cameras", "Caméras du site (une ligne par marque)", "repeat", fields=[
+            field("marque_camera", "Marque de la caméra"),
+            photos("photos_camera", "Photos des caméras et de leurs étiquettes (minimum 3)", minimum=3),
+        ]),
+        field("enregistreurs", "Enregistreurs (une ligne par enregistreur)", "repeat", fields=[
+            field("type_enregistreur", "Type et marque de l’enregistreur"),
+            photos("photos_enregistreur", "Photos de l’enregistreur et de son étiquette (minimum 3)", minimum=3),
+            field("slots_disque", "Nombre de slots disque disponibles", "number"),
+            photos("photo_interieur", "Photo de l’intérieur de l’enregistreur"),
+        ]),
+        field("stockage_externe", "Périphérique de stockage externe présent ?", "choice", options=["Oui", "Non"]),
+        field("peripheriques", "Périphériques de stockage externe", "repeat",
+              visible_si={"champ": "stockage_externe", "valeur": "Oui"}, fields=[
+            field("marque_peripherique", "Marque du périphérique"),
+            photos("photo_peripherique", "Photo du périphérique (facultative)", required=False),
+        ]),
+        field("zones_surveillees", "Zones déjà surveillées (couverture vidéo)"),
+        field("zones_critiques_presentes", "Zones critiques hors du champ des caméras ?", "choice", options=["Oui", "Non"]),
+        field("zones_critiques", "Zones critiques hors du champ des caméras", "repeat",
+              visible_si={"champ": "zones_critiques_presentes", "valeur": "Oui"}, fields=[
+            field("description_zone", "Description de la zone"),
+            photos("photos_zone", "Photos de la zone"),
+        ]),
+    ]
     return schema

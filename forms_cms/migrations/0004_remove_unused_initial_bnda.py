@@ -11,8 +11,8 @@ def remove_unused_initial_bnda(apps, schema_editor):
     # une base neuve. Ne rien supprimer si la base contient déjà d'autres données.
     if User.objects.exists() or Client.objects.count() != 1 or Template.objects.count() != 1:
         return
-    from forms_cms.bnda_schema import bnda_schema
-    original_schema = bnda_schema()
+    from forms_cms.bnda_schema import bnda_schema_v1
+    original_schema = bnda_schema_v1()
     for template in Template.objects.filter(nom="Audit CCTV BNDA", schema=original_schema):
         for client in Client.objects.filter(nom="BNDA"):
             if client.sites.exists() or User.objects.filter(client=client).exists():

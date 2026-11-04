@@ -7,6 +7,9 @@ Un champ est un objet avec au moins "key", "label", "type", "required".
 Types supportés : text, number, choice, multichoice, checkbox, date, gps,
 photo (label imposé + max_photos), signature, repeat (fields imbriqués,
 non récursif).
+
+Un champ de premier niveau peut porter "visible_si": {"champ": k, "valeur": v} :
+il n'est affiché et exigé que si le champ « choix unique » k (placé avant) vaut v.
 """
 
 FIELD_TYPES = {
@@ -54,6 +57,35 @@ def validate_schema(schema):
                 _validate_field(field, f"{prefix} / champ {j + 1}", seen_keys, allow_repeat=True)
             )
 
+    errors.extend(_validate_conditions(sections))
+    return errors
+
+
+def _validate_conditions(sections):
+    """`visible_si` : {"champ": clé d'un champ « choix unique » placé avant, "valeur": une de ses options}."""
+
+    errors = []
+    previous = {}
+    for section in sections:
+        if not isinstance(section, dict) or not isinstance(section.get("fields"), list):
+            continue
+        for field in section["fields"]:
+            if not isinstance(field, dict):
+                continue
+            label = field.get("label") or field.get("key")
+            sub_fields = field.get("fields") if field.get("type") == "repeat" else None
+            for sub in sub_fields if isinstance(sub_fields, list) else []:
+                if isinstance(sub, dict) and "visible_si" in sub:
+                    errors.append(f"{label} : 'visible_si' n'est pas permis dans un groupe répétable.")
+            condition = field.get("visible_si")
+            if condition is not None:
+                source = previous.get(condition.get("champ")) if isinstance(condition, dict) else None
+                if not isinstance(condition, dict) or source is None:
+                    errors.append(f"{label} : 'visible_si' doit viser un champ « choix unique » placé avant.")
+                elif condition.get("valeur") not in source.get("options", []):
+                    errors.append(f"{label} : 'visible_si' vise une valeur absente des options de « {source.get('label')} ».")
+            if field.get("type") == "choice" and isinstance(field.get("key"), str):
+                previous[field["key"]] = field
     return errors
 
 

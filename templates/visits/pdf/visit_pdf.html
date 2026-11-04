@@ -37,7 +37,8 @@
     {% for section in sections %}
     <h2>{{ section.title }}</h2>
     {% for entry in section.entries %}
-    {% if entry.kind == "field" %}
+    {% if entry.hidden %}
+    {% elif entry.kind == "field" %}
         {% include "visits/pdf/_field_pdf.html" %}
     {% else %}
         <div class="value"><span class="label">{{ entry.field.label }}</span></div>

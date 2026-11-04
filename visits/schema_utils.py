@@ -31,6 +31,18 @@ def find_repeat_field(schema, group_key):
     return field if field and field.get("type") == "repeat" else None
 
 
+def is_field_visible(field, reponses):
+    """Un champ portant `visible_si` n'est affiché (et exigé) que si la condition est remplie.
+
+    `visible_si` = {"champ": <clé d'un champ de premier niveau>, "valeur": <valeur attendue>}.
+    """
+
+    condition = field.get("visible_si")
+    if not condition:
+        return True
+    return (reponses or {}).get(condition.get("champ")) == condition.get("valeur")
+
+
 def parse_responses(post_data, schema):
     """Construit le dict de réponses (hors photos) à partir d'un POST, selon le schéma."""
 
@@ -59,6 +71,11 @@ def parse_responses(post_data, schema):
                 reponses[key] = rows
             else:
                 reponses[key] = _read_value(post_data, key, ftype)
+    # Un champ masqué par sa condition ne garde pas de réponse (ex. « Non » après « Oui »).
+    for section in schema.get("sections", []):
+        for field in section.get("fields", []):
+            if field["type"] != "photo" and not is_field_visible(field, reponses):
+                reponses[field["key"]] = [] if field["type"] == "repeat" else ""
     return reponses
 
 
@@ -99,6 +116,8 @@ def find_missing_required(schema, reponses, photo_counts):
             key = field["key"]
             ftype = field["type"]
             required = field.get("required", False)
+            if not is_field_visible(field, reponses):
+                continue
 
             if ftype == "repeat":
                 rows = reponses.get(key) or []
@@ -161,6 +180,7 @@ def build_render_model(schema, reponses, photos_by_field=None):
         entries = []
         for field in section.get("fields", []):
             key = field["key"]
+            visible = is_field_visible(field, reponses)
             if field["type"] == "repeat":
                 rows = []
                 for row in reponses.get(key) or []:
@@ -173,8 +193,10 @@ def build_render_model(schema, reponses, photos_by_field=None):
                     "field": field,
                     "name": key,
                     "rows": rows,
-                    "is_empty": is_empty,
-                    "is_missing": is_missing,
+                    "is_empty": is_empty or not visible,
+                    "is_missing": is_missing and visible,
+                    "hidden": not visible,
+                    "visible_si": field.get("visible_si"),
                 })
             else:
                 raw_val = reponses.get(key)
@@ -193,6 +215,11 @@ def build_render_model(schema, reponses, photos_by_field=None):
                 else:
                     entry["is_empty"] = _is_empty(raw_val)
                     entry["is_missing"] = field.get("required", False) and entry["is_empty"]
+                if not visible:
+                    entry["is_empty"] = True
+                    entry["is_missing"] = False
+                entry["hidden"] = not visible
+                entry["visible_si"] = field.get("visible_si")
                 entries.append(entry)
         sections.append({"title": section.get("title"), "entries": entries})
     return sections
