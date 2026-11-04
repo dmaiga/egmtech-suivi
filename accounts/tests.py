@@ -60,6 +60,23 @@ class LoginRedirectTests(TestCase):
         response = self.client.post(reverse("accounts:logout"))
         self.assertRedirects(response, reverse("accounts:login"))
 
+    def test_page_connexion_redirige_un_utilisateur_deja_connecte(self):
+        _make_user("sup_connecte", User.Role.SUPERVISEUR)
+        self.client.login(username="sup_connecte", password="pass12345")
+        response = self.client.get(reverse("accounts:login"))
+        self.assertRedirects(response, reverse("visits:mission-list"))
+
+    def test_pages_connectees_non_mises_en_cache(self):
+        _make_user("sup_cache", User.Role.SUPERVISEUR)
+        self.client.login(username="sup_cache", password="pass12345")
+        response = self.client.get(reverse("visits:mission-list"))
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_requete_htmx_sans_session_recharge_la_page(self):
+        response = self.client.get(reverse("visits:mission-list"), HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 204)
+        self.assertTrue(response["HX-Redirect"].startswith(reverse("accounts:login")))
+
 
 @role_required(User.Role.MANAGER)
 def manager_only_view(request):

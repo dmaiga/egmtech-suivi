@@ -90,3 +90,11 @@ button[disabled], input[type="submit"][disabled] { cursor: not-allowed !importan
 html.sidebar-init-collapsed #desktop-sidebar { transform: translateX(-100%) !important; }
 html.sidebar-init-collapsed #main-wrapper { padding-left: 0 !important; }
 html.sidebar-init-collapsed #desktop-brand-collapsed { display: flex !important; }
+
+/* Téléphone : Safari iOS zoome automatiquement sur tout champ en dessous de 16px
+   et ne dézoome pas ensuite. On force 16px sur petit écran pour éviter ce zoom. */
+@media (max-width: 767px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+}

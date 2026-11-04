@@ -57,6 +57,9 @@ def _default_url_for(user):
 
 class RoleAwareLoginView(LoginView):
     template_name = "accounts/login.html"
+    # Un utilisateur déjà connecté (autre onglet, bouton retour) est renvoyé vers son
+    # espace au lieu de voir le formulaire de connexion dans le gabarit connecté.
+    redirect_authenticated_user = True
 
     def get_success_url(self):
         return _default_url_for(self.request.user)
