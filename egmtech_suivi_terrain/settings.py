@@ -105,15 +105,38 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# PostgreSQL si DB_NAME est défini dans le .env, sinon SQLite (repli simple).
-if os.environ.get('DB_NAME'):
+# Base MySQL/MariaDB (ou PostgreSQL) si DB_NAME est défini dans le .env, sinon SQLite.
+# DB_ENGINE : mysql (défaut) ou postgresql.
+DB_ENGINE = os.environ.get('DB_ENGINE', 'mysql').strip().lower()
+if os.environ.get('DB_NAME') and DB_ENGINE not in ('mysql', 'postgresql'):
+    raise ImproperlyConfigured("DB_ENGINE doit valoir 'mysql' ou 'postgresql'.")
+
+if os.environ.get('DB_NAME') and DB_ENGINE == 'mysql':
+    # Pilote PyMySQL (pur Python, s'installe sans compilation sur cPanel).
+    import pymysql
+    pymysql.version_info = (2, 2, 1, 'final', 0)  # version minimale attendue par Django 5.2
+    pymysql.install_as_MySQLdb()
     DATABASES = {
         'default': {
-            # DB_POSTGRES_ANCIEN=true : serveur en PostgreSQL 10 à 13, solution temporaire
-            # (voir core/db_backends/postgresql_legacy). À retirer dès PostgreSQL 14+.
-            'ENGINE': ('core.db_backends.postgresql_legacy'
-                       if os.environ.get('DB_POSTGRES_ANCIEN', 'false').lower() == 'true'
-                       else 'django.db.backends.postgresql'),
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ['DB_NAME'],
+            'USER': os.environ.get('DB_USER', ''),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '3306'),
+            'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
+            'OPTIONS': {
+                # utf8mb4 : accents et emojis ; mode strict : pas de troncature silencieuse.
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
+elif os.environ.get('DB_NAME'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ['DB_NAME'],
             'USER': os.environ.get('DB_USER', 'postgres'),
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),

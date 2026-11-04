@@ -4,3 +4,4 @@ xhtml2pdf>=0.2.26,<0.3
 python-dotenv>=1.2,<2
 whitenoise>=6.12,<7
 psycopg[binary]>=3.2,<4
+PyMySQL>=1.1,<2

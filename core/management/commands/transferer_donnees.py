@@ -1,11 +1,11 @@
-"""Copie toutes les données d'une base SQLite vers la base PostgreSQL configurée.
+"""Copie toutes les données d'une base SQLite vers la base MySQL (ou PostgreSQL) configurée.
 
 Usage :
-    python manage.py transferer_vers_postgres                 # lit db.sqlite3
-    python manage.py transferer_vers_postgres --source /chemin/vers/db.sqlite3
+    python manage.py transferer_donnees                 # lit db.sqlite3
+    python manage.py transferer_donnees --source /chemin/vers/db.sqlite3
 
 Prérequis : DB_NAME (et DB_USER, DB_PASSWORD...) renseignés dans le .env, pour que la base
-« default » soit PostgreSQL. La base cible doit être vide : la commande refuse sinon.
+« default » soit MySQL/MariaDB ou PostgreSQL. La base cible doit être vide : la commande refuse sinon.
 Les fichiers (photos, signatures) ne bougent pas : ils restent dans MEDIA_ROOT.
 """
 
@@ -25,7 +25,7 @@ EXCLUS = ["contenttypes", "auth.permission", "sessions"]
 
 
 class Command(BaseCommand):
-    help = "Transfère les données de SQLite (db.sqlite3) vers PostgreSQL."
+    help = "Transfère les données de SQLite (db.sqlite3) vers MySQL ou PostgreSQL."
 
     def add_arguments(self, parser):
         parser.add_argument("--source", default=str(settings.BASE_DIR / "db.sqlite3"),
@@ -36,21 +36,32 @@ class Command(BaseCommand):
         if not source.is_file():
             raise CommandError(f"Fichier SQLite introuvable : {source}")
         cible = connections["default"]
-        if cible.vendor != "postgresql":
-            raise CommandError("La base « default » n'est pas PostgreSQL : renseigner DB_NAME dans le .env.")
+        if cible.vendor == "sqlite":
+            raise CommandError("La base « default » est encore SQLite : renseigner DB_NAME dans le .env.")
 
-        # Déclare la base SQLite source à côté de la base PostgreSQL.
+        if cible.vendor == "mysql":
+            with cible.cursor() as cursor:
+                cursor.execute("SELECT @@character_set_database")
+                charset = cursor.fetchone()[0]
+            if charset != "utf8mb4":
+                raise CommandError(
+                    f"La base MySQL est en {charset} : les accents seraient abîmés. Dans phpMyAdmin, "
+                    f"exécuter : ALTER DATABASE `{cible.settings_dict['NAME']}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; puis relancer."
+                )
+
+        # Déclare la base SQLite source à côté de la base cible.
         config = dict(cible.settings_dict)
         config.update(ENGINE="django.db.backends.sqlite3", NAME=str(source),
                       USER="", PASSWORD="", HOST="", PORT="", OPTIONS={}, CONN_MAX_AGE=0)
         connections.databases[SOURCE] = config
 
-        self.stdout.write("1/3 Création des tables PostgreSQL (migrate)...")
+        self.stdout.write(f"1/3 Création des tables {cible.display_name} (migrate)...")
         call_command("migrate", interactive=False, verbosity=0)
 
         user_model = apps.get_model(settings.AUTH_USER_MODEL)
         if user_model.objects.using("default").exists():
-            raise CommandError("La base PostgreSQL contient déjà des utilisateurs : transfert annulé "
+            raise CommandError("La base cible contient déjà des utilisateurs : transfert annulé "
                                "pour ne rien écraser. Vider la base puis relancer.")
 
         fd, dump = tempfile.mkstemp(suffix=".json")
@@ -59,7 +70,7 @@ class Command(BaseCommand):
             self.stdout.write("2/3 Export des données SQLite...")
             call_command("dumpdata", database=SOURCE, exclude=EXCLUS, natural_foreign=True,
                          indent=None, output=dump, verbosity=0)
-            self.stdout.write("3/3 Import dans PostgreSQL...")
+            self.stdout.write(f"3/3 Import dans {cible.display_name}...")
             call_command("loaddata", dump, database="default", verbosity=0)
         finally:
             os.remove(dump)

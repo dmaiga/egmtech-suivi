@@ -150,7 +150,8 @@ class EchangeMessage(models.Model):
     class Meta:
         ordering = ["created_at", "pk"]
         # Compteur de messages non lus calculé sur chaque page (menu).
-        indexes = [models.Index(fields=["echange"], condition=models.Q(lu_le__isnull=True), name="message_non_lu_idx")]
+        # Index simple (MySQL ne gère pas les index partiels).
+        indexes = [models.Index(fields=["echange", "lu_le"], name="message_echange_lu_idx")]
 
     def __str__(self):
         return f"Message {self.pk} - échange {self.echange_id}"

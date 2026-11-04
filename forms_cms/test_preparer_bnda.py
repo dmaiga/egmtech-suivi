@@ -47,7 +47,9 @@ class PreparerBndaTests(TestCase):
         self._run()
         self._run()
         self.assertEqual(Site.objects.filter(client=self.bnda).count(), 47)
-        self.assertEqual(Site.objects.filter(client=self.bnda, nom__iexact="médine").count(), 0)
+        # Comparaison en Python : MySQL compare sans accents ni casse (« Médine » = « MEDINE »).
+        noms = list(Site.objects.filter(client=self.bnda).values_list("nom", flat=True))
+        self.assertNotIn("médine", [nom.lower() for nom in noms])
         self.assertEqual(Site.objects.get(client=self.bnda, nom="Sévaré").ville, "Mopti")
 
     def test_ne_touche_pas_a_un_autre_client(self):
