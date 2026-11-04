@@ -109,7 +109,11 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 if os.environ.get('DB_NAME'):
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            # DB_POSTGRES_ANCIEN=true : serveur en PostgreSQL 10 à 13, solution temporaire
+            # (voir core/db_backends/postgresql_legacy). À retirer dès PostgreSQL 14+.
+            'ENGINE': ('core.db_backends.postgresql_legacy'
+                       if os.environ.get('DB_POSTGRES_ANCIEN', 'false').lower() == 'true'
+                       else 'django.db.backends.postgresql'),
             'NAME': os.environ['DB_NAME'],
             'USER': os.environ.get('DB_USER', 'postgres'),
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),
