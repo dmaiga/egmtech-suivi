@@ -20,6 +20,8 @@ class ActivityLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        # Historique d'une visite affiché à chaque ouverture du détail.
+        indexes = [models.Index(fields=["object_type", "object_id"], name="activitylog_objet_idx")]
 
     def __str__(self):
         return f"{self.action} - {self.object_type}#{self.object_id}"

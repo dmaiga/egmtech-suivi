@@ -129,7 +129,7 @@ def mission_list(request):
         "filter_statut": statut or "",
         "statut_choices": Visit.Statut.choices,
         "clients_filter": Client.objects.filter(actif=True) if is_manager else Client.objects.filter(sites__missions__superviseur=request.user).distinct(),
-        "sites_filter": Site.objects.all() if is_manager else Site.objects.filter(missions__superviseur=request.user).distinct(),
+        "sites_filter": (Site.objects.all() if is_manager else Site.objects.filter(missions__superviseur=request.user).distinct()).select_related("client"),
     }
 
     if is_manager:
@@ -604,13 +604,16 @@ def revue_list(request):
     else:
         visits = visits.order_by("-date_debut")
 
+    # Liste paginée : avec des centaines de visites, tout afficher ralentit fortement la page.
+    page_obj = Paginator(visits, 25).get_page(request.GET.get("page", 1))
+
     selected_visit = None
     detail_context = {}
     selected_pk = request.GET.get("visit_pk")
     if selected_pk:
         selected_visit = visits.filter(pk=selected_pk).first()
-    if not selected_visit and visits.exists():
-        selected_visit = visits.first()
+    if not selected_visit and page_obj.object_list:
+        selected_visit = page_obj.object_list[0]
 
     if selected_visit:
         detail_context = get_visit_detail_context(
@@ -618,7 +621,8 @@ def revue_list(request):
         )
 
     context = {
-        "visits": visits,
+        "visits": page_obj,
+        "page_obj": page_obj,
         "selected_visit": selected_visit,
         "current_tri": tri,
         **detail_context,

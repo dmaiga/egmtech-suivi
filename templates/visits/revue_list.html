@@ -12,7 +12,7 @@
         </div>
         <div>
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {{ visits|length }} visite{{ visits|length|pluralize }} à traiter
+                {{ page_obj.paginator.count }} visite{{ page_obj.paginator.count|pluralize }} à traiter
             </span>
         </div>
     </div>
@@ -86,6 +86,20 @@
                 {% endif %}
             </a>
             {% endfor %}
+
+            {% if page_obj.has_other_pages %}
+            <div class="flex items-center justify-between pt-2 text-xs text-gray-500">
+                <span>Page <strong class="text-gray-700">{{ page_obj.number }}</strong> sur {{ page_obj.paginator.num_pages }}</span>
+                <div class="flex items-center gap-2">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&tri={{ current_tri }}" class="px-3 py-1.5 border border-gray-300 rounded-lg font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm">&larr; Précédent</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&tri={{ current_tri }}" class="px-3 py-1.5 border border-gray-300 rounded-lg font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm">Suivant &rarr;</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- ============================================================== -->

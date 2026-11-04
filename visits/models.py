@@ -78,6 +78,8 @@ class Visit(models.Model):
 
     class Meta:
         ordering = ["-date_debut"]
+        # Listes de revue, portail et compteurs filtrent par statut puis trient par date.
+        indexes = [models.Index(fields=["statut", "date_debut"], name="visit_statut_date_idx")]
         permissions = [
             ("validate_visits", "Peut valider les visites"),
         ]
@@ -147,6 +149,8 @@ class EchangeMessage(models.Model):
 
     class Meta:
         ordering = ["created_at", "pk"]
+        # Compteur de messages non lus calculé sur chaque page (menu).
+        indexes = [models.Index(fields=["echange"], condition=models.Q(lu_le__isnull=True), name="message_non_lu_idx")]
 
     def __str__(self):
         return f"Message {self.pk} - échange {self.echange_id}"

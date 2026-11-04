@@ -115,7 +115,10 @@ if os.environ.get('DB_NAME'):
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
+            # Réutilise la connexion entre requêtes (évite une reconnexion par page)
+            # et vérifie qu'elle est encore valide avant de s'en servir.
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 else:
@@ -123,6 +126,14 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            # Mode WAL : les lectures ne sont plus bloquées pendant qu'un auditeur enregistre.
+            # IMMEDIATE + timeout : les écritures simultanées attendent au lieu d'échouer
+            # avec « database is locked ».
+            'OPTIONS': {
+                'init_command': 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;',
+                'transaction_mode': 'IMMEDIATE',
+                'timeout': 20,
+            },
         }
     }
 
