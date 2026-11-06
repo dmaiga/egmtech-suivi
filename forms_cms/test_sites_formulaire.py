@@ -78,26 +78,59 @@ class FormulaireParSiteTests(TestCase):
         self.assertEqual(list(attached.sites.all()), [self.s1])
         self.assertFalse(attached.concerne(self.site_autre))
 
-    def test_modifier_les_sites_supprime_les_previsions_retirees(self):
+    def _url(self, name, attached, *extra):
+        return reverse(f"forms_cms:{name}", args=[self.banque.pk, attached.pk, *extra])
+
+    def test_retirer_un_site_supprime_sa_prevision(self):
         attached = self._attacher(self.audit)
-        url = reverse("forms_cms:expected-update", args=[self.banque.pk, attached.pk])
-        self.client.post(url, {"perimetre": "1", "tous_les_sites": "1",
-                               f"nombre_prevu_{self.s1.pk}": "1", f"nombre_prevu_{self.s2.pk}": "1"})
-        self.assertEqual(ExpectedVisits.objects.filter(attached_form=attached).count(), 2)
-
-        self.client.post(url, {"perimetre": "1", "sites": [self.s1.pk, self.site_autre.pk],
-                               f"nombre_prevu_{self.s1.pk}": "2", f"nombre_prevu_{self.s3.pk}": "1"})
+        self.client.post(self._url("expected-update", attached),
+                         {f"nombre_prevu_{self.s1.pk}": "1", f"nombre_prevu_{self.s2.pk}": "1"})
+        self.client.post(self._url("attached-site-remove", attached, self.s2.pk))
         attached.refresh_from_db()
-        self.assertFalse(attached.tous_les_sites)
-        self.assertEqual(list(attached.sites.all()), [self.s1])
-        self.assertEqual(
-            dict(ExpectedVisits.objects.filter(attached_form=attached).values_list("site_id", "nombre_prevu")),
-            {self.s1.pk: 2},
-        )
+        self.assertFalse(attached.tous_les_sites)  # « tous » devient la liste moins ce site
+        self.assertEqual(set(attached.sites.all()), {self.s1, self.s3, self.s4})
+        self.assertEqual(list(ExpectedVisits.objects.filter(attached_form=attached).values_list("site_id", flat=True)), [self.s1.pk])
 
-        self.client.post(url, {"perimetre": "1"})  # rien coché : refusé, périmètre inchangé
-        attached.refresh_from_db()
+    def test_dernier_site_ne_peut_pas_etre_retire(self):
+        attached = self._attacher(self.audit, [self.s1])
+        self.client.post(self._url("attached-site-remove", attached, self.s1.pk))
         self.assertEqual(list(attached.sites.all()), [self.s1])
+
+    def test_retirer_site_dun_autre_client_404(self):
+        attached = self._attacher(self.audit, [self.s1, self.s2])
+        response = self.client.post(self._url("attached-site-remove", attached, self.site_autre.pk))
+        self.assertEqual(response.status_code, 404)
+
+    def test_ajouter_des_sites(self):
+        attached = self._attacher(self.audit, [self.s1])
+        self.client.post(self._url("attached-sites-add", attached), {"sites": [self.s3.pk, self.site_autre.pk]})
+        self.assertEqual(set(attached.sites.all()), {self.s1, self.s3})
+        self.client.post(self._url("attached-sites-add", attached), {"tous_les_sites": "1"})
+        attached.refresh_from_db()
+        self.assertTrue(attached.tous_les_sites)
+
+    def test_supprimer_sans_mission_archiver_avec_missions(self):
+        attached = self._attacher(self.audit, [self.s1])
+        response = self.client.get(reverse("clients:detail", args=[self.banque.pk]))
+        self.assertContains(response, self._url("attached-delete", attached))
+        self.assertNotContains(response, "Désactiver pour ce client")
+
+        Mission.objects.create(superviseur=self.auditeur, site=self.s1, attached_form=attached, created_by=self.manager)
+        response = self.client.get(reverse("clients:detail", args=[self.banque.pk]))
+        self.assertNotContains(response, self._url("attached-delete", attached))
+        self.assertContains(response, "Archiver")
+        self.client.post(self._url("attached-delete", attached))
+        self.assertTrue(AttachedForm.objects.filter(pk=attached.pk).exists())
+
+        Mission.objects.all().delete()
+        self.client.post(self._url("attached-delete", attached))
+        self.assertFalse(AttachedForm.objects.filter(pk=attached.pk).exists())
+
+    def test_supprimer_formulaire_dun_autre_client_404(self):
+        autre_form = attach_template_to_client(self.manager, self.autre, self.audit)
+        response = self.client.post(reverse("forms_cms:attached-delete", args=[self.banque.pk, autre_form.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(AttachedForm.objects.filter(pk=autre_form.pk).exists())
 
     def test_previsions_seules_ne_changent_pas_les_sites(self):
         attached = attach_template_to_client(self.manager, self.banque, self.audit, [self.s1, self.s2])
@@ -119,9 +152,11 @@ class FormulaireParSiteTests(TestCase):
         sites = {site.pk for _, groupe in response.context["groupes"] for site in groupe}
         self.assertEqual(sites, {self.s1.pk, self.s2.pk, self.s3.pk, self.s4.pk})
 
-    def test_fiche_client_affiche_les_sites_coches(self):
-        self._attacher(self.audit, [self.s1])
+    def test_fiche_client_naffiche_que_les_sites_du_formulaire(self):
+        attached = self._attacher(self.audit, [self.s1])
         response = self.client.get(reverse("clients:detail", args=[self.banque.pk]))
         self.assertContains(response, "1 site")
-        self.assertContains(response, f'name="sites" value="{self.s1.pk}" data-site checked')
-        self.assertContains(response, f'name="sites" value="{self.s2.pk}" data-site  class')
+        self.assertContains(response, f'name="nombre_prevu_{self.s1.pk}"')
+        self.assertNotContains(response, f'name="nombre_prevu_{self.s2.pk}"')
+        self.assertContains(response, f'sites-dialog-{attached.pk}')  # bouton « Ajouter un site »
+        self.assertNotContains(response, self._url("attached-site-remove", attached, self.s1.pk))  # dernier site

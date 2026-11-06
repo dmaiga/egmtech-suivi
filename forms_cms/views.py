@@ -203,21 +203,65 @@ def _perimetre_depuis_post(post, client):
 def attached_form_toggle(request, client_pk, pk):
     attached = get_object_or_404(AttachedForm, pk=pk, client_id=client_pk)
     toggle_attached_form(request.user, attached)
-    statut_msg = "activé" if attached.actif else "désactivé"
-    messages.success(request, f"Formulaire attaché « {attached.nom} » {statut_msg}.")
-    return redirect("clients:detail", pk=client_pk)
+    statut_msg = "réactivé" if attached.actif else "archivé"
+    messages.success(request, f"Formulaire « {attached.nom} » {statut_msg}.")
+    return redirect(_onglet_formulaires(client_pk))
+
+
+def _onglet_formulaires(client_pk):
+    return reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires"
+
+
+@manage_forms_required
+@require_POST
+def attached_form_delete(request, client_pk, pk):
+    """Retire un formulaire du client tant qu'aucune mission ne l'utilise (sinon : archiver)."""
+
+    attached = get_object_or_404(AttachedForm, pk=pk, client_id=client_pk)
+    if attached.missions.exists():
+        messages.error(request, f"« {attached.nom} » est déjà utilisé par des missions : archivez-le plutôt.")
+        return redirect(_onglet_formulaires(client_pk))
+    log(request.user, "suppression_formulaire_attache", attached,
+        detail={"client_id": client_pk, "template_id": attached.template_id})
+    attached.delete()
+    messages.success(request, f"Formulaire « {attached.nom} » retiré du client.")
+    return redirect(_onglet_formulaires(client_pk))
+
+
+@manage_forms_required
+@require_POST
+def attached_sites_add(request, client_pk, pk):
+    attached = get_object_or_404(AttachedForm.objects.select_related("client"), pk=pk, client_id=client_pk)
+    nouveaux = _perimetre_depuis_post(request.POST, attached.client)
+    if nouveaux is None:
+        set_attached_sites(request.user, attached, None)
+    elif not nouveaux:
+        messages.error(request, "Cochez au moins un site à ajouter.")
+        return redirect(_onglet_formulaires(client_pk))
+    elif not attached.tous_les_sites:
+        set_attached_sites(request.user, attached, list(attached.sites.all()) + nouveaux)
+    messages.success(request, "Site(s) ajouté(s) au formulaire.")
+    return redirect(_onglet_formulaires(client_pk))
+
+
+@manage_forms_required
+@require_POST
+def attached_site_remove(request, client_pk, pk, site_pk):
+    attached = get_object_or_404(AttachedForm.objects.select_related("client"), pk=pk, client_id=client_pk)
+    site = get_object_or_404(Site, pk=site_pk, client_id=client_pk)
+    restants = [s for s in attached.sites_concernes() if s.pk != site.pk]
+    if not restants:
+        messages.error(request, "C'est le dernier site de ce formulaire : supprimez ou archivez le formulaire.")
+        return redirect(_onglet_formulaires(client_pk))
+    set_attached_sites(request.user, attached, restants)
+    messages.success(request, f"Site « {site.nom} » retiré du formulaire « {attached.nom} ».")
+    return redirect(_onglet_formulaires(client_pk))
 
 
 @manage_forms_required
 @require_POST
 def expected_visits_update(request, client_pk, pk):
     attached = get_object_or_404(AttachedForm.objects.select_related("client"), pk=pk, client_id=client_pk)
-    if "perimetre" in request.POST:
-        sites = _perimetre_depuis_post(request.POST, attached.client)
-        if sites is not None and not sites:
-            messages.error(request, "Cochez « Tous les sites » ou au moins un site.")
-            return redirect(reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires")
-        set_attached_sites(request.user, attached, sites)
     for site in attached.sites_concernes():
         raw = request.POST.get(f"nombre_prevu_{site.pk}")
         if raw is None:
@@ -235,5 +279,5 @@ def expected_visits_update(request, client_pk, pk):
         if nombre_prevu < 0:
             continue
         set_expected_visits(request.user, attached, site, nombre_prevu)
-    messages.success(request, "Sites et prévisions mis à jour.")
+    messages.success(request, "Prévisions mises à jour.")
     return redirect(reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires")

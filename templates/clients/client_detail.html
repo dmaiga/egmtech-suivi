@@ -104,7 +104,7 @@
             <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
                 <div>
                     <h2 class="text-base font-bold text-gray-900">Formulaires attachés et prévisions</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Cochez les sites concernés par chaque formulaire, puis les visites prévues : 1 pour un audit unique, 0 pour aucune visite prévue ; vide signifie non défini.</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Chaque formulaire liste ses sites et les visites prévues : 1 pour un audit unique, 0 pour aucune visite prévue ; vide signifie non défini.</p>
                 </div>
                 <a href="{% url 'forms_cms:list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
                     Gérer la bibliothèque des formulaires →
@@ -114,62 +114,96 @@
             <div class="space-y-6">
                 {% for item in attached_forms_data %}
                 <div class="border border-gray-200 rounded-xl p-5 bg-gray-50/30">
-                    <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
-                        <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-200 mb-4">
+                        <div class="flex flex-wrap items-center gap-2">
                             <span class="font-bold text-gray-900 text-sm">{{ item.form.nom }}</span>
-                            <span class="text-xs text-gray-500">{% if item.form.tous_les_sites %}Tous les sites{% else %}{{ item.nb_sites }} site{{ item.nb_sites|pluralize }}{% endif %}</span>
+                            <span class="text-xs text-gray-500">{% if item.form.tous_les_sites %}Tous les sites{% else %}{{ item.sites|length }} site{{ item.sites|length|pluralize }}{% endif %}</span>
                             {% if item.form.actif %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Actif</span>
                             {% else %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Désactivé</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Archivé</span>
                             {% endif %}
                         </div>
-                        <form method="post" action="{% url 'forms_cms:attached-toggle' client.pk item.form.pk %}" onsubmit="return confirm('Confirmer {% if item.form.actif %}la désactivation{% else %}la réactivation{% endif %} de ce formulaire pour ce client ?');">
+                        {% if item.form.nb_missions %}
+                        <form method="post" action="{% url 'forms_cms:attached-toggle' client.pk item.form.pk %}" onsubmit="return confirm('{% if item.form.actif %}Archiver ce formulaire ? Il ne pourra plus être assigné ; les missions et visites existantes sont conservées.{% else %}Réactiver ce formulaire pour de nouvelles missions ?{% endif %}');">
                             {% csrf_token %}
-                            <button type="submit" class="text-xs font-semibold {% if item.form.actif %}text-amber-700 hover:text-amber-900{% else %}text-indigo-600 hover:text-indigo-800{% endif %}">
-                                {% if item.form.actif %}Désactiver pour ce client{% else %}Réactiver pour ce client{% endif %}
+                            <button type="submit" title="{{ item.form.nb_missions }} mission{{ item.form.nb_missions|pluralize }} utilise{{ item.form.nb_missions|pluralize:'nt' }} ce formulaire" class="text-xs font-semibold {% if item.form.actif %}text-amber-700 hover:text-amber-900{% else %}text-indigo-600 hover:text-indigo-800{% endif %}">
+                                {% if item.form.actif %}Archiver{% else %}Réactiver{% endif %}
                             </button>
                         </form>
+                        {% else %}
+                        <form method="post" action="{% url 'forms_cms:attached-delete' client.pk item.form.pk %}" onsubmit="return confirm('Supprimer « {{ item.form.nom|escapejs }} » de ce client ?');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-800">Supprimer</button>
+                        </form>
+                        {% endif %}
                     </div>
 
-                    <form method="post" action="{% url 'forms_cms:expected-update' client.pk item.form.pk %}" class="space-y-3" data-perimetre>
+                    <form method="post" action="{% url 'forms_cms:expected-update' client.pk item.form.pk %}" class="space-y-3">
                         {% csrf_token %}
-                        <input type="hidden" name="perimetre" value="1">
-                        {% if item.sites %}
-                        <label class="inline-flex items-center gap-2 text-xs font-semibold text-gray-800">
-                            <input type="checkbox" name="tous_les_sites" value="1" data-tous-les-sites {% if item.form.tous_les_sites %}checked{% endif %} class="rounded border-gray-300 text-indigo-600">
-                            Tous les sites (y compris ceux ajoutés plus tard)
-                        </label>
-                        {% endif %}
                         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {% for site, nombre_prevu, concerne in item.sites %}
-                            <div class="p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between text-xs">
-                                <label class="flex items-center gap-2 font-medium text-gray-700 truncate pr-2">
-                                    <input type="checkbox" name="sites" value="{{ site.pk }}" data-site {% if concerne %}checked{% endif %} class="rounded border-gray-300 text-indigo-600">
-                                    {{ site.nom }}
-                                </label>
-                                <input
-                                    type="number" min="0"
-                                    id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
-                                    name="nombre_prevu_{{ site.pk }}"
-                                    value="{{ nombre_prevu|default_if_none:'' }}" placeholder="—" aria-label="Visites prévues : {{ site.nom }}"
-                                    {% if not concerne %}disabled{% endif %}
-                                    class="w-16 border border-gray-300 rounded px-2 py-1 text-xs text-right font-mono disabled:bg-gray-100"
-                                >
+                            {% for site, nombre_prevu in item.sites %}
+                            <div class="p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between gap-2 text-xs">
+                                <label for="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}" class="font-medium text-gray-700 truncate">{{ site.nom }}</label>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <input type="number" min="0"
+                                           id="nombre_prevu_{{ site.pk }}_{{ item.form.pk }}"
+                                           name="nombre_prevu_{{ site.pk }}"
+                                           value="{{ nombre_prevu|default_if_none:'' }}" placeholder="—" title="Visites prévues"
+                                           class="w-16 border border-gray-300 rounded px-2 py-1 text-xs text-right font-mono">
+                                    {% if item.sites|length > 1 %}
+                                    <button type="submit" form="retirer-{{ item.form.pk }}-{{ site.pk }}"
+                                            onclick="return confirm('Retirer « {{ site.nom|escapejs }} » de ce formulaire ?');"
+                                            aria-label="Retirer {{ site.nom }}" title="Retirer ce site"
+                                            class="w-6 h-6 inline-flex items-center justify-center rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50">×</button>
+                                    {% endif %}
+                                </div>
                             </div>
                             {% empty %}
-                            <p class="text-xs text-gray-400 italic">Aucun site disponible pour configurer des prévisions.</p>
+                            <p class="text-xs text-gray-400 italic">Aucun site pour ce formulaire.</p>
                             {% endfor %}
                         </div>
 
-                        {% if item.sites %}
-                        <div class="pt-2">
+                        <div class="pt-2 flex flex-wrap items-center gap-2">
+                            {% if item.sites %}
                             <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition">
-                                Enregistrer les sites et prévisions
+                                Enregistrer les prévisions
                             </button>
+                            {% endif %}
+                            {% if item.sites_disponibles %}
+                            <button type="button" data-open-dialog="sites-dialog-{{ item.form.pk }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 rounded-lg transition">
+                                + Ajouter un site
+                            </button>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </form>
+                    {% if item.sites|length > 1 %}{% for site, nombre_prevu in item.sites %}
+                    <form id="retirer-{{ item.form.pk }}-{{ site.pk }}" method="post" action="{% url 'forms_cms:attached-site-remove' client.pk item.form.pk site.pk %}" class="hidden">{% csrf_token %}</form>
+                    {% endfor %}{% endif %}
+
+                    {% if item.sites_disponibles %}
+                    <dialog id="sites-dialog-{{ item.form.pk }}" aria-labelledby="sites-dialog-title-{{ item.form.pk }}" class="w-full max-w-lg rounded-2xl shadow-xl p-6 backdrop:bg-black/50">
+                        <div class="flex items-center justify-between mb-4"><h3 id="sites-dialog-title-{{ item.form.pk }}" class="text-lg font-bold text-gray-900">Ajouter des sites à « {{ item.form.nom }} »</h3><button type="button" data-close-dialog aria-label="Fermer" class="text-gray-600 text-xl">×</button></div>
+                        <form method="post" action="{% url 'forms_cms:attached-sites-add' client.pk item.form.pk %}" class="space-y-3" data-perimetre>
+                            {% csrf_token %}
+                            <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                {% for site in item.sites_disponibles %}
+                                <label class="flex items-center gap-2 text-xs text-gray-700 py-1">
+                                    <input type="checkbox" name="sites" value="{{ site.pk }}" data-site class="rounded border-gray-300 text-indigo-600">
+                                    {{ site.nom }}{% if site.ville %} <span class="text-gray-400">· {{ site.ville }}</span>{% endif %}
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <label class="inline-flex items-center gap-2 text-xs font-semibold text-gray-800">
+                                <input type="checkbox" name="tous_les_sites" value="1" data-tous-les-sites class="rounded border-gray-300 text-indigo-600">
+                                Tous les sites (y compris ceux ajoutés plus tard)
+                            </label>
+                            <div class="flex justify-end">
+                                <button type="submit" class="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs">Ajouter</button>
+                            </div>
+                        </form>
+                    </dialog>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="p-4 bg-gray-50 rounded-xl text-center text-sm text-gray-500">
@@ -304,20 +338,17 @@ function switchTab(tabName) {
     }
 }
 {% if show_access_tab %}switchTab('acces');{% endif %}
-// Sites concernés : « Tous les sites » coche et verrouille les cases ; la case d'un site
-// active ou non son nombre de visites prévues.
+// « Tous les sites » coche et verrouille les cases des sites.
 document.querySelectorAll('[data-perimetre]').forEach(function (form) {
     var tous = form.querySelector('[data-tous-les-sites]');
+    if (!tous) return;
     function refresh() {
         form.querySelectorAll('[data-site]').forEach(function (box) {
-            if (tous && tous.checked) box.checked = true;
-            box.disabled = !!(tous && tous.checked);
-            var row = box.closest('div');
-            var prevu = row && row.querySelector('input[type="number"]');
-            if (prevu) prevu.disabled = !box.checked;
+            if (tous.checked) box.checked = true;
+            box.disabled = tous.checked;
         });
     }
-    form.addEventListener('change', refresh);
+    tous.addEventListener('change', refresh);
     refresh();
 });
 const requestedTab = new URLSearchParams(window.location.search).get('onglet');

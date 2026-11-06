@@ -17,6 +17,13 @@ urlpatterns = [
         views.attached_form_toggle,
         name="attached-toggle",
     ),
+    path("clients/<int:client_pk>/attaches/<int:pk>/supprimer/", views.attached_form_delete, name="attached-delete"),
+    path("clients/<int:client_pk>/attaches/<int:pk>/sites/ajouter/", views.attached_sites_add, name="attached-sites-add"),
+    path(
+        "clients/<int:client_pk>/attaches/<int:pk>/sites/<int:site_pk>/retirer/",
+        views.attached_site_remove,
+        name="attached-site-remove",
+    ),
     path(
         "clients/<int:client_pk>/attaches/<int:pk>/previsions/",
         views.expected_visits_update,
