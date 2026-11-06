@@ -160,7 +160,17 @@ def mission_list(request):
 def _mission_options_context(client_id, selected_sites=(), selected_form=""):
     """Sites du client groupés par localité, avec les auditeurs déjà assignés à chacun."""
 
-    sites = list(Site.objects.filter(client_id=client_id)) if client_id else []
+    attached_forms = AttachedForm.objects.filter(client_id=client_id, actif=True) if client_id else AttachedForm.objects.none()
+    formulaire = None
+    if len(attached_forms) == 1:
+        formulaire = attached_forms[0]
+    elif str(selected_form or "").isdigit():
+        formulaire = attached_forms.filter(pk=int(selected_form)).first()
+    if formulaire is not None:
+        selected_form = formulaire.pk
+        sites = list(formulaire.sites_concernes())
+    else:
+        sites = list(Site.objects.filter(client_id=client_id)) if client_id else []
     assignes = {}
     for mission in Mission.objects.filter(site__in=sites).select_related("superviseur"):
         nom = mission.superviseur.get_full_name() or mission.superviseur.username
@@ -170,7 +180,8 @@ def _mission_options_context(client_id, selected_sites=(), selected_form=""):
     return {
         "groupes": sites_par_localite(sites),
         "client_selectionne": bool(client_id),
-        "attached_forms": AttachedForm.objects.filter(client_id=client_id, actif=True) if client_id else AttachedForm.objects.none(),
+        "attached_forms": attached_forms,
+        "formulaire_choisi": formulaire,
         "selected_sites": {str(pk) for pk in selected_sites},
         "selected_form": str(selected_form or ""),
     }
@@ -239,7 +250,11 @@ def mission_detach(request, pk):
 
 @role_required(User.Role.MANAGER)
 def mission_options(request):
-    return render(request, "visits/_mission_options.html", _mission_options_context(request.GET.get("client_id")))
+    return render(
+        request,
+        "visits/_mission_options.html",
+        _mission_options_context(request.GET.get("client_id"), selected_form=request.GET.get("attached_form")),
+    )
 
 
 @role_required(User.Role.MANAGER)

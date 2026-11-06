@@ -15,7 +15,7 @@ from .forms import FormTemplateImportForm
 from .mixins import ManageFormsRequiredMixin
 from .models import AttachedForm, ExpectedVisits, FormTemplate
 from .schema import validate_schema
-from .services import attach_template_to_client, set_expected_visits, toggle_attached_form
+from .services import attach_template_to_client, set_attached_sites, set_expected_visits, toggle_attached_form
 
 
 class FormTemplateListView(ManageFormsRequiredMixin, ListView):
@@ -180,9 +180,22 @@ def client_attach_form(request, client_pk):
     if AttachedForm.objects.filter(client=client, template=template).exists():
         messages.error(request, "Ce formulaire est déjà attaché à ce client.")
         return redirect(destination)
-    attach_template_to_client(request.user, client, template)
+    sites = _perimetre_depuis_post(request.POST, client) if "perimetre" in request.POST else None
+    if sites is not None and not sites:
+        messages.error(request, "Cochez « Tous les sites » ou au moins un site.")
+        return redirect(destination)
+    attach_template_to_client(request.user, client, template, sites)
     messages.success(request, "Formulaire attaché au client.")
     return redirect(destination)
+
+
+def _perimetre_depuis_post(post, client):
+    """None si « tous les sites » est coché, sinon la liste des sites cochés (du client seulement)."""
+
+    if post.get("tous_les_sites"):
+        return None
+    ids = [raw for raw in post.getlist("sites") if raw.isascii() and raw.isdigit() and len(raw) <= 18]
+    return list(Site.objects.filter(client=client, pk__in=ids))
 
 
 @manage_forms_required
@@ -198,8 +211,14 @@ def attached_form_toggle(request, client_pk, pk):
 @manage_forms_required
 @require_POST
 def expected_visits_update(request, client_pk, pk):
-    attached = get_object_or_404(AttachedForm, pk=pk, client_id=client_pk)
-    for site in Site.objects.filter(client_id=client_pk):
+    attached = get_object_or_404(AttachedForm.objects.select_related("client"), pk=pk, client_id=client_pk)
+    if "perimetre" in request.POST:
+        sites = _perimetre_depuis_post(request.POST, attached.client)
+        if sites is not None and not sites:
+            messages.error(request, "Cochez « Tous les sites » ou au moins un site.")
+            return redirect(reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires")
+        set_attached_sites(request.user, attached, sites)
+    for site in attached.sites_concernes():
         raw = request.POST.get(f"nombre_prevu_{site.pk}")
         if raw is None:
             continue
@@ -216,5 +235,5 @@ def expected_visits_update(request, client_pk, pk):
         if nombre_prevu < 0:
             continue
         set_expected_visits(request.user, attached, site, nombre_prevu)
-    messages.success(request, "Prévisions mises à jour.")
-    return redirect("clients:detail", pk=client_pk)
+    messages.success(request, "Sites et prévisions mis à jour.")
+    return redirect(reverse("clients:detail", args=[client_pk]) + "?onglet=formulaires")

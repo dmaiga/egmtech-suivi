@@ -39,6 +39,13 @@ class AttachedForm(models.Model):
     nom = models.CharField(max_length=150)
     schema = models.JSONField()
     actif = models.BooleanField(default=True)
+    tous_les_sites = models.BooleanField(
+        default=True, help_text="Vaut pour tous les sites du client, y compris ceux ajoutés plus tard."
+    )
+    sites = models.ManyToManyField(
+        "clients.Site", blank=True, related_name="formulaires_attaches",
+        help_text="Sites concernés quand « tous les sites » n'est pas coché.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -46,6 +53,16 @@ class AttachedForm(models.Model):
 
     def __str__(self):
         return f"{self.nom} ({self.client.nom})"
+
+    def sites_concernes(self):
+        if self.tous_les_sites:
+            return self.client.sites.all()
+        return self.sites.filter(client_id=self.client_id)
+
+    def concerne(self, site):
+        if site.client_id != self.client_id:
+            return False
+        return self.tous_les_sites or self.sites.filter(pk=site.pk).exists()
 
 
 class ExpectedVisits(models.Model):

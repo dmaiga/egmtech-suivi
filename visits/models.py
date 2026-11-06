@@ -39,6 +39,8 @@ class Mission(models.Model):
             )
         if self.attached_form_id and not self.attached_form.actif:
             raise ValidationError("Le formulaire attaché est désactivé.")
+        if self.attached_form_id and self.site_id and not self.attached_form.concerne(self.site):
+            raise ValidationError("Ce formulaire n'est pas prévu pour ce site.")
 
 
 class Visit(models.Model):

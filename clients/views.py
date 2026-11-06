@@ -127,14 +127,17 @@ class ClientDetailView(ManagerRequiredMixin, DetailView):
         context["user_form"] = ClientUserCreationForm()
 
         sites = list(context["sites"])
-        attached_forms = self.object.attached_forms.select_related("template").prefetch_related("expected_visits")
+        attached_forms = self.object.attached_forms.select_related("template").prefetch_related("expected_visits", "sites")
         attached_forms_data = []
         for attached_form in attached_forms:
             previsions = {ev.site_id: ev.nombre_prevu for ev in attached_form.expected_visits.all()}
+            choisis = {site.pk for site in attached_form.sites.all()}
+            concernes = [site for site in sites if attached_form.tous_les_sites or site.pk in choisis]
             attached_forms_data.append(
                 {
                     "form": attached_form,
-                    "sites": [(site, previsions.get(site.pk)) for site in sites],
+                    "sites": [(site, previsions.get(site.pk), site in concernes) for site in sites],
+                    "nb_sites": len(concernes),
                 }
             )
         context["attached_forms_data"] = attached_forms_data

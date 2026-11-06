@@ -5,16 +5,53 @@ from core.services import log
 from .models import AttachedForm, ExpectedVisits
 
 
-def attach_template_to_client(user, client, template):
-    """Attache `template` à `client` en copiant son schéma au moment présent."""
+def attach_template_to_client(user, client, template, sites=None):
+    """Attache `template` à `client` en copiant son schéma au moment présent.
+
+    `sites` : None pour tous les sites du client, sinon les sites concernés (du même client).
+    """
 
     attached = AttachedForm.objects.create(
         client=client,
         template=template,
         nom=template.nom,
         schema=copy.deepcopy(template.schema),
+        tous_les_sites=sites is None,
     )
-    log(user, "attachement_formulaire", attached, detail={"client_id": client.pk, "template_id": template.pk})
+    if sites is not None:
+        attached.sites.set(client.sites.filter(pk__in=[site.pk for site in sites]))
+    log(
+        user,
+        "attachement_formulaire",
+        attached,
+        detail={"client_id": client.pk, "template_id": template.pk, "sites": _ids_perimetre(attached)},
+    )
+    return attached
+
+
+def _ids_perimetre(attached):
+    return "tous" if attached.tous_les_sites else sorted(attached.sites.values_list("pk", flat=True))
+
+
+def set_attached_sites(user, attached, sites=None):
+    """Change les sites concernés (None = tous). Les prévisions des sites retirés sont supprimées."""
+
+    avant = _ids_perimetre(attached)
+    attached.tous_les_sites = sites is None
+    attached.save(update_fields=["tous_les_sites"])
+    if sites is None:
+        attached.sites.clear()
+    else:
+        attached.sites.set(attached.client.sites.filter(pk__in=[site.pk for site in sites]))
+    retirees = ExpectedVisits.objects.filter(attached_form=attached).exclude(site__in=attached.sites_concernes())
+    for expected in retirees:
+        log(user, "suppression_prevision_visites", expected,
+            detail={"site_id": expected.site_id, "attached_form_id": attached.pk})
+        expected.delete()
+    apres = _ids_perimetre(attached)
+    if apres != avant:
+        log(user, "modification_sites_formulaire", attached,
+            detail={"client_id": attached.client_id, "avant": avant, "apres": apres})
     return attached
 
 

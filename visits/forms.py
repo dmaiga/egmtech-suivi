@@ -34,6 +34,12 @@ class MissionForm(forms.ModelForm):
         sites = cleaned.get("sites")
         if attached and sites and any(site.client_id != attached.client_id for site in sites):
             raise forms.ValidationError("Le formulaire attaché doit appartenir au client du site.")
+        if attached and sites:
+            hors = [site.nom for site in sites if not attached.concerne(site)]
+            if hors:
+                raise forms.ValidationError(
+                    f"Le formulaire « {attached.nom} » n'est pas prévu pour : {', '.join(hors)}."
+                )
         return cleaned
 
     def save_missions(self, created_by):

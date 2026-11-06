@@ -1,10 +1,12 @@
 <div class="space-y-4">
     <div>
         <label for="id_attached_form" class="block text-sm font-medium text-gray-700 mb-1">Formulaire attaché <span class="text-red-500">*</span></label>
-        <select id="id_attached_form" name="attached_form" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
+        <select id="id_attached_form" name="attached_form" required
+                hx-get="{% url 'visits:mission-options' %}" hx-target="#mission-options" hx-trigger="change"
+                hx-include="#id_client_select" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm">
             <option value="">Sélectionner un formulaire...</option>
             {% for attached_form in attached_forms %}
-            <option value="{{ attached_form.pk }}" {% if selected_form == attached_form.pk|stringformat:"s" or attached_forms|length == 1 %}selected{% endif %}>{{ attached_form.nom }}</option>
+            <option value="{{ attached_form.pk }}" {% if formulaire_choisi.pk == attached_form.pk %}selected{% endif %}>{{ attached_form.nom }}{% if not attached_form.tous_les_sites %} (sites choisis){% endif %}</option>
             {% endfor %}
         </select>
         {% if not attached_forms and client_selectionne %}
@@ -14,7 +16,7 @@
 
     <div data-sites>
         <div class="flex items-center justify-between mb-1">
-            <span class="block text-sm font-medium text-gray-700">Sites <span class="text-red-500">*</span></span>
+            <span class="block text-sm font-medium text-gray-700">Sites <span class="text-red-500">*</span>{% if attached_forms|length > 1 and not formulaire_choisi %} <span class="text-xs font-normal text-gray-500">— choisissez d'abord le formulaire</span>{% endif %}</span>
             {% if groupes %}<span class="text-xs text-gray-500"><span data-sites-count>0</span> sélectionné(s)</span>{% endif %}
         </div>
         {% if groupes %}
@@ -40,6 +42,8 @@
             </fieldset>
             {% endfor %}
         </div>
+        {% elif formulaire_choisi %}
+        <p class="text-xs text-amber-600 mt-1">Aucun site n'est prévu pour ce formulaire (voir la fiche du client, onglet Formulaires).</p>
         {% elif client_selectionne %}
         <p class="text-xs text-amber-600 mt-1">Aucun site disponible pour ce client.</p>
         {% else %}
