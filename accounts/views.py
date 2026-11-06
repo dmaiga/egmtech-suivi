@@ -52,7 +52,10 @@ def auditor_create(request):
 def _default_url_for(user):
     if user.is_client():
         return reverse("portal:dashboard")
-    return reverse("visits:mission-list")
+    if user.is_superviseur():
+        return reverse("visits:mission-list")
+    # Manager / Administrateur : tableau de bord Accueil
+    return reverse("app-home")
 
 
 class RoleAwareLoginView(LoginView):

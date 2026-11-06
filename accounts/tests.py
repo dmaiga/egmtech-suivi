@@ -26,12 +26,12 @@ def _make_user(username, role, is_superuser=False):
 
 
 class LoginRedirectTests(TestCase):
-    def test_manager_redirected_to_app(self):
+    def test_manager_redirected_to_dashboard(self):
         _make_user("manager1", User.Role.MANAGER)
         response = self.client.post(
             reverse("accounts:login"), {"username": "manager1", "password": "pass12345"}
         )
-        self.assertRedirects(response, reverse("visits:mission-list"))
+        self.assertRedirects(response, reverse("app-home"))
 
     def test_superviseur_redirected_to_app(self):
         _make_user("sup1", User.Role.SUPERVISEUR)
@@ -52,7 +52,7 @@ class LoginRedirectTests(TestCase):
         response = self.client.post(
             reverse("accounts:login"), {"username": "admin1", "password": "pass12345"}
         )
-        self.assertRedirects(response, reverse("visits:mission-list"))
+        self.assertRedirects(response, reverse("app-home"))
 
     def test_logout_redirects_to_login(self):
         _make_user("manager2", User.Role.MANAGER)
