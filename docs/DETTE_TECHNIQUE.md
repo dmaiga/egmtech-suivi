@@ -1,6 +1,8 @@
 # Audit de dette technique
 
-Audit réalisé le 31/10/2026 sur l'état du dépôt (branche `main`, modifications non committées sur les échanges et les pièces jointes comprises). 221 tests passent.
+Audit réalisé le 31/10/2026 sur l'état du dépôt (branche `main`, modifications non committées sur les échanges et les pièces jointes comprises). 221 tests passaient alors.
+
+**Mise à jour du 08/11/2026 (lot 0) :** 271 tests, tous verts sur SQLite (92 s) et sur MariaDB 11.4 locale (100 s, Docker). Pollution de `media/` par les tests résolue (voir « Résolu » en fin de document).
 
 Priorité : **P1** à traiter avant la mise en production réelle, **P2** à planifier, **P3** confort.
 
@@ -35,10 +37,19 @@ Priorité : **P1** à traiter avant la mise en production réelle, **P2** à pla
 
 ## P3 — Confort
 
-17. **Pas d'outillage de qualité.** Aucun linter ni formateur (`ruff`), pas d'intégration continue qui lance `manage.py test`, pas de verrouillage des versions exactes (`requirements.txt` donne des plages). Les tests mettent 80 s : certains créent des données lourdes (`seed_demo`) et pourraient être allégés.
+17. **Pas d'outillage de qualité.** Aucun linter ni formateur (`ruff`), pas d'intégration continue qui lance `manage.py test`, pas de verrouillage des versions exactes (`requirements.txt` donne des plages). Les tests mettent environ 90 s sur SQLite et 100 s sur MariaDB : certains créent des données lourdes (`seed_demo`) et pourraient être allégés.
 18. **Tests de gabarits fragiles.** Plusieurs tests vérifient la présence de texte dans le HTML (« Aucun échange », « 1 nouveau »). Un changement de libellé les casse. Préférer tester le contexte ou des identifiants stables.
 19. **Dépendance implicite entre `Role` et permissions.** Les droits fins sont des permissions Django (conforme à `CLAUDE.md`) mais le menu et les vues testent aussi `is_manager()` à plusieurs endroits (`core/views.py`, `core/context_processors.py`). Un manager sans la permission `validate_visits` voit certains écrans mais pas d'autres : vérifier que c'est voulu et le documenter.
 20. **Documentation.** `README.md` et `docs/` ne décrivent pas encore les échanges, les pièces jointes ni la compression d'images. Le vocabulaire (« auditeur » à l'écran, `superviseur` dans le code) est respecté mais le gabarit `_visit_detail.html` affiche encore « Auteur (Superviseur) » : à corriger.
+
+## Résolu
+
+- **Tests qui écrivaient dans `media/` (08/11/2026).** Quatre classes créaient un dossier `mkdtemp()` à l'import du module, jamais supprimé (deux dans `media/`, deux dans le `/tmp` du système), et quatre autres classes (dont celle qui lance `seed_demo`) écrivaient directement dans `media/visites/`. Toutes passent désormais par `core.testing.TempMediaRootMixin` (dossier temporaire supprimé en fin de classe). Les dossiers `media/tmp*` laissés par les anciens lancements restent à supprimer à la main.
+
+## À surveiller
+
+- **PDF et MEDIA_ROOT hors du répertoire courant.** xhtml2pdf refuse de lire une image située hors du répertoire de travail du processus (« Blocked by the resource policy ») : les photos disparaissent du PDF sans erreur. C'est pourquoi les dossiers temporaires des tests sont créés dans le projet. En production, garder `MEDIA_ROOT` sous le répertoire de l'application, ou adapter `visits/pdf.py`.
+- **Collation de connexion MariaDB 11.4.** Les tables sont en `utf8mb4_unicode_ci` mais la connexion PyMySQL reçoit `utf8mb4_uca1400_ai_ci` (défaut de MariaDB 11.4 pour `utf8mb4`). Sans effet constaté sur la suite de tests ; à comparer avec la prod quand l'accès sera disponible.
 
 ## Points solides à conserver
 
@@ -46,4 +57,4 @@ Priorité : **P1** à traiter avant la mise en production réelle, **P2** à pla
 - Stockage unique et configurable (`get_upload_storage`), aucun chemin en dur.
 - Droits fins par permissions Django, pas de champs de rôle ad hoc.
 - Aucune dépendance front à compiler ; peu de dépendances Python (Django, Pillow, xhtml2pdf, python-dotenv).
-- Couverture de tests large (221 tests) sur les parcours critiques.
+- Couverture de tests large (271 tests au 08/11/2026) sur les parcours critiques.

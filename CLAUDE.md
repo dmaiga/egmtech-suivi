@@ -42,3 +42,6 @@ par client** sur toutes les données.
 ## Process
 - Code simple, pas de dépendance non nécessaire.
 - Petits commits, un lot à la fois.
+- Avant toute livraison : lancer la suite complète sur MariaDB (`python manage.py test`, voir README).
+  Le nombre de tests ne doit pas baisser.
+- Un test ne doit jamais écrire hors d'un répertoire temporaire (fichiers : `core.testing.TempMediaRootMixin`).
