@@ -15,11 +15,13 @@ TAUX_TVA_MIN, TAUX_TVA_MAX = 0, 100  # 0 : exonération voulue
 VALIDITE_DEVIS_MIN, VALIDITE_DEVIS_MAX = 1, 365
 DELAI_RELANCE_MIN, DELAI_RELANCE_MAX = 1, 90
 
-# Montants en FCFA : entiers, prix multiples de 5. Bornes hautes de sécurité : un total de
-# document reste très loin de la limite d'une colonne BIGINT (9,2 x 10^18).
+# Montants en FCFA : entiers, prix multiples de 5. Bornes hautes de sécurité : le TTC maximal
+# (200 lignes x 10^5 x 10^10, TVA de 100 % comprise) vaut 4 x 10^17, sous la limite d'une
+# colonne BIGINT signée (9,2 x 10^18) ; un test le vérifie.
 PAS_MONTANT = 5
-PRIX_UNITAIRE_MAX = 10**12
-QUANTITE_MIN, QUANTITE_MAX = 1, 10**6
+PRIX_UNITAIRE_MAX = 10**10
+QUANTITE_MIN, QUANTITE_MAX = 1, 10**5
+LIGNES_MAX = 200
 
 
 def valider_multiple_de_5(valeur):

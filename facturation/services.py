@@ -16,6 +16,7 @@ from .exceptions import (
     TransitionInterdite,
 )
 from .models import (
+    LIGNES_MAX,
     PAS_MONTANT,
     PRIX_UNITAIRE_MAX,
     QUANTITE_MAX,
@@ -291,6 +292,8 @@ def _creer_ligne(document, designation, quantite, prix_unitaire, produit=None):
     if not designation:
         raise ErreurFacturation("Une ligne doit avoir une désignation.")
     rang = (document.lignes.order_by("-rang").values_list("rang", flat=True).first() or 0) + 1
+    if rang > LIGNES_MAX:
+        raise ErreurFacturation(f"Un document ne peut pas dépasser {LIGNES_MAX} lignes.")
     return LigneDocument.objects.create(
         document=document,
         rang=rang,
