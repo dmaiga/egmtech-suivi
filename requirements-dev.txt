@@ -1,0 +1,4 @@
+# Outils de développement uniquement : jamais en production.
+# pip install -r requirements-dev.txt
+-r requirements.txt
+django-debug-toolbar>=8.0,<9

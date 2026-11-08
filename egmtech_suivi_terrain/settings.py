@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import importlib.util
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
@@ -74,6 +76,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Barre de débogage (requirements-dev.txt) : seulement en DEBUG, si le paquet est installé,
+# jamais pendant les tests (manage.py test), et visible depuis la machine locale uniquement.
+RUNNING_TESTS = sys.argv[1:2] == ['test']
+DEBUG_TOOLBAR = DEBUG and not RUNNING_TESTS and importlib.util.find_spec('debug_toolbar') is not None
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    INTERNAL_IPS = ['127.0.0.1']
 
 ROOT_URLCONF = 'egmtech_suivi_terrain.urls'
 

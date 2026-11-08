@@ -75,6 +75,17 @@ Les mots de passe de `.env` sont figés à la création du volume : pour les cha
 
 Lancer les tests sur SQLite sans toucher au `.env` : `DB_NAME= python manage.py test`.
 
+### Outils de développement (facultatif)
+
+```bash
+pip install -r requirements-dev.txt           # ajoute django-debug-toolbar, jamais en production
+```
+
+La barre de débogage (requêtes SQL, gabarits, temps de rendu) s'affiche sur le côté des pages
+quand trois conditions sont réunies : `DJANGO_DEBUG=true`, paquet installé, navigation depuis
+`127.0.0.1`. Elle n'est jamais chargée pendant `manage.py test` ni sans le paquet : la production
+installe seulement `requirements.txt`.
+
 ## Lancer
 
 ```bash
