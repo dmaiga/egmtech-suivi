@@ -232,6 +232,17 @@ def modifier_produit(produit, user, designation=None, prix_unitaire=None):
     return produit
 
 
+def rechercher_produits(q="", inclure_inactifs=False):
+    """Produits triés par désignation, filtrés sur la désignation (contient, sans casse)."""
+    produits = Produit.objects.all()
+    if not inclure_inactifs:
+        produits = produits.filter(actif=True)
+    q = (q or "").strip()
+    if q:
+        produits = produits.filter(designation__icontains=q)
+    return produits
+
+
 def changer_activation_produit(produit, actif, user):
     if produit.actif == actif:
         return produit
@@ -282,7 +293,7 @@ def _verrouiller_brouillon(document):
 
 
 def _recalculer_totaux(document):
-    totaux = document.lignes.values_list("total", flat=True)
+    totaux = document.lignes.order_by().values_list("total", flat=True)  # sans tri : pas de jointure
     document.total_ht, document.total_tva, document.total_ttc = calculer_totaux(totaux, document.taux_tva)
     document.save(update_fields=["total_ht", "total_tva", "total_ttc", "updated_at"])
 
@@ -308,7 +319,7 @@ def _creer_ligne(document, designation, quantite, prix_unitaire, produit=None):
 def _copie_lignes(document):
     return [
         {"designation": l.designation, "quantite": l.quantite, "prix_unitaire": l.prix_unitaire, "produit": l.produit}
-        for l in document.lignes.all()
+        for l in document.lignes.order_by("rang")
     ]
 
 
@@ -331,18 +342,28 @@ def _nouveau_brouillon(type_document, contact, user, objet, lieu_livraison, taux
     return document
 
 
-def creer_brouillon(type_document, contact, user, objet="", lieu_livraison="", lignes=()):
-    """Nouveau devis ou facture en brouillon ; taux de TVA et validité repris du profil émetteur.
+def _exiger_contact_actif(contact):
+    if not contact.actif:
+        raise ErreurFacturation(f"Le contact « {contact} » est désactivé : il ne peut pas être choisi.")
 
+
+def creer_brouillon(type_document, contact, user, objet="", lieu_livraison="", lignes=(),
+                    taux_tva=None, validite_jours=None):
+    """Nouveau devis ou facture en brouillon pour un contact actif.
+
+    Taux de TVA et validité : ceux du profil émetteur, sauf valeur saisie (0 % accepté).
     `lignes` : dictionnaires {designation, quantite, prix_unitaire[, produit]}.
     """
     if type_document not in TRANSITIONS:
         raise ErreurFacturation("Type de document inconnu.")
+    _exiger_contact_actif(contact)
     profil = ProfilEmetteur.get()
     with transaction.atomic():
         document = _nouveau_brouillon(
             type_document, contact, user, objet, lieu_livraison,
-            taux_tva=profil.taux_tva_defaut, validite_jours=profil.validite_devis_jours, lignes=lignes,
+            taux_tva=profil.taux_tva_defaut if taux_tva is None else taux_tva,
+            validite_jours=profil.validite_devis_jours if validite_jours is None else validite_jours,
+            lignes=lignes,
         )
         log(user, "creation_document", document, detail={"type": type_document})
     return document
@@ -362,6 +383,8 @@ def modifier_brouillon(document, user, **champs):
                 raise ErreurFacturation("Seul un devis a une durée de validité.")
             verrouille.validite_jours = verifier_validite_jours(champs["validite_jours"])
         if "contact" in champs:
+            if champs["contact"].pk != verrouille.contact_id:
+                _exiger_contact_actif(champs["contact"])
             _copier_contact(verrouille, champs["contact"])
         for champ in ("objet", "lieu_livraison"):
             if champ in champs:
@@ -474,7 +497,7 @@ def _preparer_emission(document):
     """Fige le document : totaux, contact, dates, numéro."""
     if not document.lignes.exists():
         raise ErreurFacturation("Un document sans ligne ne peut pas être émis.")
-    totaux = document.lignes.values_list("total", flat=True)
+    totaux = document.lignes.order_by().values_list("total", flat=True)  # sans tri : pas de jointure
     document.total_ht, document.total_tva, document.total_ttc = calculer_totaux(totaux, document.taux_tva)
     _copier_contact(document, document.contact)
     document.date_emission = timezone.localdate()
@@ -508,6 +531,11 @@ def changer_statut(document, nouveau_statut, user):
 def emettre(document, user):
     """Envoie un devis ou émet une facture (numéro attribué)."""
     return changer_statut(document, STATUT_EMISSION[document.type], user)
+
+
+def lister_documents():
+    """Tous les documents, du plus récent au plus ancien, avec leur contact (une seule requête)."""
+    return Document.objects.select_related("contact").order_by("-created_at", "-pk")
 
 
 def facture_active(devis):
