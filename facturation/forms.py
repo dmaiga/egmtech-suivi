@@ -1,6 +1,8 @@
 from django import forms
 
-from .models import ContactClient, ProfilEmetteur
+from . import services
+from .exceptions import ErreurFacturation
+from .models import ContactClient, Produit, ProfilEmetteur
 from .services import IMAGES_PROFIL, preparer_image_profil
 
 
@@ -71,3 +73,38 @@ class ContactClientForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _largeur_pleine(self)
+
+
+class MontantField(forms.IntegerField):
+    """Entier saisi avec ou sans séparateurs de milliers (« 1 250 000 »)."""
+
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.replace("\u00a0", "").replace("\u202f", "").replace(" ", "")
+        return super().to_python(value)
+
+
+def _valider_par_le_service(verification, valeur):
+    """Applique un contrôle de services.py et convertit son erreur en erreur de formulaire."""
+    if valeur is None:
+        return valeur
+    try:
+        return verification(valeur)
+    except ErreurFacturation as exc:
+        raise forms.ValidationError(str(exc)) from exc
+
+
+class ProduitForm(forms.ModelForm):
+    prix_unitaire = MontantField(label="Prix unitaire (FCFA)", help_text="Entier, multiple de 5.")
+
+    class Meta:
+        model = Produit
+        fields = ["designation", "prix_unitaire"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _largeur_pleine(self)
+
+    def clean_prix_unitaire(self):
+        return _valider_par_le_service(services.verifier_prix_unitaire, self.cleaned_data.get("prix_unitaire"))
+

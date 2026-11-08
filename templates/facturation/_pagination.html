@@ -1,0 +1,10 @@
+{% comment %}Pagination sous un tableau : {% include "facturation/_pagination.html" with libelle="produit" %}. Conserve q et inactifs.{% endcomment %}
+{% if page_obj.has_other_pages %}
+<div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+    <div>Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} {{ libelle }}{{ page_obj.paginator.count|pluralize }})</div>
+    <div class="flex gap-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if inclure_inactifs %}&inactifs=1{% endif %}" class="btn btn-secondary btn-sm">Précédent</a>{% endif %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if inclure_inactifs %}&inactifs=1{% endif %}" class="btn btn-secondary btn-sm">Suivant</a>{% endif %}
+    </div>
+</div>
+{% endif %}

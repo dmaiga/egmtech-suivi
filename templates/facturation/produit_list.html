@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load facturation_format %}
+
+{% block title %}Facturation : produits{% endblock %}
+
+{% block content %}
+{% url 'facturation:produit-create' as url_nouveau %}
+{% include "components/page_header.html" with title="Facturation" subtitle="Catalogue des produits et prestations repris dans les lignes." action_url=url_nouveau action_label="Nouveau produit" %}
+{% include "facturation/_onglets.html" with onglet="produits" %}
+
+<form method="get" class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4" role="search">
+    <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par désignation" class="w-full sm:max-w-sm" aria-label="Rechercher un produit">
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" name="inactifs" value="1" {% if inclure_inactifs %}checked{% endif %}> Afficher les produits désactivés
+    </label>
+    <button type="submit" class="btn btn-secondary btn-sm">Rechercher</button>
+</form>
+
+{% if produits %}
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto table-responsive-wrapper">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Désignation</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix unitaire</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+                {% for produit in produits %}
+                <tr>
+                    <td class="px-4 py-3 font-semibold text-gray-900">{{ produit.designation }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{{ produit.prix_unitaire|fcfa }}</td>
+                    <td class="px-4 py-3">
+                        {% if produit.actif %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-neutral">Désactivé</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <div class="inline-flex gap-2">
+                            <a href="{% url 'facturation:produit-update' produit.pk %}" class="btn btn-secondary btn-sm">Modifier</a>
+                            <form method="post" action="{% if produit.actif %}{% url 'facturation:produit-deactivate' produit.pk %}{% else %}{% url 'facturation:produit-reactivate' produit.pk %}{% endif %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary btn-sm">{% if produit.actif %}Désactiver{% else %}Réactiver{% endif %}</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "facturation/_pagination.html" with libelle="produit" %}
+</div>
+{% elif q %}
+{% include "components/empty_state.html" with title="Aucun produit trouvé" message="Aucun produit ne correspond à cette recherche." %}
+{% else %}
+{% include "components/empty_state.html" with title="Aucun produit pour l'instant" message="Ajoutez les produits et prestations que vous facturez souvent." action_url=url_nouveau action_label="Nouveau produit" %}
+{% endif %}
+{% endblock %}

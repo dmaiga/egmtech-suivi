@@ -6,10 +6,11 @@ from django.views.decorators.http import require_POST
 
 from . import services
 from .decorators import manage_invoices_required
-from .forms import ContactClientForm, ProfilEmetteurForm
-from .models import ContactClient, ProfilEmetteur
+from .forms import ContactClientForm, ProduitForm, ProfilEmetteurForm
+from .models import ContactClient, Produit, ProfilEmetteur
 
 CONTACTS_PAR_PAGE = 20
+PRODUITS_PAR_PAGE = 20
 
 
 @manage_invoices_required
@@ -91,3 +92,62 @@ def contact_reactivate(request, pk):
     services.changer_activation_contact(contact, True, request.user)
     messages.success(request, f"Contact « {contact.nom} » réactivé.")
     return redirect("facturation:contact-list")
+
+
+@manage_invoices_required
+def produit_list(request):
+    q = request.GET.get("q", "").strip()
+    inclure_inactifs = request.GET.get("inactifs") == "1"
+    produits = services.rechercher_produits(q, inclure_inactifs)
+    page_obj = Paginator(produits, PRODUITS_PAR_PAGE).get_page(request.GET.get("page"))
+    return render(request, "facturation/produit_list.html", {
+        "page_obj": page_obj,
+        "produits": page_obj.object_list,
+        "q": q,
+        "inclure_inactifs": inclure_inactifs,
+    })
+
+
+@manage_invoices_required
+def produit_create(request):
+    form = ProduitForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        produit = services.creer_produit(
+            form.cleaned_data["designation"], form.cleaned_data["prix_unitaire"], request.user
+        )
+        messages.success(request, f"Produit « {produit.designation} » créé.")
+        return redirect("facturation:produit-list")
+    return render(request, "facturation/produit_form.html", {"form": form})
+
+
+@manage_invoices_required
+def produit_update(request, pk):
+    produit = get_object_or_404(Produit, pk=pk)
+    form = ProduitForm(request.POST or None, instance=produit)
+    if request.method == "POST" and form.is_valid():
+        # Le formulaire a déjà modifié l'instance en mémoire : le service enregistre et journalise.
+        services.modifier_produit(
+            produit, request.user,
+            designation=form.cleaned_data["designation"], prix_unitaire=form.cleaned_data["prix_unitaire"],
+        )
+        messages.success(request, f"Produit « {produit.designation} » mis à jour.")
+        return redirect("facturation:produit-list")
+    return render(request, "facturation/produit_form.html", {"form": form, "produit": produit})
+
+
+@require_POST
+@manage_invoices_required
+def produit_deactivate(request, pk):
+    produit = get_object_or_404(Produit, pk=pk)
+    services.changer_activation_produit(produit, False, request.user)
+    messages.success(request, f"Produit « {produit.designation} » désactivé.")
+    return redirect("facturation:produit-list")
+
+
+@require_POST
+@manage_invoices_required
+def produit_reactivate(request, pk):
+    produit = get_object_or_404(Produit, pk=pk)
+    services.changer_activation_produit(produit, True, request.user)
+    messages.success(request, f"Produit « {produit.designation} » réactivé.")
+    return redirect("facturation:produit-list")
