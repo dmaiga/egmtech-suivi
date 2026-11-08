@@ -52,6 +52,32 @@ def optimiser_image(fichier, nom=None):
     return principale, miniature
 
 
+def optimiser_image_png(fichier, cote_max, nom=None):
+    """Valide une image et la réenregistre en PNG réduit à `cote_max` px, transparence conservée.
+
+    Pour les logos et cachets, posés plus tard sur des documents : un fond blanc imposé (JPEG)
+    masquerait le texte sous un cachet. Le réencodage retire les métadonnées (EXIF, GPS).
+    Retourne un ContentFile ; ValueError si ce n'est pas une image.
+    """
+    fichier.seek(0)
+    try:
+        img = Image.open(fichier)
+        if img.width * img.height > MAX_PIXELS:
+            raise ValueError("Image trop grande.")
+        img = ImageOps.exif_transpose(img)
+        img.load()
+    except (OSError, SyntaxError, Image.DecompressionBombError) as exc:
+        # OSError couvre UnidentifiedImageError et les fichiers tronqués ; certains décodeurs
+        # lèvent SyntaxError sur un fichier corrompu.
+        raise ValueError("Fichier image invalide.") from exc
+    transparente = img.mode in ("RGBA", "LA", "PA") or "transparency" in img.info
+    img = img.convert("RGBA" if transparente else "RGB")
+    img.thumbnail((cote_max, cote_max), Image.LANCZOS)
+    buf = BytesIO()
+    img.save(buf, "PNG", optimize=True)
+    return ContentFile(buf.getvalue(), name=f"{nom or uuid4().hex}.png")
+
+
 def nom_aleatoire(extension=""):
     return uuid4().hex + extension
 
