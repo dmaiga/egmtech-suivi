@@ -40,7 +40,8 @@ HX = {"HTTP_HX_REQUEST": "true"}
 
 # Requêtes SQL d'une page, mesurées pour un manager ayant la seule permission manage_invoices
 # (session, utilisateur, permissions, page). Elles ne dépendent pas du nombre de lignes affichées.
-NB_REQUETES_LISTE = 6
+# Liste : session, utilisateur, 2 de permissions, contacts du filtre (lot 3b), comptage, page.
+NB_REQUETES_LISTE = 7
 NB_REQUETES_EDITION = 8
 
 

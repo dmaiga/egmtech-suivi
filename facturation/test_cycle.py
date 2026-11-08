@@ -1,4 +1,4 @@
-"""Cycle de vie des documents : détail, actions de statut, conversion, duplication (lot 3b)."""
+"""Cycle de vie des documents : détail, actions de statut, conversion, duplication, filtres de la liste (lot 3b)."""
 
 from datetime import date
 from unittest import mock
@@ -13,7 +13,8 @@ from clients.models import Client
 from core.models import ActivityLog
 
 from . import services
-from .models import ContactClient, Document
+from .forms import FiltreDocumentsForm
+from .models import ContactClient, Document, HistoriqueStatut
 from .templatetags.facturation_format import fcfa
 
 T = Document.Type
@@ -24,6 +25,8 @@ LIGNES = [
 ]  # HT 400 000, TVA 18 % : 72 000, TTC 472 000
 
 # Requêtes SQL mesurées pour un manager ayant la seule permission manage_invoices.
+# Liste filtrée : session, utilisateur, 2 de permissions, contacts du filtre, comptage, page.
+NB_REQUETES_LISTE_FILTREE = 7
 # Détail : session, utilisateur, 2 de permissions, document (et devis d'origine), lignes,
 # historique (avec utilisateurs), factures issues du devis (devis uniquement).
 NB_REQUETES_DETAIL_DEVIS = 8
@@ -421,6 +424,172 @@ class DuplicationVueTests(BaseCycle):
                 self.assertEqual(self.etat(original), avant)
 
 
+# ---------------------------------------------------------------------------
+# Filtres de la liste
+# ---------------------------------------------------------------------------
+
+class FiltresListeTests(BaseCycle):
+    def setUp(self):
+        super().setUp()
+        with _jour(date(2026, 1, 10)):
+            self.devis_janvier = self.document(S.ENVOYE, objet="Caméras agence")  # valable au 09/02
+        with _jour(date(2026, 3, 5)):
+            self.facture_mars = self.document(S.PAYEE, contact=self.autre_contact, objet="Contrôle d'accès")
+            self.devis_accepte = self.document(S.ACCEPTE, objet="Alarme")
+        self.brouillon_devis = self.brouillon(objet="Brouillon caméras")
+        self.brouillon_facture = self.brouillon(T.FACTURE, contact=self.autre_contact)
+
+    def lister(self, **params):
+        with _jour(date(2026, 3, 20)):
+            response = self.client.get(reverse("facturation:document-list"), params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def test_sans_filtre_tout_est_visible_brouillons_compris(self):
+        response = self.lister()
+        self.assertEqual(response.context["page_obj"].paginator.count, 5)
+        self.assertContains(response, "5 documents")
+        self.assertFalse(response.context["filtres_actifs"])
+        self.assertNotContains(response, "Réinitialiser")
+
+    def test_filtres_un_a_un(self):
+        cas = [
+            ({"type": "devis"}, {self.devis_janvier, self.devis_accepte, self.brouillon_devis}),
+            ({"type": "facture"}, {self.facture_mars, self.brouillon_facture}),
+            ({"statut": "brouillon"}, {self.brouillon_devis, self.brouillon_facture}),
+            ({"statut": "payee"}, {self.facture_mars}),
+            ({"statut": "envoye"}, {self.devis_janvier}),
+            ({"statut": "expire"}, {self.devis_janvier}),
+            ({"contact": self.autre_contact.pk}, {self.facture_mars, self.brouillon_facture}),
+            ({"du": "2026-03-01"}, {self.facture_mars, self.devis_accepte}),
+            ({"au": "2026-01-31"}, {self.devis_janvier}),
+            ({"du": "2026-03-05", "au": "2026-03-05"}, {self.facture_mars, self.devis_accepte}),
+            ({"q": "caméras"}, {self.devis_janvier, self.brouillon_devis}),
+            ({"q": self.facture_mars.numero}, {self.facture_mars}),
+            ({"q": "beta"}, {self.facture_mars, self.brouillon_facture}),
+        ]
+        for params, attendus in cas:
+            with self.subTest(params=params):
+                response = self.lister(**params)
+                self.assertEqual(set(response.context["documents"]), attendus)
+                self.assertTrue(response.context["filtres_actifs"])
+                self.assertContains(response, "Réinitialiser")
+                self.assertContains(response, f'{len(attendus)} document')
+
+    def test_filtres_combines(self):
+        cas = [
+            ({"type": "devis", "q": "caméras"}, {self.devis_janvier, self.brouillon_devis}),
+            ({"type": "devis", "statut": "brouillon", "q": "caméras"}, {self.brouillon_devis}),
+            ({"contact": self.contact.pk, "du": "2026-03-01", "au": "2026-03-31"}, {self.devis_accepte}),
+            ({"type": "facture", "statut": "expire"}, set()),
+            ({"du": "2026-04-01", "au": "2026-03-01"}, set()),
+        ]
+        for params, attendus in cas:
+            with self.subTest(params=params):
+                self.assertEqual(set(self.lister(**params).context["documents"]), attendus)
+
+    def test_expire_selon_la_date_du_jour(self):
+        url = reverse("facturation:document-list")
+        with _jour(date(2026, 2, 9)):  # dernier jour de validité
+            self.assertEqual(list(self.client.get(url, {"statut": "expire"}).context["documents"]), [])
+        with _jour(date(2026, 2, 10)):
+            response = self.client.get(url, {"statut": "expire"})
+            self.assertEqual(list(response.context["documents"]), [self.devis_janvier])
+        self.assertEqual(self.etat(self.devis_janvier)[0], S.ENVOYE)
+
+    def test_recherche_sur_le_nom_affiche_du_contact(self):
+        # Après un renommage, l'émis reste trouvé par son nom figé, le brouillon par le nom actuel.
+        self.contact.nom = "Alpha Renommée"
+        self.contact.save()
+        self.assertEqual(set(self.lister(q="renommée").context["documents"]), {self.brouillon_devis})
+        self.assertEqual(set(self.lister(q="societe alpha").context["documents"]),
+                         {self.devis_janvier, self.devis_accepte})
+
+    def test_valeurs_invalides_ignorees_sans_erreur(self):
+        invalides = [
+            {"type": "avoir"}, {"statut": "perdu"}, {"contact": "abc"}, {"contact": "999999"},
+            {"du": "2026-13-45"}, {"au": "demain"}, {"q": "x" * 500}, {"page": "zzz"}, {"page": "-1"},
+        ]
+        for params in invalides:
+            with self.subTest(params=params):
+                response = self.lister(**params)
+                self.assertEqual(response.context["page_obj"].paginator.count, 5)
+                self.assertFalse(response.context["filtres_actifs"])
+        # Une valeur invalide n'empêche pas les autres filtres et disparaît du formulaire affiché.
+        response = self.lister(type="devis", statut="perdu", du="31/31/2026")
+        self.assertEqual(response.context["page_obj"].paginator.count, 3)
+        self.assertEqual(response.context["query"], "type=devis")
+        self.assertNotContains(response, "perdu")
+        self.assertNotContains(response, "31/31/2026")
+
+    def test_liste_des_contacts_du_filtre(self):
+        inactif = ContactClient.objects.create(nom="Gamma Ancien")
+        self.brouillon(contact=inactif)
+        inactif.actif = False
+        inactif.save()
+        ContactClient.objects.create(nom="Sans document")
+        choix = dict(self.lister().context["filtre_form"].fields["contact"].choices)
+        self.assertEqual(set(choix.values()), {"Tous les contacts", "Societe Alpha", "Banque Beta", "Gamma Ancien (désactivé)"})
+
+    def test_pagination_garde_les_filtres(self):
+        for _ in range(25):
+            self.brouillon(objet="Lot caméras")
+        response = self.lister(type="devis", q="caméras", statut="brouillon")
+        self.assertEqual(response.context["page_obj"].paginator.count, 26)
+        self.assertContains(response, "26 documents correspondant aux filtres")
+        query = "type=devis&amp;statut=brouillon&amp;q=cam%C3%A9ras"
+        self.assertContains(response, f'href="?page=2&amp;{query}"')
+        page2 = self.lister(type="devis", q="caméras", statut="brouillon", page=2)
+        self.assertEqual(len(page2.context["documents"]), 6)
+        self.assertContains(page2, f'href="?page=1&amp;{query}"')
+
+    def test_formulaire_reaffiche_les_filtres(self):
+        response = self.lister(type="facture", du="2026-03-01", q="accès")
+        self.assertContains(response, 'value="2026-03-01"')
+        self.assertContains(response, 'value="accès"')
+        self.assertContains(response, '<option value="facture" selected>')
+
+    def test_recherche_echappee(self):
+        attaque = "<script>alert(1)</script>"
+        response = self.lister(q=attaque)
+        self.assertNotContains(response, attaque)
+        self.assertContains(response, "&lt;script&gt;alert(1)&lt;/script&gt;")
+        self.assertContains(response, "Aucun document trouvé")
+
+    def test_nombre_de_requetes_constant_avec_filtres(self):
+        url = reverse("facturation:document-list")
+        params = {"type": "devis", "statut": "envoye", "contact": self.contact.pk,
+                  "du": "2026-01-01", "au": "2026-12-31", "q": "a"}
+        self.client.get(url)  # premières requêtes de session hors mesure
+        with self.assertNumQueries(NB_REQUETES_LISTE_FILTREE):
+            self.client.get(url, params)
+        for i in range(30):
+            with _jour(date(2026, 2, 1)):
+                self.document(S.ENVOYE, objet=f"Lot {i}",
+                              lignes=[{"designation": f"L{j}", "quantite": 1, "prix_unitaire": 5} for j in range(5)])
+        with self.assertNumQueries(NB_REQUETES_LISTE_FILTREE):
+            response = self.client.get(url, params)
+        self.assertEqual(len(response.context["documents"]), 20)
+        with self.assertNumQueries(NB_REQUETES_LISTE_FILTREE):
+            self.client.get(url, {"statut": "expire", "page": "2"})
+
+
+class FiltreFormTests(TestCase):
+    def test_criteres_et_chaine_de_requete(self):
+        contact = ContactClient.objects.create(nom="Alpha")
+        form = FiltreDocumentsForm(
+            {"type": "devis", "statut": "expire", "contact": str(contact.pk), "du": "2026-01-02", "q": "  cam  "},
+            contacts=[contact],
+        )
+        self.assertEqual(form.criteres(), {
+            "type_document": "devis", "statut": "expire", "contact_id": contact.pk,
+            "du": date(2026, 1, 2), "q": "cam",
+        })
+        self.assertEqual(form.query_string(), f"type=devis&statut=expire&contact={contact.pk}&du=2026-01-02&q=cam")
+        with self.assertNumQueries(0):
+            FiltreDocumentsForm({"contact": str(contact.pk)}, contacts=[contact]).criteres()
+
+
 class ServicesCycleTests(BaseCycle):
     def test_actions_possibles(self):
         attendus = {
@@ -446,3 +615,9 @@ class ServicesCycleTests(BaseCycle):
         with self.assertRaises(services.TransitionInterdite):
             services.appliquer_action(doc, "supprimer", self.user)
         self.assertEqual(self.etat(doc), (S.ENVOYE, doc.numero, 2))
+
+    def test_filtrer_documents_sans_critere(self):
+        self.document(S.ENVOYE)
+        self.brouillon()
+        self.assertEqual(services.filtrer_documents().count(), 2)
+        self.assertEqual(HistoriqueStatut.objects.count(), 3)

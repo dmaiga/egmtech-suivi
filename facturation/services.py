@@ -538,6 +538,46 @@ def lister_documents():
     return Document.objects.select_related("contact").order_by("-created_at", "-pk")
 
 
+# Valeur de filtre calculée : devis envoyé dont la validité est passée (jamais stockée).
+STATUT_EXPIRE = "expire"
+
+
+def filtrer_documents(type_document=None, statut=None, contact_id=None, du=None, au=None, q=""):
+    """Liste des documents filtrée ; chaque critère vide est ignoré.
+
+    `statut` : un statut stocké ou STATUT_EXPIRE. `du` / `au` : bornes incluses sur la date
+    d'émission (un brouillon n'en a pas et sort donc d'un filtre de période). `q` : contenu
+    dans le numéro, l'objet ou le nom du contact affiché (contact actuel pour un brouillon,
+    nom figé à l'émission sinon).
+    """
+    documents = lister_documents()
+    if type_document:
+        documents = documents.filter(type=type_document)
+    if statut == STATUT_EXPIRE:
+        documents = documents.expires()
+    elif statut:
+        documents = documents.filter(statut=statut)
+    if contact_id:
+        documents = documents.filter(contact_id=contact_id)
+    if du:
+        documents = documents.filter(date_emission__gte=du)
+    if au:
+        documents = documents.filter(date_emission__lte=au)
+    q = (q or "").strip()
+    if q:
+        nom_affiche = (Q(statut=S.BROUILLON) & Q(contact__nom__icontains=q)) | (
+            ~Q(statut=S.BROUILLON) & Q(contact_nom__icontains=q)
+        )
+        documents = documents.filter(Q(numero__icontains=q) | Q(objet__icontains=q) | nom_affiche)
+    return documents
+
+
+def contacts_des_documents():
+    """Contacts ayant au moins un document (désactivés compris), triés par nom : choix du filtre."""
+    contacts = ContactClient.objects.filter(pk__in=Document.objects.values("contact_id"))
+    return contacts.only("pk", "nom", "actif").order_by("nom", "pk")
+
+
 # Actions de l'interface et statut visé. L'émission vise le statut propre au type.
 STATUT_PAR_ACTION = {"accepter": S.ACCEPTE, "refuser": S.REFUSE, "payer": S.PAYEE, "annuler": S.ANNULEE}
 ACTION_PAR_STATUT = {S.ENVOYE: "emettre", S.EMISE: "emettre", **{v: k for k, v in STATUT_PAR_ACTION.items()}}

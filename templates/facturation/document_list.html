@@ -11,6 +11,25 @@
 </div>
 {% include "facturation/_onglets.html" with onglet="documents" %}
 
+{% url 'facturation:document-list' as url_liste %}
+<form method="get" action="{{ url_liste }}" class="card p-4 mb-4" role="search" aria-label="Filtrer les documents">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div class="lg:col-span-2">{% include "facturation/_champ.html" with field=filtre_form.q %}</div>
+        {% include "facturation/_champ.html" with field=filtre_form.type %}
+        {% include "facturation/_champ.html" with field=filtre_form.statut %}
+        <div class="lg:col-span-2">{% include "facturation/_champ.html" with field=filtre_form.contact %}</div>
+        {% include "facturation/_champ.html" with field=filtre_form.du %}
+        {% include "facturation/_champ.html" with field=filtre_form.au %}
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+        <p id="compteur-resultats" class="text-sm text-gray-600">{{ page_obj.paginator.count }} document{{ page_obj.paginator.count|pluralize }}{% if filtres_actifs %} correspondant aux filtres{% endif %}</p>
+        <div class="flex gap-2">
+            {% if filtres_actifs %}<a href="{{ url_liste }}" class="btn btn-secondary btn-sm">Réinitialiser</a>{% endif %}
+            <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
+        </div>
+    </div>
+</form>
+
 {% if documents %}
 <div class="card overflow-hidden">
     <div class="overflow-x-auto table-responsive-wrapper">
@@ -48,6 +67,8 @@
     </div>
     {% include "facturation/_pagination.html" with libelle="document" %}
 </div>
+{% elif filtres_actifs %}
+{% include "components/empty_state.html" with title="Aucun document trouvé" message="Aucun document ne correspond à ces filtres." action_url=url_liste action_label="Réinitialiser les filtres" %}
 {% else %}
 {% url 'facturation:document-create' 'devis' as url_devis %}
 {% include "components/empty_state.html" with title="Aucun document pour l'instant" message="Créez un premier devis ou une première facture." action_url=url_devis action_label="Nouveau devis" %}

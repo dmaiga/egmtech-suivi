@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django import forms
 from django.db.models import Q
 
@@ -163,3 +165,49 @@ class AjoutProduitForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _largeur_pleine(self)
+
+
+class FiltreDocumentsForm(forms.Form):
+    """Filtres de la liste des documents (GET). Un champ invalide est ignoré, jamais une erreur."""
+
+    type = forms.ChoiceField(label="Type", required=False, choices=[("", "Tous les types"), *Document.Type.choices])
+    statut = forms.ChoiceField(
+        label="Statut", required=False,
+        choices=[("", "Tous les statuts"), *Document.Statut.choices, (services.STATUT_EXPIRE, "Expiré")],
+    )
+    contact = forms.TypedChoiceField(label="Contact", required=False, coerce=int, empty_value=None)
+    du = forms.DateField(label="Émis du", required=False,
+                         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    au = forms.DateField(label="Au", required=False,
+                         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    q = forms.CharField(label="Recherche", required=False, max_length=100,
+                        widget=forms.TextInput(attrs={"placeholder": "Numéro, objet ou contact"}))
+
+    def __init__(self, *args, contacts=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self._contacts = contacts
+        # Choix construits depuis la liste déjà chargée : la validation ne fait aucune requête.
+        self.fields["contact"].choices = [("", "Tous les contacts")] + [
+            (str(c.pk), c.nom if c.actif else f"{c.nom} (désactivé)") for c in contacts
+        ]
+        _largeur_pleine(self)
+
+    def valeurs(self):
+        """Champs valides et renseignés, par nom de champ (les autres sont ignorés)."""
+        if not hasattr(self, "_valeurs"):
+            self.is_valid()
+            self._valeurs = {nom: v for nom, v in self.cleaned_data.items() if v not in (None, "")}
+        return self._valeurs
+
+    def criteres(self):
+        """Arguments de services.filtrer_documents."""
+        noms = {"type": "type_document", "contact": "contact_id"}
+        return {noms.get(nom, nom): v for nom, v in self.valeurs().items()}
+
+    def query_string(self):
+        """Filtres valides en chaîne de requête (pour la pagination), sans la page."""
+        return urlencode({n: v.isoformat() if hasattr(v, "isoformat") else v for n, v in self.valeurs().items()})
+
+    def nettoye(self):
+        """Formulaire à afficher : seulement les valeurs valides (une valeur invalide disparaît)."""
+        return type(self)(contacts=self._contacts, initial=self.valeurs())

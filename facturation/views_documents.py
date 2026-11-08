@@ -1,4 +1,4 @@
-"""Documents : liste, création, édition d'un brouillon et de ses lignes (HTMX),
+"""Documents : liste filtrée, création, édition d'un brouillon et de ses lignes (HTMX),
 détail en lecture seule et actions du cycle de vie (formulaires POST classiques).
 
 Vues minces : la validation de saisie est dans forms.py, les règles et calculs dans services.py.
@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from . import services
 from .decorators import manage_invoices_required
 from .exceptions import DocumentNonModifiable, ErreurFacturation, TransitionInterdite
-from .forms import AjoutProduitForm, DocumentForm, LigneForm
+from .forms import AjoutProduitForm, DocumentForm, FiltreDocumentsForm, LigneForm
 from .models import Document, LigneDocument, ProfilEmetteur
 
 DOCUMENTS_PAR_PAGE = 20
@@ -98,8 +98,17 @@ def _page_du_document(document):
 
 @manage_invoices_required
 def document_list(request):
-    page_obj = Paginator(services.lister_documents(), DOCUMENTS_PAR_PAGE).get_page(request.GET.get("page"))
-    return render(request, "facturation/document_list.html", {"page_obj": page_obj, "documents": page_obj.object_list})
+    contacts = list(services.contacts_des_documents())
+    filtres = FiltreDocumentsForm(request.GET, contacts=contacts)
+    documents = services.filtrer_documents(**filtres.criteres())
+    page_obj = Paginator(documents, DOCUMENTS_PAR_PAGE).get_page(request.GET.get("page"))
+    return render(request, "facturation/document_list.html", {
+        "page_obj": page_obj,
+        "documents": page_obj.object_list,
+        "filtre_form": filtres.nettoye(),
+        "filtres_actifs": bool(filtres.valeurs()),
+        "query": filtres.query_string(),
+    })
 
 
 @manage_invoices_required
