@@ -8,6 +8,7 @@ from clients.models import Client
 from core.context_processors import navigation
 from .models import ActivityLog
 from .services import log
+from .testing import TempMediaRootMixin
 
 User = get_user_model()
 
@@ -242,7 +243,7 @@ class TemplateIntegrationAndLogoutTests(TestCase):
         self.assertContains(response, "déconnecté")
 
 
-class SeedAccountsNavigationAndLayoutTests(TestCase):
+class SeedAccountsNavigationAndLayoutTests(TempMediaRootMixin, TestCase):
     """Vérifie par le client de test, pour chaque compte du seed, que chaque
     page répond, étend bien base.html, contient le lien de déconnexion et
     n'affiche aucune entrée de menu interdite."""

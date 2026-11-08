@@ -1,10 +1,7 @@
 import base64
-import os
-import tempfile
 import zipfile
 from io import BytesIO
 
-from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -14,6 +11,7 @@ from django.utils import timezone
 from accounts.models import User
 from clients.models import Client, Site
 from core.models import ActivityLog
+from core.testing import TempMediaRootMixin
 from forms_cms.models import AttachedForm, FormTemplate
 
 from .models import Mission, Visit, VisitPhoto
@@ -177,8 +175,7 @@ class MissionCreationTests(TestCase):
         self.assertNotContains(response, "Autre")
 
 
-@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
-class VisitSubmissionTests(TestCase):
+class VisitSubmissionTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
         self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
@@ -236,8 +233,8 @@ class VisitSubmissionTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-@override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=2000, MEDIA_ROOT=tempfile.mkdtemp())
-class PhotoSizeLimitTests(TestCase):
+@override_settings(VISITS_MAX_PHOTO_SIZE_BYTES=2000)
+class PhotoSizeLimitTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
         self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
@@ -442,8 +439,7 @@ class RevueTests(TestCase):
         self.assertEqual(self.visit.decision_le, valide_le)
 
 
-@override_settings(MEDIA_ROOT=tempfile.mkdtemp(dir=os.path.join(settings.BASE_DIR, "media")))
-class ManagerPdfExportTests(TestCase):
+class ManagerPdfExportTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
         self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)
@@ -503,7 +499,7 @@ class ManagerPdfExportTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class VisitDetailTemplateAndPrivacyTests(TestCase):
+class VisitDetailTemplateAndPrivacyTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.client_obj = Client.objects.create(nom="Client BNDA", actif=True)
         self.site = Site.objects.create(
@@ -854,7 +850,7 @@ class MissionFilteringAndPaginationTests(TestCase):
         self.assertFalse(page_obj_p2.has_next())
 
 
-class SupervisorScreensTests(TestCase):
+class SupervisorScreensTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="mgr_sup_scr", password="pass", role=User.Role.MANAGER)
         self.sup = User.objects.create_user(username="sup_scr", password="pass", role=User.Role.SUPERVISEUR)
@@ -1277,7 +1273,7 @@ class SupervisorMyVisitsTests(TestCase):
 
 
 
-class MissionDetachTests(TestCase):
+class MissionDetachTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="x", role=User.Role.MANAGER)
         self.sup = User.objects.create_user(username="sup", password="x", role=User.Role.SUPERVISEUR)

@@ -1,9 +1,7 @@
-import os
 import tempfile
 import zipfile
 from io import BytesIO
 
-from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -12,6 +10,7 @@ from django.utils import timezone
 from accounts.models import User
 from clients.models import Client, Site
 from core.models import ActivityLog
+from core.testing import TempMediaRootMixin
 from forms_cms.models import AttachedForm, FormTemplate
 from visits import echanges as echanges_service
 from visits.models import Echange, EchangeFichier, Mission, Visit
@@ -160,8 +159,7 @@ class PortalFiltersTests(TestCase):
             self.assertEqual(forms, [self.attached1.pk])
 
 
-@override_settings(MEDIA_ROOT=tempfile.mkdtemp(dir=os.path.join(settings.BASE_DIR, "media")))
-class PortalExportTests(TestCase):
+class PortalExportTests(TempMediaRootMixin, TestCase):
     def setUp(self):
         self.client_a, self.user_a = make_client_user("Client A", "client_a")
         self.client_b, self.user_b = make_client_user("Client B", "client_b")
