@@ -42,6 +42,17 @@ Priorité : **P1** à traiter avant la mise en production réelle, **P2** à pla
 19. **Dépendance implicite entre `Role` et permissions.** Les droits fins sont des permissions Django (conforme à `CLAUDE.md`) mais le menu et les vues testent aussi `is_manager()` à plusieurs endroits (`core/views.py`, `core/context_processors.py`). Un manager sans la permission `validate_visits` voit certains écrans mais pas d'autres : vérifier que c'est voulu et le documenter.
 20. **Documentation.** `README.md` et `docs/` ne décrivent pas encore les échanges, les pièces jointes ni la compression d'images. Le vocabulaire (« auditeur » à l'écran, `superviseur` dans le code) est respecté mais le gabarit `_visit_detail.html` affiche encore « Auteur (Superviseur) » : à corriger.
 
+## Relevé pendant le lot 1 (facturation, 08/11/2026)
+
+Dette ancienne rencontrée, notée sans correction :
+
+- **`CheckConstraint(check=...)` déprécié.** `accounts/models.py` (ligne 38) utilise `check=`, déprécié depuis Django 5.1 et supprimé en 6.0 (`RemovedInDjango60Warning` à chaque démarrage). Remplacer par `condition=` ; la migration générée ne change que l'état, pas le schéma.
+- **`except Exception` dans `core/images.py`** (`_ouvrir`, ligne 26) : à compléter dans le point 9. Cibler `OSError`, `SyntaxError` et `Image.DecompressionBombError`, comme `optimiser_image_png`.
+- **Vocabulaire « Superviseur » à l'écran.** Le menu affiche le rôle « Superviseur » (`core/context_processors.py`, ligne 30) et le libellé du rôle `User.Role.SUPERVISEUR` vaut « Superviseur » (admin, sorties de `seed_demo`). L'interface doit dire « Auditeur » (voir point 20).
+- **Titre de page en double.** 4 gabarits finissent leur bloc `title` par « — EGM Suivi Terrain », que `base.html` ajoute déjà : l'onglet affiche le suffixe deux fois.
+- **Styles en double.** Les gabarits existants répètent en ligne les classes Tailwind des boutons, badges et champs que `ds.css` définit déjà (`.btn`, `.badge`, styles des champs) ; `components/status_badge.html` contient deux fois la même série de badges. Le module facturation n'utilise que `ds.css` et les composants.
+- **Icônes du menu (point 10).** L'entrée « Facturation » reprend l'icône `document-text` des formulaires : une icône dédiée demande d'ajouter le même `<svg>` aux deux menus de `base.html`.
+
 ## Résolu
 
 - **Tests qui écrivaient dans `media/` (08/11/2026).** Quatre classes créaient un dossier `mkdtemp()` à l'import du module, jamais supprimé (deux dans `media/`, deux dans le `/tmp` du système), et quatre autres classes (dont celle qui lance `seed_demo`) écrivaient directement dans `media/visites/`. Toutes passent désormais par `core.testing.TempMediaRootMixin` (dossier temporaire supprimé en fin de classe). Les dossiers `media/tmp*` laissés par les anciens lancements restent à supprimer à la main.
@@ -57,4 +68,4 @@ Priorité : **P1** à traiter avant la mise en production réelle, **P2** à pla
 - Stockage unique et configurable (`get_upload_storage`), aucun chemin en dur.
 - Droits fins par permissions Django, pas de champs de rôle ad hoc.
 - Aucune dépendance front à compiler ; peu de dépendances Python (Django, Pillow, xhtml2pdf, python-dotenv).
-- Couverture de tests large (271 tests au 08/11/2026) sur les parcours critiques.
+- Couverture de tests large (308 tests au 08/11/2026, après le lot 1) sur les parcours critiques.
