@@ -123,6 +123,14 @@ class AccesTests(TempMediaRootMixin, TestCase):
         self.assertEqual(item["url"], reverse("facturation:contact-list"))
         self.assertTrue(item["is_active"])
 
+    def test_menu_facturation_suit_la_permission_quel_que_soit_le_role(self):
+        factory = RequestFactory()
+        auditeur = _utilisateur_facturation("aud_factu", role=User.Role.SUPERVISEUR)
+        request = factory.get("/app/missions/")
+        request.user = User.objects.get(pk=auditeur.pk)  # cache de permissions vierge
+        labels = [item["label"] for item in navigation(request)["nav_items"]]
+        self.assertEqual(labels, ["Mes missions", "Mes visites", "Facturation"])
+
 
 class ProfilEmetteurSingletonTests(TestCase):
     def test_get_cree_le_profil_avec_les_valeurs_par_defaut(self):

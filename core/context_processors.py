@@ -118,17 +118,6 @@ def navigation(request):
                     "icon": "document-text",
                 })
 
-        # Facturation (si permission manage_invoices ou superuser)
-        if user.is_superuser or user.has_perm("facturation.manage_invoices"):
-            facturation_url = _safe_reverse("facturation:contact-list")
-            if facturation_url:
-                items.append({
-                    "label": "Facturation",
-                    "url": facturation_url,
-                    "is_active": current_path.startswith(facturation_url),
-                    "icon": "document-text",
-                })
-
     # Navigation Superviseur
     elif user.role == User.Role.SUPERVISEUR:
         missions_url = _safe_reverse("visits:mission-list")
@@ -179,6 +168,17 @@ def navigation(request):
                 "is_active": current_path.startswith(messages_url),
                 "icon": "chat",
                 "badge": echanges_service.nb_non_lus_client(user.client),
+            })
+
+    # Facturation : dépend de la permission seule, quel que soit le rôle.
+    if user.is_superuser or user.has_perm("facturation.manage_invoices"):
+        facturation_url = _safe_reverse("facturation:contact-list")
+        if facturation_url:
+            items.append({
+                "label": "Facturation",
+                "url": facturation_url,
+                "is_active": current_path.startswith(facturation_url),
+                "icon": "document-text",
             })
 
     return {
