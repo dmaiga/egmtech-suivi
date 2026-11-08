@@ -32,7 +32,7 @@
                     <td class="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
                         {% if document.est_brouillon %}
                         <a href="{% url 'facturation:document-edit' document.pk %}" class="text-indigo-700 hover:underline">Brouillon</a>
-                        {% else %}{{ document.numero }}{% endif %}
+                        {% else %}<a href="{% url 'facturation:document-detail' document.pk %}" class="text-indigo-700 hover:underline">{{ document.numero }}</a>{% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-700">{{ document.get_type_display }}</td>
                     {# Brouillon : contact actuel ; document émis : nom figé à l'émission. #}

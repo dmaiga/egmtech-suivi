@@ -1,0 +1,9 @@
+{% comment %}
+Bouton d'action du cycle de vie (POST classique, CSRF) :
+{% include "facturation/_action.html" with url=url libelle="Accepter" style="btn-primary" confirmation="..." %}
+La confirmation (facultative) est demandée par le navigateur ; le serveur revérifie toujours la transition.
+{% endcomment %}
+<form method="post" action="{{ url }}"{% if confirmation %} onsubmit="return confirm('{{ confirmation|escapejs }}');"{% endif %}>
+    {% csrf_token %}
+    <button type="submit" class="btn {{ style|default:'btn-secondary' }} btn-sm">{{ libelle }}</button>
+</form>

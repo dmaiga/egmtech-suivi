@@ -1,4 +1,5 @@
-"""Saisie des documents : liste, création, édition d'un brouillon et de ses lignes (HTMX).
+"""Documents : liste, création, édition d'un brouillon et de ses lignes (HTMX),
+détail en lecture seule et actions du cycle de vie (formulaires POST classiques).
 
 Vues minces : la validation de saisie est dans forms.py, les règles et calculs dans services.py.
 """
@@ -12,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from . import services
 from .decorators import manage_invoices_required
-from .exceptions import DocumentNonModifiable, ErreurFacturation
+from .exceptions import DocumentNonModifiable, ErreurFacturation, TransitionInterdite
 from .forms import AjoutProduitForm, DocumentForm, LigneForm
 from .models import Document, LigneDocument, ProfilEmetteur
 
@@ -86,13 +87,107 @@ def _repondre_lignes(request, document, en_erreur=False, **formulaires):
 
 
 def _brouillon(pk):
-    return get_object_or_404(Document.objects.select_related("contact"), pk=pk)
+    return get_object_or_404(Document.objects.select_related("contact", "source"), pk=pk)
+
+
+def _page_du_document(document):
+    """Édition pour un brouillon, détail sinon."""
+    vue = "facturation:document-edit" if document.est_brouillon else "facturation:document-detail"
+    return reverse(vue, args=[document.pk])
 
 
 @manage_invoices_required
 def document_list(request):
     page_obj = Paginator(services.lister_documents(), DOCUMENTS_PAR_PAGE).get_page(request.GET.get("page"))
     return render(request, "facturation/document_list.html", {"page_obj": page_obj, "documents": page_obj.object_list})
+
+
+@manage_invoices_required
+def document_detail(request, pk):
+    document = get_object_or_404(Document.objects.select_related("source"), pk=pk)
+    if document.est_brouillon:
+        return redirect("facturation:document-edit", pk=document.pk)
+    return render(request, "facturation/document_detail.html", {
+        "document": document, **services.detail_document(document),
+    })
+
+
+# Message affiché après chaque action réussie, selon l'action et le type du document.
+MESSAGES_ACTION = {
+    ("emettre", Document.Type.DEVIS): "Devis {numero} envoyé.",
+    ("emettre", Document.Type.FACTURE): "Facture {numero} émise.",
+    ("accepter", Document.Type.DEVIS): "Devis {numero} accepté.",
+    ("refuser", Document.Type.DEVIS): "Devis {numero} refusé.",
+    ("payer", Document.Type.FACTURE): "Facture {numero} marquée payée.",
+    ("annuler", Document.Type.FACTURE): "Facture {numero} annulée.",
+}
+
+
+def _message_action(action, document):
+    return MESSAGES_ACTION[(action, document.type)].format(numero=document.numero)
+
+
+def _refuser_action(request, document):
+    """Transition refusée (état changé entre-temps, double clic) : état actuel et retour au document."""
+    document.refresh_from_db()
+    messages.error(request, (
+        f"Action impossible : {document} est actuellement « {document.get_statut_display()} ». "
+        "Il a peut-être été modifié entre-temps ; la page a été actualisée."
+    ))
+    return redirect(_page_du_document(document))
+
+
+def _document_disparu(request):
+    messages.error(request, "Ce document n'existe plus.")
+    return redirect("facturation:document-list")
+
+
+@require_POST
+@manage_invoices_required
+def document_action(request, pk, action):
+    """Émettre, accepter, refuser, marquer payée, annuler : la transition est vérifiée par le service."""
+    document = get_object_or_404(Document, pk=pk)
+    try:
+        services.appliquer_action(document, action, request.user)
+    except Document.DoesNotExist:
+        return _document_disparu(request)
+    except TransitionInterdite:
+        return _refuser_action(request, document)
+    except ErreurFacturation as exc:
+        messages.error(request, str(exc))
+        document.refresh_from_db()
+    else:
+        messages.success(request, _message_action(action, document))
+    return redirect(_page_du_document(document))
+
+
+@require_POST
+@manage_invoices_required
+def document_convertir(request, pk):
+    devis = get_object_or_404(Document, pk=pk)
+    try:
+        facture = services.convertir_en_facture(devis, request.user)
+    except Document.DoesNotExist:
+        return _document_disparu(request)
+    except ErreurFacturation as exc:
+        messages.error(request, str(exc))
+        devis.refresh_from_db()
+        return redirect(_page_du_document(devis))
+    messages.success(request, f"Facture brouillon créée depuis le devis {devis.numero} : vérifiez-la puis émettez-la.")
+    return redirect("facturation:document-edit", pk=facture.pk)
+
+
+@require_POST
+@manage_invoices_required
+def document_dupliquer(request, pk):
+    document = get_object_or_404(Document.objects.select_related("contact"), pk=pk)
+    try:
+        copie = services.dupliquer(document, request.user)
+    except ErreurFacturation as exc:
+        messages.error(request, str(exc))
+        return redirect(_page_du_document(document))
+    messages.success(request, f"Copie de {document} créée en brouillon : taux de TVA et validité repris du profil.")
+    return redirect("facturation:document-edit", pk=copie.pk)
 
 
 @manage_invoices_required

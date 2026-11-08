@@ -8,7 +8,16 @@
 <div class="flex flex-wrap gap-2 -mt-2 mb-6">
     <a href="{{ url_documents }}" class="btn btn-secondary btn-sm">Retour aux documents</a>
     <a href="{% url 'facturation:document-delete' document.pk %}" class="btn btn-secondary btn-sm">Supprimer le brouillon</a>
+    {% url 'facturation:document-emettre' document.pk as url_emettre %}
+    {% if document.type == "devis" %}
+    {% include "facturation/_action.html" with url=url_emettre libelle="Envoyer le devis" style="btn-primary" confirmation="Envoyer ce devis ? Un numéro lui sera attribué et il ne pourra plus être modifié." %}
+    {% else %}
+    {% include "facturation/_action.html" with url=url_emettre libelle="Émettre la facture" style="btn-primary" confirmation="Émettre cette facture ? Un numéro lui sera attribué et elle ne pourra plus être modifiée." %}
+    {% endif %}
 </div>
+{% if document.source %}
+<p class="-mt-3 mb-6 text-sm text-gray-600">Issue du devis <a href="{% url 'facturation:document-detail' document.source.pk %}" class="text-indigo-700 hover:underline">{{ document.source.numero }}</a>.</p>
+{% endif %}
 
 <div class="space-y-6">
     <section class="card p-6">

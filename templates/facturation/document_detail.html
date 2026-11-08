@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load facturation_format %}
+
+{% block title %}Facturation : {{ document.get_type_display|lower }} {{ document.numero }}{% endblock %}
+
+{% block content %}
+{% url 'facturation:document-list' as url_documents %}
+<div class="mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ document.get_type_display }} {{ document.numero }}</h1>
+            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">{% include "facturation/_statut.html" %}</p>
+        </div>
+        <a href="{{ url_documents }}" class="btn btn-secondary btn-sm self-start">Retour aux documents</a>
+    </div>
+</div>
+
+{% if actions %}
+<div id="actions-document" class="flex flex-wrap gap-2 mb-6">
+    {% if "accepter" in actions %}{% url 'facturation:document-accepter' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Accepter le devis" style="btn-primary" %}{% endif %}
+    {% if "refuser" in actions %}{% url 'facturation:document-refuser' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Refuser le devis" confirmation="Marquer ce devis comme refusé ? Il ne pourra plus être accepté." %}{% endif %}
+    {% if "convertir" in actions %}{% url 'facturation:document-convertir' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Convertir en facture" style="btn-primary" %}{% endif %}
+    {% if "payer" in actions %}{% url 'facturation:document-payer' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Marquer payée" style="btn-primary" %}{% endif %}
+    {% if "annuler" in actions %}{% url 'facturation:document-annuler' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Annuler la facture" style="btn-danger" confirmation="Annuler cette facture ? Son numéro reste attribué et elle ne pourra plus être payée." %}{% endif %}
+    {% if "dupliquer" in actions %}{% url 'facturation:document-dupliquer' document.pk as url %}{% include "facturation/_action.html" with url=url libelle="Dupliquer" %}{% endif %}
+</div>
+{% endif %}
+
+<div class="space-y-6">
+    <section class="card p-6">
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</dt>
+                <dd class="mt-1 text-gray-900">
+                    <span class="font-semibold">{{ document.contact_nom }}</span>
+                    {% if document.contact_telephone %}<br>{{ document.contact_telephone }}{% endif %}
+                    {% if document.contact_adresse %}<br><span class="whitespace-pre-line">{{ document.contact_adresse }}</span>{% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Objet</dt>
+                <dd class="mt-1 text-gray-900">{{ document.objet|default:"Non renseigné" }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Lieu de livraison</dt>
+                <dd class="mt-1 text-gray-900">{{ document.lieu_livraison|default:"Non renseigné" }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Dates</dt>
+                <dd class="mt-1 text-gray-900">
+                    Émis le {{ document.date_emission|date_fr }}
+                    {% if document.date_validite %}<br>Valable jusqu'au {{ document.date_validite|date_fr }}{% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Taux de TVA</dt>
+                <dd class="mt-1 text-gray-900">{{ document.taux_tva }} %</dd>
+            </div>
+            <div id="document-lie">
+                {% if document.type == "devis" %}
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Facture liée</dt>
+                <dd class="mt-1 text-gray-900">
+                    {% for facture in factures %}
+                    <a href="{% if facture.est_brouillon %}{% url 'facturation:document-edit' facture.pk %}{% else %}{% url 'facturation:document-detail' facture.pk %}{% endif %}" class="text-indigo-700 hover:underline">{{ facture }}</a>
+                    ({{ facture.get_statut_display|lower }}){% if not forloop.last %}<br>{% endif %}
+                    {% empty %}Aucune{% endfor %}
+                </dd>
+                {% elif document.source %}
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Devis d'origine</dt>
+                <dd class="mt-1"><a href="{% url 'facturation:document-detail' document.source.pk %}" class="text-indigo-700 hover:underline">{{ document.source.numero }}</a></dd>
+                {% endif %}
+            </div>
+        </dl>
+    </section>
+
+    <section class="card overflow-hidden">
+        <h2 class="text-base font-semibold text-gray-900 px-6 pt-6 pb-4">Lignes</h2>
+        <div class="overflow-x-auto table-responsive-wrapper">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">N°</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Désignation</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantité</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix unitaire</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td class="px-4 py-3 text-gray-500">{{ ligne.rang }}</td>
+                        <td class="px-4 py-3 text-gray-900">{{ ligne.designation }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700">{{ ligne.quantite }}</td>
+                        <td class="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{{ ligne.prix_unitaire|fcfa }}</td>
+                        <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ ligne.total|fcfa }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <dl class="ml-auto w-full sm:w-80 space-y-1 text-sm border-t border-gray-100 px-6 py-4">
+            <div class="flex justify-between"><dt class="text-gray-600">Total HT</dt><dd id="total-ht" class="font-semibold text-gray-900">{{ document.total_ht|fcfa }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-600">TVA ({{ document.taux_tva }} %)</dt><dd id="total-tva" class="font-semibold text-gray-900">{{ document.total_tva|fcfa }}</dd></div>
+            <div class="flex justify-between text-base"><dt class="font-semibold text-gray-900">Total TTC</dt><dd id="total-ttc" class="font-bold text-gray-900">{{ document.total_ttc|fcfa }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="card p-6">
+        <h2 class="text-base font-semibold text-gray-900 mb-4">Historique des statuts</h2>
+        <ol id="historique" class="space-y-2 text-sm">
+            {% for etape in historique %}
+            <li class="flex flex-wrap gap-x-2 text-gray-700">
+                <span class="text-gray-500 whitespace-nowrap">{{ etape.date|date:"d/m/Y H:i" }}</span>
+                <span class="font-semibold text-gray-900">{{ etape.utilisateur.get_full_name|default:etape.utilisateur.username }}</span>
+                <span>{% if etape.ancien_statut %}{{ etape.get_ancien_statut_display }} vers {{ etape.get_nouveau_statut_display }}{% else %}Création en {{ etape.get_nouveau_statut_display|lower }}{% endif %}</span>
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+</div>
+{% endblock %}

@@ -538,6 +538,49 @@ def lister_documents():
     return Document.objects.select_related("contact").order_by("-created_at", "-pk")
 
 
+# Actions de l'interface et statut visé. L'émission vise le statut propre au type.
+STATUT_PAR_ACTION = {"accepter": S.ACCEPTE, "refuser": S.REFUSE, "payer": S.PAYEE, "annuler": S.ANNULEE}
+ACTION_PAR_STATUT = {S.ENVOYE: "emettre", S.EMISE: "emettre", **{v: k for k, v in STATUT_PAR_ACTION.items()}}
+
+
+def appliquer_action(document, action, user):
+    """Émet ou change le statut selon l'action ; la transition est revérifiée sous verrou."""
+    if action == "emettre":
+        return emettre(document, user)
+    if action not in STATUT_PAR_ACTION:
+        raise TransitionInterdite("Action inconnue.")
+    return changer_statut(document, STATUT_PAR_ACTION[action], user)
+
+
+def actions_possibles(document, factures=()):
+    """Actions offertes à l'écran pour ce document, d'après son statut actuel.
+
+    `factures` : factures issues du devis (déjà chargées). La conversion n'est offerte qu'à un
+    devis accepté sans facture non annulée. Indicatif : chaque service revérifie sous verrou.
+    """
+    actions = {ACTION_PAR_STATUT[s] for s in TRANSITIONS[document.type].get(document.statut, set())}
+    if (
+        document.type == T.DEVIS
+        and document.statut == S.ACCEPTE
+        and all(f.statut == S.ANNULEE for f in factures)
+    ):
+        actions.add("convertir")
+    if not document.est_brouillon:
+        actions.add("dupliquer")
+    return actions
+
+
+def detail_document(document):
+    """Lignes, historique, factures issues (devis) et actions d'un document : requêtes en nombre fixe."""
+    factures = list(document.factures.order_by("created_at", "pk")) if document.type == T.DEVIS else []
+    return {
+        "lignes": list(document.lignes.order_by("rang")),  # tri direct, sans jointure sur le document
+        "historique": list(document.historique.select_related("utilisateur")),
+        "factures": factures,
+        "actions": actions_possibles(document, factures),
+    }
+
+
 def facture_active(devis):
     """Facture non annulée issue de ce devis (brouillon compris), ou None."""
     return devis.factures.exclude(statut=S.ANNULEE).first()
