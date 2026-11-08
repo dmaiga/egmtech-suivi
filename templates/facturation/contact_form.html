@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{% if contact %}Modifier {{ contact.nom }}{% else %}Nouveau contact{% endif %} — Facturation{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl w-full mx-auto">
+    {% url 'facturation:contact-list' as url_contacts %}
+    {% if contact %}
+    {% include "components/page_header.html" with title="Modifier le contact" subtitle=contact.nom %}
+    {% else %}
+    {% include "components/page_header.html" with title="Nouveau contact" subtitle="Client destinataire des devis et factures." %}
+    {% endif %}
+
+    <div class="card p-6">
+        {% if contact and not contact.actif %}
+        <div class="alert alert-warning mb-5">Ce contact est désactivé : il n'apparaît plus dans la liste par défaut.</div>
+        {% endif %}
+        {% if form.non_field_errors %}<div class="alert alert-error mb-5">{{ form.non_field_errors }}</div>{% endif %}
+
+        <form method="post" class="space-y-5" novalidate>
+            {% csrf_token %}
+            {% for field in form %}{% include "facturation/_champ.html" %}{% endfor %}
+            <div class="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                <a href="{{ url_contacts }}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">{% if contact %}Enregistrer{% else %}Créer le contact{% endif %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

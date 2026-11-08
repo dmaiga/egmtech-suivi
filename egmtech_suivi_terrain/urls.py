@@ -33,6 +33,7 @@ urlpatterns = [
     path('app/missions/', include('visits.urls')),
     path('app/mes-visites/', include('visits.urls_my_visits')),
     path('app/revue/', include('visits.urls_revue')),
+    path('app/facturation/', include('facturation.urls')),
     path('portail/', include('portal.urls')),
 ]
 

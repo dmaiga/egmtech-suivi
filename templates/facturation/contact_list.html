@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Contacts — Facturation{% endblock %}
+
+{% block content %}
+{% url 'facturation:contact-create' as url_nouveau %}
+{% include "components/page_header.html" with title="Facturation" subtitle="Contacts destinataires des devis et factures." action_url=url_nouveau action_label="Nouveau contact" %}
+{% include "facturation/_onglets.html" with onglet="contacts" %}
+
+<form method="get" class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4" role="search">
+    <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par nom ou téléphone" class="w-full sm:max-w-sm" aria-label="Rechercher un contact">
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" name="inactifs" value="1" {% if inclure_inactifs %}checked{% endif %}> Afficher les contacts désactivés
+    </label>
+    <button type="submit" class="btn btn-secondary btn-sm">Rechercher</button>
+</form>
+
+{% if contacts %}
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto table-responsive-wrapper">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Téléphone</th>
+                    <th scope="col" class="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">E-mail</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+                {% for contact in contacts %}
+                <tr>
+                    <td class="px-4 py-3 font-semibold text-gray-900">{{ contact.nom }}</td>
+                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ contact.telephone|default:"—" }}</td>
+                    <td class="hidden md:table-cell px-4 py-3 text-gray-700">{{ contact.email|default:"—" }}</td>
+                    <td class="px-4 py-3">
+                        {% if contact.actif %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-neutral">Désactivé</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <div class="inline-flex gap-2">
+                            <a href="{% url 'facturation:contact-update' contact.pk %}" class="btn btn-secondary btn-sm">Modifier</a>
+                            {% if contact.actif %}
+                            <form method="post" action="{% url 'facturation:contact-deactivate' contact.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary btn-sm">Désactiver</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'facturation:contact-reactivate' contact.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary btn-sm">Réactiver</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+        <div>Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} contact{{ page_obj.paginator.count|pluralize }})</div>
+        <div class="flex gap-2">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}{% if inclure_inactifs %}&inactifs=1{% endif %}" class="btn btn-secondary btn-sm">&larr; Précédent</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}{% if inclure_inactifs %}&inactifs=1{% endif %}" class="btn btn-secondary btn-sm">Suivant &rarr;</a>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% elif q %}
+{% include "components/empty_state.html" with title="Aucun contact trouvé" message="Aucun contact ne correspond à cette recherche." %}
+{% else %}
+{% include "components/empty_state.html" with title="Aucun contact pour l'instant" message="Ajoutez les clients à qui vous adresserez devis et factures." action_url=url_nouveau action_label="Nouveau contact" %}
+{% endif %}
+{% endblock %}

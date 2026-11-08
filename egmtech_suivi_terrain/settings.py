@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'forms_cms',
     'visits',
     'portal',
+    'facturation',
 ]
 
 MIDDLEWARE = [

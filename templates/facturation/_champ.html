@@ -1,0 +1,13 @@
+{% comment %}Un champ de formulaire : libellé, widget, aide, erreurs. Usage : {% include "facturation/_champ.html" with field=form.nom %}{% endcomment %}
+<div>
+    {% if field.widget_type == "checkbox" %}
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">{{ field }} {{ field.label }}</label>
+    {% else %}
+    <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-gray-700 mb-1.5">
+        {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+    </label>
+    {{ field }}
+    {% endif %}
+    {% if field.help_text %}<p class="text-xs text-gray-500 mt-1">{{ field.help_text }}</p>{% endif %}
+    {% for error in field.errors %}<p class="text-xs text-red-600 mt-1 font-medium">{{ error }}</p>{% endfor %}
+</div>
