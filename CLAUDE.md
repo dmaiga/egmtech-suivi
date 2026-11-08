@@ -6,7 +6,7 @@ puis les montre au client en lecture seule. Multi-clients dès le départ : **cl
 par client** sur toutes les données.
 
 ## Stack
-- Django (dernière LTS), SQLite.
+- Django (dernière LTS), MariaDB en cible ; SQLite et PostgreSQL restent supportés (`DB_ENGINE`).
 - Templates Django côté serveur + HTMX pour l'interactivité + Tailwind via CDN.
 - **Aucun build front** (pas de npm/webpack/vite). Tout en CDN.
 - Langue : fr. Fuseau : Africa/Bamako.
