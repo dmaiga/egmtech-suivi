@@ -61,6 +61,13 @@ Dette ancienne rencontrée, notée sans correction :
 - **Tri des lignes par document.** `LigneDocument.Meta.ordering = ["document", "rang"]` (lot 2) fait joindre la table des documents à chaque lecture des lignes, pour trier selon l'ordre des documents. Contourné dans le code du lot 3a (`order_by("rang")`, `order_by()` pour les totaux) ; passer l'ordre du modèle à `["rang"]` demande une migration d'options, sans changement de schéma.
 - **Erreur HTMX générique.** `base.html` affiche le même message pour toute réponse en erreur d'une requête HTMX (« Une erreur est survenue lors de la communication avec le serveur ») : un 403 ou un 404 n'est pas distingué d'une panne.
 
+## Relevé pendant le lot 3b (cycle de vie de la facturation, 08/11/2026)
+
+Dette ancienne rencontrée, notée sans correction :
+
+- **Document émis ouvert en édition : retour à la liste.** `_refuser_non_brouillon` (`facturation/views_documents.py`, lot 3a) renvoie vers la liste quand on ouvre l'édition, la suppression ou une action de ligne d'un document émis. La page de détail existe désormais : il serait plus naturel d'y renvoyer. Le changement modifie le comportement testé du lot 3a (`DocumentEmisNonModifiableTests`, en-tête `HX-Redirect`).
+- **Pagination en double.** `contact_list.html` garde sa propre pagination en ligne (avec `&larr;` / `&rarr;`) au lieu d'inclure `facturation/_pagination.html`, que les produits et les documents utilisent.
+
 ## Résolu
 
 - **Tests qui écrivaient dans `media/` (08/11/2026).** Quatre classes créaient un dossier `mkdtemp()` à l'import du module, jamais supprimé (deux dans `media/`, deux dans le `/tmp` du système), et quatre autres classes (dont celle qui lance `seed_demo`) écrivaient directement dans `media/visites/`. Toutes passent désormais par `core.testing.TempMediaRootMixin` (dossier temporaire supprimé en fin de classe). Les dossiers `media/tmp*` laissés par les anciens lancements restent à supprimer à la main.

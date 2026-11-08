@@ -119,7 +119,7 @@ python manage.py test
 ```
 
 Avant toute livraison : suite complète sur MariaDB, le nombre de tests ne doit pas baisser
-(référence au 08/11/2026, lot 3a : 413 tests sur MariaDB). Un test qui enregistre des fichiers utilise
+(référence au 08/11/2026, lot 3b : 451 tests sur MariaDB). Un test qui enregistre des fichiers utilise
 `core.testing.TempMediaRootMixin` : aucun test n'écrit dans le vrai dossier `media/`.
 
 Les tests de cloisonnement client sont obligatoires pour tout lot touchant des données liées à un client.
