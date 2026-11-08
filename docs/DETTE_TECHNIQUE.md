@@ -53,6 +53,14 @@ Dette ancienne rencontrée, notée sans correction :
 - **Styles en double.** Les gabarits existants répètent en ligne les classes Tailwind des boutons, badges et champs que `ds.css` définit déjà (`.btn`, `.badge`, styles des champs) ; `components/status_badge.html` contient deux fois la même série de badges. Le module facturation n'utilise que `ds.css` et les composants.
 - **Icônes du menu (point 10).** L'entrée « Facturation » reprend l'icône `document-text` des formulaires : une icône dédiée demande d'ajouter le même `<svg>` aux deux menus de `base.html`.
 
+## Relevé pendant le lot 3a (saisie de la facturation, 08/11/2026)
+
+Dette ancienne rencontrée, notée sans correction :
+
+- **Tiret long dans le titre de chaque page.** `base.html` compose le titre de l'onglet avec « — EGM Suivi Terrain ». Les gabarits de la facturation n'en contiennent plus, mais ce suffixe s'affiche partout (voir aussi le titre en double du lot 1).
+- **Tri des lignes par document.** `LigneDocument.Meta.ordering = ["document", "rang"]` (lot 2) fait joindre la table des documents à chaque lecture des lignes, pour trier selon l'ordre des documents. Contourné dans le code du lot 3a (`order_by("rang")`, `order_by()` pour les totaux) ; passer l'ordre du modèle à `["rang"]` demande une migration d'options, sans changement de schéma.
+- **Erreur HTMX générique.** `base.html` affiche le même message pour toute réponse en erreur d'une requête HTMX (« Une erreur est survenue lors de la communication avec le serveur ») : un 403 ou un 404 n'est pas distingué d'une panne.
+
 ## Résolu
 
 - **Tests qui écrivaient dans `media/` (08/11/2026).** Quatre classes créaient un dossier `mkdtemp()` à l'import du module, jamais supprimé (deux dans `media/`, deux dans le `/tmp` du système), et quatre autres classes (dont celle qui lance `seed_demo`) écrivaient directement dans `media/visites/`. Toutes passent désormais par `core.testing.TempMediaRootMixin` (dossier temporaire supprimé en fin de classe). Les dossiers `media/tmp*` laissés par les anciens lancements restent à supprimer à la main.
@@ -70,4 +78,4 @@ Dette ancienne rencontrée, notée sans correction :
 - Stockage unique et configurable (`get_upload_storage`), aucun chemin en dur.
 - Droits fins par permissions Django, pas de champs de rôle ad hoc.
 - Aucune dépendance front à compiler ; peu de dépendances Python (Django, Pillow, xhtml2pdf, python-dotenv).
-- Couverture de tests large (365 tests au 08/11/2026, après le lot 2) sur les parcours critiques.
+- Couverture de tests large (413 tests au 08/11/2026, après le lot 3a) sur les parcours critiques.

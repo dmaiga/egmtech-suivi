@@ -119,7 +119,7 @@ python manage.py test
 ```
 
 Avant toute livraison : suite complète sur MariaDB, le nombre de tests ne doit pas baisser
-(référence au 08/11/2026, lot 2 : 365 tests sur MariaDB). Un test qui enregistre des fichiers utilise
+(référence au 08/11/2026, lot 3a : 413 tests sur MariaDB). Un test qui enregistre des fichiers utilise
 `core.testing.TempMediaRootMixin` : aucun test n'écrit dans le vrai dossier `media/`.
 
 Les tests de cloisonnement client sont obligatoires pour tout lot touchant des données liées à un client.
@@ -133,7 +133,7 @@ Les tests de cloisonnement client sont obligatoires pour tout lot touchant des d
 | `forms_cms` | Formulaires (modèles), éditeur, formulaires attachés (copie figée JSON) |
 | `visits` | Missions, visites, saisie terrain, revue manager |
 | `portal` | Portail client en lecture seule |
-| `facturation` | Devis et factures : profil émetteur, contacts, produits, documents et cycle de vie, numérotation (règles dans `services.py`, permission `manage_invoices`) |
+| `facturation` | Devis et factures : profil émetteur, contacts, produits, documents et cycle de vie, numérotation (règles dans `services.py`, saisie dans `views_documents.py`, permission `manage_invoices`) |
 | `core` | Journal d'activité, stockage des fichiers, commande `seed_demo` |
 | `static/css/ds.css` | Design system (couleurs, boutons, badges) |
 
