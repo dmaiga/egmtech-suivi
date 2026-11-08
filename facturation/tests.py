@@ -166,7 +166,7 @@ class ProfilEmetteurSingletonTests(TestCase):
 
 class ProfilEmetteurValidationTests(TestCase):
     CHAMPS = {
-        "taux_tva_defaut": (1, 100),
+        "taux_tva_defaut": (0, 100),
         "validite_devis_jours": (1, 365),
         "delai_relance_jours": (1, 90),
     }
@@ -188,7 +188,7 @@ class ProfilEmetteurValidationTests(TestCase):
 
     def test_valeurs_hors_bornes_refusees(self):
         for champ, (mini, maxi) in self.CHAMPS.items():
-            for valeur in (0, -1, maxi + 1, "", "abc", "2.5"):
+            for valeur in (mini - 1, -1, maxi + 1, "", "abc", "2.5"):
                 with self.subTest(champ=champ, valeur=valeur):
                     form = self._form(**{champ: valeur})
                     self.assertFalse(form.is_valid())
@@ -196,7 +196,21 @@ class ProfilEmetteurValidationTests(TestCase):
 
     def test_la_base_refuse_un_nombre_hors_bornes(self):
         ProfilEmetteur.get()
-        for champ in self.CHAMPS:
+        # Au-dessus du maximum : un négatif lèverait DataError sur MariaDB (colonne non signée).
+        for champ, (_, maxi) in self.CHAMPS.items():
+            with self.subTest(champ=champ):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    ProfilEmetteur.objects.update(**{champ: maxi + 1})
+
+    def test_taux_zero_accepte_c_est_une_exoneration(self):
+        form = self._form(taux_tva_defaut=0)
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        self.assertEqual(ProfilEmetteur.get().taux_tva_defaut, 0)
+
+    def test_la_base_refuse_un_delai_nul(self):
+        ProfilEmetteur.get()
+        for champ in ("validite_devis_jours", "delai_relance_jours"):
             with self.subTest(champ=champ):
                 with self.assertRaises(IntegrityError), transaction.atomic():
                     ProfilEmetteur.objects.update(**{champ: 0})
@@ -219,7 +233,7 @@ class ProfilEmetteurValidationTests(TestCase):
     def test_page_affiche_les_erreurs_sans_enregistrer(self):
         self.client.force_login(_utilisateur_facturation())
         response = self.client.post(reverse("facturation:profil"), {
-            "taux_tva_defaut": 0, "validite_devis_jours": 30, "delai_relance_jours": 7,
+            "taux_tva_defaut": 101, "validite_devis_jours": 30, "delai_relance_jours": 7,
         })
         self.assertEqual(response.status_code, 200)
         self.assertIn("taux_tva_defaut", response.context["form"].errors)

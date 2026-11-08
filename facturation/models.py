@@ -5,7 +5,7 @@ from django.db import models
 from core.storage import get_upload_storage
 
 # Bornes des paramètres numériques du profil (validation du formulaire et contrainte en base).
-TAUX_TVA_MIN, TAUX_TVA_MAX = 1, 100
+TAUX_TVA_MIN, TAUX_TVA_MAX = 0, 100  # 0 : exonération voulue
 VALIDITE_DEVIS_MIN, VALIDITE_DEVIS_MAX = 1, 365
 DELAI_RELANCE_MIN, DELAI_RELANCE_MAX = 1, 90
 
