@@ -1,0 +1,12 @@
+{% comment %}Champs de l'en-tête d'un document (création et édition) ; `form` est un DocumentForm.{% endcomment %}
+{% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
+<div>
+    {% include "facturation/_champ.html" with field=form.contact %}
+    <p class="text-xs text-gray-500 mt-1">Seuls les contacts actifs sont proposés. <a href="{% url 'facturation:contact-create' %}" class="text-indigo-700 hover:underline">Créer un contact</a></p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+    {% include "facturation/_champ.html" with field=form.objet %}
+    {% include "facturation/_champ.html" with field=form.lieu_livraison %}
+    {% include "facturation/_champ.html" with field=form.taux_tva %}
+    {% if form.validite_jours %}{% include "facturation/_champ.html" with field=form.validite_jours %}{% endif %}
+</div>

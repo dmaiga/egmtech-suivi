@@ -172,7 +172,7 @@ def navigation(request):
 
     # Facturation : dépend de la permission seule, quel que soit le rôle.
     if user.is_superuser or user.has_perm("facturation.manage_invoices"):
-        facturation_url = _safe_reverse("facturation:contact-list")
+        facturation_url = _safe_reverse("facturation:document-list")
         if facturation_url:
             items.append({
                 "label": "Facturation",

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Contacts — Facturation{% endblock %}
+{% block title %}Facturation : contacts{% endblock %}
 
 {% block content %}
 {% url 'facturation:contact-create' as url_nouveau %}
@@ -32,8 +32,8 @@
                 {% for contact in contacts %}
                 <tr>
                     <td class="px-4 py-3 font-semibold text-gray-900">{{ contact.nom }}</td>
-                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ contact.telephone|default:"—" }}</td>
-                    <td class="hidden md:table-cell px-4 py-3 text-gray-700">{{ contact.email|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ contact.telephone|default:"Non renseigné" }}</td>
+                    <td class="hidden md:table-cell px-4 py-3 text-gray-700">{{ contact.email|default:"Non renseigné" }}</td>
                     <td class="px-4 py-3">
                         {% if contact.actif %}<span class="badge badge-success">Actif</span>{% else %}<span class="badge badge-neutral">Désactivé</span>{% endif %}
                     </td>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Facturation : {{ document.get_type_display|lower }} brouillon{% endblock %}
+
+{% block content %}
+{% url 'facturation:document-list' as url_documents %}
+{% include "components/page_header.html" with title=document.get_type_display subtitle="Brouillon : modifiable jusqu'à son émission." %}
+<div class="flex flex-wrap gap-2 -mt-2 mb-6">
+    <a href="{{ url_documents }}" class="btn btn-secondary btn-sm">Retour aux documents</a>
+    <a href="{% url 'facturation:document-delete' document.pk %}" class="btn btn-secondary btn-sm">Supprimer le brouillon</a>
+</div>
+
+<div class="space-y-6">
+    <section class="card p-6">
+        <h2 class="text-base font-semibold text-gray-900 mb-4">En-tête</h2>
+        <form method="post" action="{% url 'facturation:document-edit' document.pk %}" class="space-y-5" novalidate>
+            {% csrf_token %}
+            {% include "facturation/_entete_champs.html" with form=entete_form %}
+            <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary">Enregistrer l'en-tête</button>
+            </div>
+        </form>
+    </section>
+
+    {% include "facturation/_lignes.html" %}
+</div>
+{% endblock %}

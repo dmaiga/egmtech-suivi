@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load facturation_format %}
+
+{% block title %}Facturation : supprimer un brouillon{% endblock %}
+
+{% block content %}
+<div class="max-w-lg w-full mx-auto">
+    {% include "components/page_header.html" with title="Supprimer le brouillon" %}
+    <div class="card p-6 space-y-5">
+        <div class="alert alert-warning">
+            Le {{ document.get_type_display|lower }} brouillon pour {{ document.contact.nom }}{% if document.objet %} ({{ document.objet }}){% endif %},
+            d'un total de {{ document.total_ttc|fcfa }}, sera supprimé définitivement avec ses lignes.
+        </div>
+        <form method="post" class="flex items-center justify-end gap-3">
+            {% csrf_token %}
+            <a href="{% url 'facturation:document-edit' document.pk %}" class="btn btn-secondary">Annuler</a>
+            <button type="submit" class="btn btn-danger">Supprimer le brouillon</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

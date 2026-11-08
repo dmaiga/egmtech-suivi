@@ -1,5 +1,6 @@
-{% url 'facturation:contact-list' as url_contacts %}{% url 'facturation:produit-list' as url_produits %}{% url 'facturation:profil' as url_profil %}
+{% url 'facturation:document-list' as url_documents %}{% url 'facturation:contact-list' as url_contacts %}{% url 'facturation:produit-list' as url_produits %}{% url 'facturation:profil' as url_profil %}
 <nav class="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto" aria-label="Facturation">
+    {% include "facturation/_onglet.html" with url=url_documents libelle="Documents" cle="documents" %}
     {% include "facturation/_onglet.html" with url=url_contacts libelle="Contacts" cle="contacts" %}
     {% include "facturation/_onglet.html" with url=url_produits libelle="Produits" cle="produits" %}
     {% include "facturation/_onglet.html" with url=url_profil libelle="Profil émetteur" cle="profil" %}

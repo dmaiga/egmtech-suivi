@@ -120,7 +120,7 @@ class AccesTests(TempMediaRootMixin, TestCase):
         self.assertNotIn("Facturation", labels(self.auditeur))
         self.assertNotIn("Facturation", labels(self.client_user))
         item = labels(self.autorise)["Facturation"]
-        self.assertEqual(item["url"], reverse("facturation:contact-list"))
+        self.assertEqual(item["url"], reverse("facturation:document-list"))
         self.assertTrue(item["is_active"])
 
     def test_menu_facturation_suit_la_permission_quel_que_soit_le_role(self):

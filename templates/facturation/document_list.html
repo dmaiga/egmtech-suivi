@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load facturation_format %}
+
+{% block title %}Facturation : documents{% endblock %}
+
+{% block content %}
+{% include "components/page_header.html" with title="Facturation" subtitle="Devis et factures, du plus récent au plus ancien." %}
+<div class="flex flex-wrap gap-2 -mt-2 mb-6">
+    <a href="{% url 'facturation:document-create' 'devis' %}" class="btn btn-primary">Nouveau devis</a>
+    <a href="{% url 'facturation:document-create' 'facture' %}" class="btn btn-secondary">Nouvelle facture</a>
+</div>
+{% include "facturation/_onglets.html" with onglet="documents" %}
+
+{% if documents %}
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto table-responsive-wrapper">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Numéro</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th scope="col" class="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Objet</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total TTC</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+                {% for document in documents %}
+                <tr>
+                    <td class="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                        {% if document.est_brouillon %}
+                        <a href="{% url 'facturation:document-edit' document.pk %}" class="text-indigo-700 hover:underline">Brouillon</a>
+                        {% else %}{{ document.numero }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">{{ document.get_type_display }}</td>
+                    {# Brouillon : contact actuel ; document émis : nom figé à l'émission. #}
+                    <td class="px-4 py-3 text-gray-700">{% if document.est_brouillon %}{{ document.contact.nom }}{% else %}{{ document.contact_nom }}{% endif %}</td>
+                    <td class="hidden md:table-cell px-4 py-3 text-gray-700">{{ document.objet }}</td>
+                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{% if document.date_emission %}{{ document.date_emission|date_fr }}{% else %}{{ document.created_at|date_fr }}{% endif %}</td>
+                    <td class="px-4 py-3 text-right text-gray-900 font-semibold whitespace-nowrap">{{ document.total_ttc|fcfa }}</td>
+                    <td class="px-4 py-3">{% include "facturation/_statut.html" %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "facturation/_pagination.html" with libelle="document" %}
+</div>
+{% else %}
+{% url 'facturation:document-create' 'devis' as url_devis %}
+{% include "components/empty_state.html" with title="Aucun document pour l'instant" message="Créez un premier devis ou une première facture." action_url=url_devis action_label="Nouveau devis" %}
+{% endif %}
+{% endblock %}

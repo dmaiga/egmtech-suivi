@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Facturation : nouveau {{ type_libelle|lower }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl w-full mx-auto">
+    {% if type_document == "devis" %}
+    {% include "components/page_header.html" with title="Nouveau devis" subtitle="Taux de TVA et validité préremplis depuis le profil émetteur. Les lignes s'ajoutent à l'étape suivante." %}
+    {% else %}
+    {% include "components/page_header.html" with title="Nouvelle facture" subtitle="Taux de TVA prérempli depuis le profil émetteur. Les lignes s'ajoutent à l'étape suivante." %}
+    {% endif %}
+    <div class="card p-6">
+        <form method="post" class="space-y-5" novalidate>
+            {% csrf_token %}
+            {% include "facturation/_entete_champs.html" %}
+            <div class="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                <a href="{% url 'facturation:document-list' %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">Créer le brouillon</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

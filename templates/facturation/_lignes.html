@@ -1,0 +1,83 @@
+{% load facturation_format %}
+{% comment %}
+Lignes et totaux d'un brouillon. Renvoyé tel quel par le serveur après chaque action (HTMX) ;
+les totaux sont ceux calculés par services.py, aucun calcul n'est fait dans le navigateur.
+{% endcomment %}
+<section id="lignes-document" class="card p-6 space-y-5">
+    <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-900">Lignes</h2>
+        <p class="text-xs text-gray-500">{{ lignes|length }} ligne{{ lignes|length|pluralize }} sur {{ lignes_max }} au plus</p>
+    </div>
+
+    {% if lignes %}
+    {# Même grille pour l'en-tête et chaque ligne ; sur téléphone, les champs s'empilent. #}
+    <div class="hidden md:grid grid-cols-[2.5rem_minmax(12rem,1fr)_6rem_10rem_9rem_12rem] gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wider" aria-hidden="true">
+        <span>N°</span><span>Désignation</span><span>Quantité</span><span>Prix unitaire</span><span class="text-right">Total</span><span></span>
+    </div>
+    <ol class="divide-y divide-gray-100">
+        {% for item in lignes %}
+        {% with ligne=item.ligne form=item.form %}
+        <li id="ligne-{{ ligne.pk }}" class="py-3">
+            <form method="post" action="{% url 'facturation:ligne-update' document.pk ligne.pk %}"
+                  hx-post="{% url 'facturation:ligne-update' document.pk ligne.pk %}" hx-target="#lignes-document" hx-swap="outerHTML"
+                  class="grid grid-cols-1 md:grid-cols-[2.5rem_minmax(12rem,1fr)_6rem_10rem_9rem_12rem] gap-3 items-start" novalidate>
+                {% csrf_token %}
+                <span class="text-gray-500 md:pt-2">Ligne {{ ligne.rang }}</span>
+                <div><label for="{{ form.designation.id_for_label }}" class="sr-only">Désignation</label>{{ form.designation }}{% for e in form.designation.errors %}<p class="text-xs text-red-600 mt-1 font-medium">{{ e }}</p>{% endfor %}</div>
+                <div><label for="{{ form.quantite.id_for_label }}" class="sr-only">Quantité</label>{{ form.quantite }}{% for e in form.quantite.errors %}<p class="text-xs text-red-600 mt-1 font-medium">{{ e }}</p>{% endfor %}</div>
+                <div><label for="{{ form.prix_unitaire.id_for_label }}" class="sr-only">Prix unitaire</label>{{ form.prix_unitaire }}{% for e in form.prix_unitaire.errors %}<p class="text-xs text-red-600 mt-1 font-medium">{{ e }}</p>{% endfor %}</div>
+                <div class="md:text-right font-semibold text-gray-900 whitespace-nowrap md:pt-2">{{ ligne.total|fcfa }}</div>
+                <div class="flex gap-2 md:justify-end">
+                    <button type="submit" class="btn btn-secondary btn-sm">Enregistrer</button>
+                    <button type="submit" class="btn btn-secondary btn-sm"
+                            formaction="{% url 'facturation:ligne-delete' document.pk ligne.pk %}"
+                            hx-post="{% url 'facturation:ligne-delete' document.pk ligne.pk %}"
+                            hx-confirm="Supprimer cette ligne ?">Supprimer</button>
+                </div>
+                {% if form.non_field_errors %}<div class="md:col-span-6 alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
+            </form>
+        </li>
+        {% endwith %}
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-sm text-gray-500">Aucune ligne pour l'instant : ajoutez une ligne libre ou un produit du catalogue.</p>
+    {% endif %}
+
+    <dl class="ml-auto w-full sm:w-80 space-y-1 text-sm border-t border-gray-100 pt-4">
+        <div class="flex justify-between"><dt class="text-gray-600">Total HT</dt><dd id="total-ht" class="font-semibold text-gray-900">{{ document.total_ht|fcfa }}</dd></div>
+        <div class="flex justify-between"><dt class="text-gray-600">TVA ({{ document.taux_tva }} %)</dt><dd id="total-tva" class="font-semibold text-gray-900">{{ document.total_tva|fcfa }}</dd></div>
+        <div class="flex justify-between text-base"><dt class="font-semibold text-gray-900">Total TTC</dt><dd id="total-ttc" class="font-bold text-gray-900">{{ document.total_ttc|fcfa }}</dd></div>
+    </dl>
+
+    {% if lignes|length < lignes_max %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 border-t border-gray-100 pt-5">
+        <form method="post" action="{% url 'facturation:ligne-add' document.pk %}"
+              hx-post="{% url 'facturation:ligne-add' document.pk %}" hx-target="#lignes-document" hx-swap="outerHTML"
+              class="space-y-3" novalidate>
+            {% csrf_token %}
+            <h3 class="text-sm font-semibold text-gray-900">Ajouter une ligne libre</h3>
+            {% if ajout_form.non_field_errors %}<div class="alert alert-error">{{ ajout_form.non_field_errors }}</div>{% endif %}
+            {% include "facturation/_champ.html" with field=ajout_form.designation %}
+            <div class="grid grid-cols-2 gap-3">
+                {% include "facturation/_champ.html" with field=ajout_form.quantite %}
+                {% include "facturation/_champ.html" with field=ajout_form.prix_unitaire %}
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Ajouter la ligne</button>
+        </form>
+
+        <form method="post" action="{% url 'facturation:ligne-add-produit' document.pk %}"
+              hx-post="{% url 'facturation:ligne-add-produit' document.pk %}" hx-target="#lignes-document" hx-swap="outerHTML"
+              class="space-y-3" novalidate>
+            {% csrf_token %}
+            <h3 class="text-sm font-semibold text-gray-900">Ajouter un produit du catalogue</h3>
+            {% if ajout_produit_form.non_field_errors %}<div class="alert alert-error">{{ ajout_produit_form.non_field_errors }}</div>{% endif %}
+            {% include "facturation/_champ.html" with field=ajout_produit_form.produit %}
+            <p class="text-xs text-gray-500">Désignation et prix copiés depuis le produit, quantité 1 (modifiable ensuite).</p>
+            <button type="submit" class="btn btn-secondary btn-sm">Ajouter le produit</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="alert alert-info">Ce document a atteint le maximum de {{ lignes_max }} lignes.</div>
+    {% endif %}
+</section>
