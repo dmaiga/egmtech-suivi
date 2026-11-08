@@ -60,6 +60,8 @@ Dette ancienne rencontrée, notée sans correction :
 ## À surveiller
 
 - **PDF et MEDIA_ROOT hors du répertoire courant.** xhtml2pdf refuse de lire une image située hors du répertoire de travail du processus (« Blocked by the resource policy ») : les photos disparaissent du PDF sans erreur. C'est pourquoi les dossiers temporaires des tests sont créés dans le projet. En production, garder `MEDIA_ROOT` sous le répertoire de l'application, ou adapter `visits/pdf.py`.
+- **Numérotation des factures et isolation.** `facturation.services.attribuer_numero` suppose l'isolation `READ COMMITTED` (défaut de Django pour MySQL/MariaDB et défaut de PostgreSQL) : la création de la séquence d'une nouvelle année est sérialisée derrière le verrou du profil émetteur, et la transaction suivante doit voir la ligne validée. Ne pas passer `isolation_level` à `repeatable read` sans revoir ce point (test `ConcurrenceTests`, MariaDB uniquement). Aucune reprise automatique sur deadlock n'est prévue ailleurs.
+- **Garde-fous contournables des documents.** `QuerySet.update()` et `bulk_update()` ne passent pas par les contrôles d'immutabilité de `Document` et `LigneDocument`. Les contraintes en base tiennent les invariants essentiels (numéro hors brouillon, statut selon le type, TTC = HT + TVA, total de ligne, prix multiple de 5) ; le reste suppose de passer par `services.py`.
 - **Collation de connexion MariaDB 11.4.** Les tables sont en `utf8mb4_unicode_ci` mais la connexion PyMySQL reçoit `utf8mb4_uca1400_ai_ci` (défaut de MariaDB 11.4 pour `utf8mb4`). Sans effet constaté sur la suite de tests ; à comparer avec la prod quand l'accès sera disponible.
 
 ## Points solides à conserver
@@ -68,4 +70,4 @@ Dette ancienne rencontrée, notée sans correction :
 - Stockage unique et configurable (`get_upload_storage`), aucun chemin en dur.
 - Droits fins par permissions Django, pas de champs de rôle ad hoc.
 - Aucune dépendance front à compiler ; peu de dépendances Python (Django, Pillow, xhtml2pdf, python-dotenv).
-- Couverture de tests large (308 tests au 08/11/2026, après le lot 1) sur les parcours critiques.
+- Couverture de tests large (365 tests au 08/11/2026, après le lot 2) sur les parcours critiques.
