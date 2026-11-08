@@ -1,5 +1,6 @@
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q, Value
+from django.db.models.functions import Replace
 
 from core.images import nom_aleatoire, optimiser_image_png
 from core.services import log
@@ -53,14 +54,38 @@ def modifier_profil(form, user):
     return profil
 
 
+SEPARATEURS_TELEPHONE = (" ", ".", "-")
+
+
+def normaliser_telephone(telephone):
+    """Téléphone sans espaces, points ni tirets : « 76 12-34.56 » devient « 76123456 »."""
+    for separateur in SEPARATEURS_TELEPHONE:
+        telephone = telephone.replace(separateur, "")
+    return telephone
+
+
+def _telephone_normalise_sql():
+    """Même normalisation que normaliser_telephone, calculée par la base (REPLACE, sans colonne)."""
+    expression = F("telephone")
+    for separateur in SEPARATEURS_TELEPHONE:
+        expression = Replace(expression, Value(separateur), Value(""))
+    return expression
+
+
 def rechercher_contacts(q="", inclure_inactifs=False):
-    """Contacts triés par nom, filtrés par nom ou téléphone (contient, sans casse)."""
+    """Contacts triés par nom, filtrés par nom (contient, sans casse) ou par téléphone
+    (contient, séparateurs ignorés des deux côtés)."""
     contacts = ContactClient.objects.all()
     if not inclure_inactifs:
         contacts = contacts.filter(actif=True)
     q = (q or "").strip()
     if q:
-        contacts = contacts.filter(Q(nom__icontains=q) | Q(telephone__icontains=q))
+        filtre = Q(nom__icontains=q)
+        telephone = normaliser_telephone(q)
+        if telephone:
+            contacts = contacts.annotate(telephone_normalise=_telephone_normalise_sql())
+            filtre |= Q(telephone_normalise__icontains=telephone)
+        contacts = contacts.filter(filtre)
     return contacts
 
 

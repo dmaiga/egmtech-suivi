@@ -300,6 +300,24 @@ class ContactClientTests(TestCase):
         self.assertEqual(resultats(q="  beta  "), [beta])
         self.assertEqual(resultats(q="introuvable"), [])
 
+    def test_recherche_telephone_ignore_espaces_points_et_tirets(self):
+        espaces = ContactClient.objects.create(nom="Espaces", telephone="76 12 34 56")
+        mixte = ContactClient.objects.create(nom="Mixte", telephone="+223 66.12-34 56")
+        autre = ContactClient.objects.create(nom="Autre", telephone="70 00 00 00")
+        url = reverse("facturation:contact-list")
+
+        def resultats(q):
+            return set(self.client.get(url, {"q": q}).context["contacts"])
+
+        self.assertEqual(resultats("76123456"), {espaces})
+        self.assertEqual(resultats("76.12-34 56"), {espaces})
+        self.assertEqual(resultats("12-34"), {espaces, mixte})
+        self.assertEqual(resultats("6612"), {mixte})
+        self.assertEqual(resultats("+22366"), {mixte})
+        self.assertNotIn(autre, resultats("1234"))
+        # Une recherche faite seulement de séparateurs ne filtre pas sur le téléphone.
+        self.assertEqual(resultats(" - "), set())
+
     def test_desactivation_sans_suppression(self):
         contact = ContactClient.objects.create(nom="Gamma", telephone="65000000")
         response = self.client.post(reverse("facturation:contact-deactivate", args=[contact.pk]))
